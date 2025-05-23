@@ -510,7 +510,7 @@ data number &gt;= 60</panel_attributes>
     <id>Relation</id>
     <coordinates>
       <x>1100</x>
-      <y>230</y>
+      <y>390</y>
       <w>30</w>
       <h>70</h>
     </coordinates>
@@ -521,7 +521,7 @@ data number &gt;= 60</panel_attributes>
     <id>UMLState</id>
     <coordinates>
       <x>1060</x>
-      <y>520</y>
+      <y>280</y>
       <w>100</w>
       <h>40</h>
     </coordinates>
@@ -544,6 +544,50 @@ data number &gt;= 60</panel_attributes>
     <id>Relation</id>
     <coordinates>
       <x>1100</x>
+      <y>310</y>
+      <w>30</w>
+      <h>70</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;50.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>1050</x>
+      <y>520</y>
+      <w>120</w>
+      <h>40</h>
+    </coordinates>
+    <panel_attributes>set same fetures</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLState</id>
+    <coordinates>
+      <x>1050</x>
+      <y>440</y>
+      <w>120</w>
+      <h>40</h>
+    </coordinates>
+    <panel_attributes>normalize data</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1100</x>
+      <y>470</y>
+      <w>30</w>
+      <h>70</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;50.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1100</x>
       <y>550</y>
       <w>30</w>
       <h>70</h>
@@ -559,50 +603,6 @@ data number &gt;= 60</panel_attributes>
       <w>120</w>
       <h>40</h>
     </coordinates>
-    <panel_attributes>set same fetures</panel_attributes>
-    <additional_attributes/>
-  </element>
-  <element>
-    <id>UMLState</id>
-    <coordinates>
-      <x>1050</x>
-      <y>280</y>
-      <w>120</w>
-      <h>40</h>
-    </coordinates>
-    <panel_attributes>normalize data</panel_attributes>
-    <additional_attributes/>
-  </element>
-  <element>
-    <id>Relation</id>
-    <coordinates>
-      <x>1100</x>
-      <y>310</y>
-      <w>30</w>
-      <h>70</h>
-    </coordinates>
-    <panel_attributes>lt=&lt;-</panel_attributes>
-    <additional_attributes>10.0;50.0;10.0;10.0</additional_attributes>
-  </element>
-  <element>
-    <id>Relation</id>
-    <coordinates>
-      <x>1100</x>
-      <y>390</y>
-      <w>30</w>
-      <h>70</h>
-    </coordinates>
-    <panel_attributes>lt=&lt;-</panel_attributes>
-    <additional_attributes>10.0;50.0;10.0;10.0</additional_attributes>
-  </element>
-  <element>
-    <id>UMLState</id>
-    <coordinates>
-      <x>1050</x>
-      <y>600</y>
-      <w>120</w>
-      <h>40</h>
-    </coordinates>
     <panel_attributes>scaler transform
 data</panel_attributes>
     <additional_attributes/>
@@ -611,7 +611,7 @@ data</panel_attributes>
     <id>UMLState</id>
     <coordinates>
       <x>1050</x>
-      <y>440</y>
+      <y>600</y>
       <w>120</w>
       <h>40</h>
     </coordinates>
@@ -622,7 +622,7 @@ data</panel_attributes>
     <id>Relation</id>
     <coordinates>
       <x>1100</x>
-      <y>470</y>
+      <y>230</y>
       <w>30</w>
       <h>70</h>
     </coordinates>
