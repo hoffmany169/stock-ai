@@ -26,6 +26,22 @@
             "program": "stock_model.py",
             "args": "data",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Python-Debugger: Stock Model Confusion Matrix",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "stock_model.py",
+            "args": "cm 3",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python-Debugger: Stock Model save evaluation data",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "stock_model.py",
+            "args": "pred",
+            "console": "integratedTerminal"
         }
     ]
 }
