@@ -35,10 +35,13 @@ predict stock with LSTM. 2 way to use:
 2) load predicted data:        stock.load_predict_data()
 3) evaluate data:              stock.evaluate_result()
 """
-import os, json
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import numpy as np
 import pandas as pd
 import yfinance as yf
+import matplotlib
+matplotlib.use('TkAgg',force=True)
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
@@ -54,7 +57,9 @@ SYMBOL = "IFX.DE"
 HISTORY = "10y"
 
 FILE_TYPE = {'NON':-1, 'MODEL':0, 'SCALER':1, 'TRAIN_DATA':2, 'RESULT_DATA':3, 'PREDICT_DATA':4}
-
+SESSION = None
+def create_session():
+    return requests.Session(impersonate="chrome")
 class Stock_Model:
     """
     class Stock_Model
@@ -66,14 +71,19 @@ class Stock_Model:
                         30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo                        
     """
     CLASSES = ["Bull", "Bear"]
+    global SESSION
     def __init__(self, stock, period, interval="1d", win_size=60, path='.', delay_days=3):
         self._stock = stock
         self._period = period
         self._interval = interval
         self._window_size = win_size # default 60 days
         self._path = path # path of saved file if saving or loading them by default name
+        if self._path is not None and not os.path.exists(self._path):
+            os.mkdir(os.path.abspath(self._path))
         self._model_name = f"{self._stock}_{self._period}_{self._interval}_{self._window_size}"
-        self._session = None
+        global SESSION
+        if SESSION is None:
+            SESSION = create_session()
         ### default all features
         self._base_features = np.array([['Open', 'High', 'Low', 'Close', 'Volume', "Dividends", "Stock Splits"]])
         self._features = []
@@ -132,17 +142,17 @@ class Stock_Model:
     @property
     def predicted_data(self):
         return self._Y_pred_actual
-
+        
     ### Step 1. obtain stock data from markt
     def load_stock(self, stock=None, period=None, interval=None):
         ## read stock data from stock markt
+        global SESSION
         self._stock = stock if stock is not None else self._stock
         self._period = period if period is not None else self._period
         self._interval = interval if interval is not None else self._interval
         try:
-            self._session = requests.Session(impersonate="chrome")
             #self._stock_data = yf.download(self._stock, session=self._session, period=self._period, interval=self._interval, auto_adjust=True)
-            ticker = yf.Ticker(self._stock, session=self._session)
+            ticker = yf.Ticker(self._stock, session=SESSION)
             print(ticker.info)
             self._stock_data = ticker.history(period=self._period, interval=self._interval)
             if self._stock_data.empty:
@@ -287,6 +297,8 @@ class Stock_Model:
         self.compile_model()
         self.train_model()
         self.model_predict()
+        self.save_predict_data()
+        self.evaluate_result()
         
     def train_model_with_loaded_data(self, data_file=None, 
                                      model_file=None, 
@@ -300,6 +312,8 @@ class Stock_Model:
         self.load_model(model_file=model_file)
         self.load_scaler(file_path_name=scaler_file)
         self.model_predict()
+        self.save_predict_data()
+        self.evaluate_result()
         
     def evaluate_result(self, delay_days=None):
         days = self._asumpt_delay_days + 1
@@ -351,7 +365,7 @@ class Stock_Model:
             self.compile_model()
 
     ### save as file to be able get evaluation result later
-    def save_predict_data(self, fname):
+    def save_predict_data(self, fname=None):
         path_name = self.get_path_file_name(fname, FILE_TYPE['PREDICT_DATA'])
         np.savez(path_name, y_test=self._Y_test_actual, y_pred=self._Y_pred_actual)
         
@@ -376,8 +390,10 @@ class Stock_Model:
             new_test = self._Y_test_actual
             new_pred = self._Y_pred_actual
         else:
-            new_test = np.array(list(self._Y_test_actual)[0:-nth_day])
-            new_pred = np.array(list(self._Y_pred_actual)[nth_day:])
+            if type(nth_day) == str:
+                days = int(nth_day)
+            new_test = np.array(list(self._Y_test_actual)[0:-days])
+            new_pred = np.array(list(self._Y_pred_actual)[days:])
         if new_test.shape != new_pred.shape:
             raise ValueError("Error: different data shape in evaluation!")
         return new_test, new_pred
@@ -482,7 +498,24 @@ class Stock_Model:
         print(f"Sensitivity: {Sensitivity}")
         print(f"Precision: {Precision}")
         print(f"F1 Score: {F1_Score}")
+
+def usage():
+    print ("Usage: stock_model.py fin|data")
+    print ("fin: get data directly from finance markt")
+    print ("fin: get data from saved data file")
         
 if __name__ == "__main__":
-    sm = Stock_Model(SYMBOL, HISTORY)
-    sm.load_stock()
+    import sys
+    if len(sys.argv) == 1:
+        usage()
+    sm = Stock_Model(SYMBOL, HISTORY, path='./resource')
+    if sys.argv[1] == "fin":
+        sm.train_model_with_actual_data()
+    elif sys.argv[1] == "data":
+        sm.train_model_with_loaded_data()
+    elif sys.argv[1] == "cm": # confusion matrix
+        nday = sys.argv[2]
+        sm.load_predict_data()
+        sm.get_confusion_matrix(nday)
+    else:
+        usage()        
