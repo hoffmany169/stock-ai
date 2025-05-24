@@ -70,7 +70,7 @@ class Stock_Model:
     """
     CLASSES = ["Bull", "Bear"]
     EVALUATE = ["mse", "mae", "rmse", "r2", "acc_score"]
-    
+    CONFIG = ['stock', 'period', 'interval', 'win_size', 'path', 'delay']
     def __init__(self, stock, period, interval="1d", win_size=60, path='.', delay_days=3):
         self._stock = None
         self._all_stock = []
@@ -265,7 +265,9 @@ class Stock_Model:
         )
         if save: # save model
             self.save_model()
-
+        # create configure file for prediction model
+        self.save_config_file()
+        
     ### Step 7. predict data with the trained model
     def model_predict(self, x_new_data=None):
         '''
@@ -379,6 +381,14 @@ class Stock_Model:
         result = pd.DataFrame(result, columns=Stock_Model.EVALUATE)
         path_name = self.get_path_file_name(fname, FILE_TYPE['EVALUATE_DATA'])
         result.to_csv(path_name, sep=sep, decimal=decimal)
+        
+    def save_config_file(self):
+        config = dict(zip(Stock_Model.CONFIG, [self._stock, self._period, self._interval, self._window_size, self._path, self._asumpt_delay_days]))
+        config_file_name = f"{self._model_name}.cfg"
+        path_file_name = os.path.join(self._path, config_file_name)
+        with open(path_file_name, 'w') as cfg:
+            json.dump(config, cfg)
+        
     #endregion Save Process Data
     
     #region Load Process Data
@@ -562,8 +572,9 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--window-size', default=60, dest='win_size', type=int, help='window size of training model')
     parser.add_argument('-t', '--path', default='.', help='common path of resource and output')
     parser.add_argument('-d', '--delay-days', default=3, dest="delay", type=int, help='delay days of predicted data relative to real data')
-    parser.add_argument('-a', '--action', default='tmf', help='process action: tmf - train model from finance markt data, tmd - train model from data file, evl - evaluate data, cfm - calculate confusion matrix data, mse - mean squared error, mas - mean absolute error, rmse - sqared mse, r2 - r2 score, ars - accuracy score')
+    parser.add_argument('-a', '--action', help='process action: tmf - train model from finance markt data, tmd - train model from data file, evl - evaluate data, cfm - calculate confusion matrix data, mse - mean squared error, mas - mean absolute error, rmse - sqared mse, r2 - r2 score, ars - accuracy score')
     parser.add_argument('-n', '--nth-day', dest="day", type=int, default=1, help='Nth-delay day for confusion matrix, mse, mae, rmse, r2 and ars')
+    parser.add_argument('-c', '--config', action='store_true', help='create a configure file for prediction')
     args = parser.parse_args()
     print("--- arguments ---")
     if args.file is None:
@@ -573,6 +584,7 @@ if __name__ == "__main__":
         print(f"Window Size: {args.win_size}")
         print(f"Path: {args.path}")
         print(f"Delay Days: {args.delay}")
+        print(f"Config: {args.config}")
         sm = Stock_Model(args.stock, args.period, interval=args.interval, win_size=args.win_size, path=args.path, delay_days=args.delay)
     else:
         '''
@@ -594,43 +606,48 @@ if __name__ == "__main__":
         sm.train_model_with_actual_data()
     elif args.action == 'tmd':
         sm.train_model_with_loaded_data()
-    elif args.action == 'evl':
-         for index, s in enumerate(sm.stock_symbols):
+    elif args.config == True:
+         for s in sm.stock_symbols:
             sm.current_stock = s
-            sm.load_predict_data()
-            sm.evaluate_result()
-    elif args.action == 'cfm':
-         for index, s in enumerate(sm.stock_symbols):
-            sm.current_stock = s
-            sm.load_predict_data()
-            sm.get_confusion_matrix(args.day)
-    elif args.action == 'mse':
-         for index, s in enumerate(sm.stock_symbols):
-            sm.current_stock = s
-            sm.load_predict_data()
-            print(f"mse[day{args.day}]: {sm.get_mse(args.day)}")
-    elif args.action == 'mae':
-         for index, s in enumerate(sm.stock_symbols):
-            sm.current_stock = s
-            sm.load_predict_data()
-            print(f"mae[day{args.day}]: {sm.get_mae(args.day)}")
-    elif args.action == 'rmse':
-         for index, s in enumerate(sm.stock_symbols):
-            sm.current_stock = s
-            sm.load_predict_data()
-            print(f"rmse[day{args.day}]: {sm.get_rmse(args.day)}")
-    elif args.action == 'r2':
-         for index, s in enumerate(sm.stock_symbols):
-            sm.current_stock = s
-            sm.load_predict_data()
-            print(f"r2[day{args.day}]: {sm.get_r2(args.day)}")
-    elif args.action == 'ars':
-         for index, s in enumerate(sm.stock_symbols):
-            sm.current_stock = s
-            sm.load_predict_data()
-            print(f"mse[day{args.day}]: {sm.get_direction_rate(args.day)}")
+            sm.save_config_file()
     else:
-        raise ValueError("No action is available")
+        if args.action == 'evl':
+            for index, s in enumerate(sm.stock_symbols):
+                sm.current_stock = s
+                sm.load_predict_data()
+                sm.evaluate_result()
+        elif args.action == 'cfm':
+            for index, s in enumerate(sm.stock_symbols):
+                sm.current_stock = s
+                sm.load_predict_data()
+                sm.get_confusion_matrix(args.day)
+        elif args.action == 'mse':
+            for index, s in enumerate(sm.stock_symbols):
+                sm.current_stock = s
+                sm.load_predict_data()
+                print(f"mse[day{args.day}]: {sm.get_mse(args.day)}")
+        elif args.action == 'mae':
+            for index, s in enumerate(sm.stock_symbols):
+                sm.current_stock = s
+                sm.load_predict_data()
+                print(f"mae[day{args.day}]: {sm.get_mae(args.day)}")
+        elif args.action == 'rmse':
+            for index, s in enumerate(sm.stock_symbols):
+                sm.current_stock = s
+                sm.load_predict_data()
+                print(f"rmse[day{args.day}]: {sm.get_rmse(args.day)}")
+        elif args.action == 'r2':
+            for index, s in enumerate(sm.stock_symbols):
+                sm.current_stock = s
+                sm.load_predict_data()
+                print(f"r2[day{args.day}]: {sm.get_r2(args.day)}")
+        elif args.action == 'ars':
+            for index, s in enumerate(sm.stock_symbols):
+                sm.current_stock = s
+                sm.load_predict_data()
+                print(f"mse[day{args.day}]: {sm.get_direction_rate(args.day)}")
+        else:
+            raise ValueError("No action is available")
             
             
             
