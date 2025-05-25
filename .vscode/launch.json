@@ -12,6 +12,21 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python-Debugger: predict_by_model",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "predict_by_model.py",
+            "args": ["./resource/IFX.DE_1d_60.keras"],  
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python-Debugger: stock_model_test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "stock_model_test.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python-Debugger: Stock Model from finance markt",
             "type": "debugpy",
             "request": "launch",

@@ -6,7 +6,7 @@ NOTE: 新数据应紧接在训练数据之后，保持时间序列连贯性。
 
 """
 import os, sys
-sys.path.append('.')
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -20,15 +20,43 @@ HISTORY = "3mo"
 
 class Model_Prediction:
     CONFIG_FILE = 'config.json'
-    def __init__(self, stock, period='3mo', interval="1d", win_size=60, delay_days=3, rsc_path='.'):
-        self._config = None
-        self._stock_model = Stock_Model(stock, period, interval=interval, win_size=win_size, path=rsc_path)
-        self._stock = stock if stock is not None else self._stock
-        self._period = period if period is not None else self._period
-        self._interval = interval if interval is not None else self._interval    
-        #self._session = requests.Session(impersonate="chrome")
-        self._new_data = None
-        self._window_size = win_size
+    def __init__(self, model_file, period='3mo', pred_days=5, delay_days=3, path='.'):
+        self._model_file = model_file
+        parts = self._get_stock_info_from_model_file()
+        self._predicting_days = pred_days
+        self._path = path
+        self._stock_model = Stock_Model(parts[0], period, interval=parts[1], win_size=int(parts[2]), path=parts[3], delay_days=delay_days)
+        self._pred_file_name = f"{self._stock_model.stock_symbol}_{self._stock_model.interval}_{self._stock_model.window_size}_{self._predicting_days}"
+
+    #region Property
+    @property
+    def model_file(self):
+        return self._model_file
+    
+    @property
+    def stock(self):
+        return self._stock_model
+        
+    @property
+    def stock_model(self):
+        return self._stock_model.model
+        
+    @property
+    def path(self):
+        return self._path
+        
+    @property
+    def predicted_data(self):
+        return self._Y_pred_actual
+    
+    @property
+    def predicting_days(self):
+        return self._predicting_days
+    
+    @predicting_days.setter
+    def predicting_days(self, d):
+        self._predicting_days = d
+    #endregion Property
 
     def load_config(self):
         try:
@@ -37,52 +65,111 @@ class Model_Prediction:
         except Exception as e:
             print(f"Load configure file fails: {e}")
 
-    def process_predicting_data(self):
-        self.load_stock()
-        self._stock_model.load_scaler()
-        self._stock_model.set_working_data()
-        self._stock_model.scale_data(create=False, save=False)
-        self._create_sequence()
+    def _get_stock_info_from_model_file(self):
+        basename = os.path.basename(self._model_file)
+        fn = os.path.splitext(basename)
+        model_path = self._model_file.split(basename)
+        ## stock symbol, period, interval, window size
+        parts = fn[0].split('_')
+        if len(parts) < 3:
+            raise ValueError("Error: The format of model file name is invalid!")
+        parts.append(model_path[0] if len(model_path[0]) > 0 else '.')
+        return parts
     
-    def load_stock(self):
-        # self._new_data = yf.Ticker(self._stock, session=self.session).history(period=self._period, interval=self._interval)
-        self._stock_model.load_stock(self._stock, self._period, self._interval)
+    def prepare_prediction_data(self, scaled_data):
+        self._prepared_predict_data = np.array([scaled_data[-self._stock_model.window_size:]])
+
+    def predict_data(self):
+        if self._stock_model.model is None:
+            print("Warning: model is None. It must be created or loaded!")
+            return
+        self._Y_predict = self._stock_model.model.predict(self._prepared_predict_data)
+        self._Y_pred_actual = self._stock_model.invert_normalized_data(self._Y_predict)
         
+    def multi_day_predict(self, days=-1) -> list:
+        self._Y_pred_actual = []
+        if days > 0:
+            self._predicting_days = days
+        current_sequence = self._prepared_predict_data.copy()
 
-    def _prepare_predict_data(self):
-        scaled_new_data = self._scaler.transform(self._new_data)
-        self._prepared_data = np.array([scaled_new_data[-self._window_size:]])
-
-    def _predict_new_data(self):
-        self._model_predict_data = self._model.predict(self._predict_data)
-
-    def _invert_normalized_data(self):
-        # 反归一化需要重建完整的多变量矩阵（仅Close列有值，其他列置0）
-        dummy_matrix = np.zeros((1, self._features.shape[1]))
-        dummy_matrix[:, 3] = self._model_predict_data.flatten()  # 第4列是Close
-        self._predicted_data = self._scaler.inverse_transform(dummy_matrix)[0, 3]
-
-    def sigle_day_predict(self):
-        self._prepare_predict_data()
-        self._predict_new_data()
-        self._invert_normalized_data()
-        return self._predicted_data
-        
-    def multi_day_predict(self, days=5) -> list:
-        self.predictions = []
-        scaled_new_data = self._scaler.transform(self._new_data)
-        initial_sequence = scaled_new_data[-self._window_size:]
-        current_sequence = initial_sequence.copy()
-        self._prepare_predict_data()
-
-        for _ in range(days):
-            self._model_predict_data = self._model.predict(current_sequence.reshape(1, self._window_size, -1))
-
+        for _ in range(self._predicting_days + self._stock_model.delay_days):
+            next_day_scaled_data = self._stock_model.model.predict(current_sequence.reshape(1, self._stock_model.window_size, -1))
             # update sequence: slide window
             new_row = current_sequence[-1].copy()
-            new_row[3] = next_day_scaled[0][0]  # 更新Close列
+            new_row[3] = next_day_scaled_data[0][0]  # 更新Close列
             current_sequence = np.vstack([current_sequence[1:], new_row])
-            self._invert_normalized_data()
-            self.predictions.append(self._predicted_data)            
-        return self.predictions
+            new_predicted_data = self._stock_model.invert_normalized_data(next_day_scaled_data)
+            self._Y_pred_actual.append(new_predicted_data)            
+
+    def save_prediction_result(self, sep=':', decimal=','):
+        if type(self._Y_pred_actual) is not list:
+            result_y_pred_actual = np.array([self._Y_pred_actual]).reshape(-1,1)
+        else:    
+            result_y_pred_actual = np.array(self._Y_pred_actual).reshape(-1,1)
+        result = pd.DataFrame(result_y_pred_actual, columns=['predicted price'])
+        path_name = os.path.join(self._path, f"{self._pred_file_name}.csv")
+        result.to_csv(path_name, sep=sep, decimal=decimal)
+
+    #region main methods
+    def process_prediction(self):
+        if self._stock_model.delay_days + self.predicting_days == 1:
+            self.process_single_day_predicting_data()
+        else:
+            self.process_multi_day_predicting_data()
+        self.save_prediction_result()
+            
+    def process_single_day_predicting_data(self):
+        self._stock_model.load_stock()
+        self._stock_model.load_keras_model()
+        self._stock_model.load_scaler()
+        data = self._stock_model.prepare_data()
+        scaled_data = self._stock_model.scale_data(data, create=False, save=False)
+        self.prepare_prediction_data(scaled_data)
+        self.predict_data()
+        
+    def process_multi_day_predicting_data(self):
+        self._stock_model.load_stock()
+        self._stock_model.load_keras_model()
+        self._stock_model.load_scaler()
+        data = self._stock_model.prepare_data()
+        scaled_data = self._stock_model.scale_data(data, create=False, save=False)
+        self.prepare_prediction_data(scaled_data)
+        self.multi_day_predict()   
+    #endregion main methods
+    
+if __name__ == "__main__":
+    import json, sys, argparse
+    parser = argparse.ArgumentParser(prog='predict_by_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
+    parser.add_argument('-c', '--config', help='load arguments from config file')
+    parser.add_argument("mfile", help='model file which will be loaded')
+    parser.add_argument('-t', '--path', default='.', help='common path of resource and output')
+    parser.add_argument('-d', '--delay-days', default=3, dest="delay", type=int, help='delay days of predicted data relative to real data')
+    parser.add_argument('-r', '--predict-days', default=3, dest="predays", type=int, help='delay days of predicted data relative to real data')
+    # parser.add_argument('-s', '--sigle', action="store_true", help='process single prediction')
+    # parser.add_argument('-m', '--multi', action="store_true", help='process multi-day prediction')
+    args = parser.parse_args()
+    print("--- arguments ---")
+    if args.config is None:
+        mp = Model_Prediction(args.mfile, pred_days=args.predays, path=args.path, delay_days=args.delay)
+        print(f"Model file: {mp.model_file}")
+        print(f"Predict days: {mp.predicting_days}")
+        print(f"Path: {mp.stock.path}")
+        print(f"Delay Days: {mp.stock.delay_days}")
+        mp.process_prediction()
+    else:
+        '''
+        configure file for stock model:
+        {'model_file': str,
+         'pred_days' : int, 
+         'path': str,
+         'delay': int
+        }
+        '''
+        print(f"File: {args.file}")
+        with open(args.file, 'r') as f:
+            config = json.load(f)
+        mp = Model_Prediction(config['model_file'], period=config['pred_days'], path=config['path'], delay_days=config['delay'])
+        mp.process_prediction()
+        
+
         

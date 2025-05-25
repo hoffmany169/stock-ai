@@ -3,7 +3,7 @@ predict stock with LSTM. 2 way to use:
 ------- 1st way: obtain trained model with data from markt ---------
 1) create instance:            stock = Stock_Model()
 2) load stock data from markt: stock.load_stock()
-3) prepare data:               stock.set_working_data()
+3) prepare data:               stock.prepare_data()
 4) construct data:             stock.create_train_test_data()
 5) construct model:            stock.create_LSTM_model()
 6) compile model:              stock.compile_model()
@@ -24,7 +24,7 @@ predict stock with LSTM. 2 way to use:
 ------- 3rd way: training model with new training data ---------
 1) create instance:            stock = Stock_Model()
 2) load stock data from markt: stock.load_stock()
-3) prepare data:               stock.set_working_data()
+3) prepare data:               stock.prepare_data()
 4) load saved model:           stock.load_model()
 5) load scaler                 stock.load_scaler()
 6) predict data:               stock.model_predict()
@@ -35,7 +35,7 @@ predict stock with LSTM. 2 way to use:
 2) load predicted data:        stock.load_predict_data()
 3) evaluate data:              stock.evaluate_result()
 """
-import os, argparse
+import os
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import numpy as np
 import pandas as pd
@@ -44,13 +44,11 @@ import matplotlib
 matplotlib.use('TkAgg',force=True)
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
+from keras import Input
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout
 from keras.callbacks import EarlyStopping
-from keras import Input, saving
 from curl_cffi import requests
-from sklearn.metrics import accuracy_score
 from joblib import dump, load
 
 
@@ -73,25 +71,18 @@ class Stock_Model:
     CONFIG = ['stock', 'period', 'interval', 'win_size', 'path', 'delay']
     def __init__(self, stock, period, interval="1d", win_size=60, path='.', delay_days=3):
         self._stock = None
-        self._all_stock = []
-        if type(stock) == str:
-            self._all_stock.append(stock)
-        elif type(stock) == list:
-            self._all_stock = [s for s in stock]
-        else:
-            raise ValueError("stock has only str or list type!")
         self._period = period
         self._interval = interval
         self._window_size = win_size # default 60 days
         self._path = path # path of saved file if saving or loading them by default name
         if self._path is not None and not os.path.exists(self._path):
             os.mkdir(os.path.abspath(self._path))
-        self._all_mode_name = None
         self._model_name = None
-        if type(self._stock) == str:
-            self._all_model_name.append(f"{self._stock}_{self._period}_{self._interval}_{self._window_size}")
-        elif type(self._stock) == list:
-            self._all_model_name = [f"{stock}_{self._period}_{self._interval}_{self._window_size}" for stock in self._stock]
+        if type(stock) == str:
+            self._stock = stock
+            self._model_name = f"{self._stock}_{self._interval}_{self._window_size}"
+        else:
+            raise ValueError("stock has only str type!")
         global SESSION
         if SESSION is None:
             SESSION = create_session()
@@ -112,22 +103,25 @@ class Stock_Model:
     
     #region Property
     @property
-    def stock_symbols(self):
-        return self._all_stock
-    
-    @property
-    def model_names(self):
-        return self._all_model_name
-    
-    @property
-    def current_stock(self):
+    def stock_symbol(self):
         return self._stock
     
-    @current_stock.setter
-    def current_stock(self, s):
-        self._stock = s
-        self._model_name = f"{self._stock}_{self._period}_{self._interval}_{self._window_size}"
+    @property
+    def model_name(self):
+        return self._model_name
+    
+    @property
+    def model(self):
+        return self._model
         
+    @property
+    def period(self):
+        return self._period
+    
+    @property
+    def interval(self):
+        return self._interval
+            
     @property
     def stock_data(self):
         return self._stock_data
@@ -147,6 +141,14 @@ class Stock_Model:
     @property
     def features(self):
         return self._features
+
+    @property
+    def path(self):
+        return self._path
+
+    @property
+    def delay_days(self):
+        return self._asumpt_delay_days
 
     @property
     def base_features(self):
@@ -173,22 +175,19 @@ class Stock_Model:
         self._period = period if period is not None else self._period
         self._interval = interval if interval is not None else self._interval
         try:
-            if type(self._stock) == str:
-                self._stock_data = yf.Ticker(self._stock, session=SESSION).history(period=self._period, interval=self._interval)
-                if self._stock_data.empty:
-                    raise ValueError("Return empty data")
-            elif type(self._stock) == list:
-                self._stock_data = yf.download(self._stock, session=SESSION, period=self._period, interval=self._interval, auto_adjust=True)
+            self._stock_data = yf.Ticker(self._stock, session=SESSION).history(period=self._period, interval=self._interval)
+            if self._stock_data.empty:
+                raise ValueError("Return empty data")
         except Exception as e:
             print(f"Exception: {e}")
 
     ### Step 2. prepare data for training
-    def set_working_data(self, start_feature=0, end_feature=5, remove_cols=["Dividends", "Stock Splits"]):
+    def prepare_data(self, start_feature=0, end_feature=5, remove_cols=["Dividends", "Stock Splits"]):
         self._features = np.array([self._base_features[0, start_feature:end_feature]])
         ### remove meaningless columns
-        self._data_with_valid_features = self._stock_data.drop(columns=remove_cols)
+        _data_with_valid_features = self._stock_data.drop(columns=remove_cols)
         # remove today data
-        self._data_with_valid_features = self._data_with_valid_features[:-1]
+        return _data_with_valid_features[:-1]
     
     def scale_data(self, data, save=True, create=True):
         if create: # create new scaler
@@ -199,6 +198,7 @@ class Stock_Model:
         if save: # save scaler
             self.save_scaler()
         self._scaled_data = self._scaler.transform(data)
+        return self._scaled_data
 
     def _create_sequences(self):
         if self.tested_data_number < self._window_size:
@@ -269,7 +269,7 @@ class Stock_Model:
         self.save_config_file()
         
     ### Step 7. predict data with the trained model
-    def model_predict(self, x_new_data=None):
+    def model_predict(self):
         '''
         model_predict
         predict data
@@ -279,12 +279,7 @@ class Stock_Model:
         if self._model is None:
             print("Warning: model is None. It must be created or loaded!")
             return
-        to_predict_data = None
-        if x_new_data is None:
-            to_predict_data = self._X_test.copy()
-        else:
-            to_predict_data = x_new_data.copy()
-        self._Y_predict = self._model.predict(to_predict_data)
+        self._Y_predict = self._model.predict(self._X_test)
         self._Y_pred_actual = self.invert_normalized_data(self._Y_predict)
         # 真实值反归一化
         self._Y_test_actual = self.invert_normalized_data(self._Y_test)
@@ -313,20 +308,17 @@ class Stock_Model:
         the connection to stock yahoo finance markt is neccessary to obtain training data
         for training model
         '''
-        for index, s in enumerate(self._all_stock):
-            self._stock = s
-            self._model_name = self._all_mode_name[index]
-            self.load_stock()
-            self.set_working_data()
-            self.scale_data(self._data_with_valid_features)
-            self.create_train_test_data()
-            self.create_LSTM_model()
-            self.compile_model()
-            self.train_model()
-            self.model_predict()
-            self.save_predict_data()
-            self.evaluate_result()
-            self.save_evaluation_data()
+        self.load_stock()
+        data = self.prepare_data()
+        self.scale_data(data)
+        self.create_train_test_data()
+        self.create_LSTM_model()
+        self.compile_model()
+        self.train_model()
+        self.model_predict()
+        self.save_predict_data()
+        self.evaluate_result()
+        self.save_evaluation_data()
         
     def train_model_with_loaded_data(self, data_file=None, 
                                      model_file=None, 
@@ -336,16 +328,13 @@ class Stock_Model:
         the connection to stock yahoo finance markt is not neccessary. the data is loaded from saved file
         for training model
         '''
-        for index, s in enumerate(self._all_stock):
-            self._stock = s
-            self._model_name = self._all_mode_name[index]
-            self.load_train_data(file_path_name=data_file)
-            self.load_model(model_file=model_file)
-            self.load_scaler(file_path_name=scaler_file)
-            self.model_predict()
-            self.save_predict_data()
-            self.evaluate_result()
-            self.save_evaluation_data()
+        self.load_train_data(file_path_name=data_file)
+        self.load_keras_model(model_file=model_file)
+        self.load_scaler(file_path_name=scaler_file)
+        self.model_predict()
+        self.save_predict_data()
+        self.evaluate_result()
+        self.save_evaluation_data()
     #endregion Process Methods
         
     #region Save Process Data
@@ -392,9 +381,9 @@ class Stock_Model:
     #endregion Save Process Data
     
     #region Load Process Data
-    def load_model(self, model_file=None, compile=True):
+    def load_keras_model(self, model_file=None, compile=True):
         '''
-        load_model
+        load_keras_model
         after load model, process step 5 or 6 depending if model is compiled.
         '''
         mfile = self.get_path_file_name(model_file, FILE_TYPE['MODEL'])
@@ -563,10 +552,10 @@ class Stock_Model:
     #endregion Evaluation Data
 
 if __name__ == "__main__":
-    import json, sys
+    import json, sys, argparse
     parser = argparse.ArgumentParser(prog='stock_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
     parser.add_argument('-f', '--file', help='load arguments from file')
-    parser.add_argument('-s', '--stock', action='append', help='stock symbol to be loaded')
+    parser.add_argument('-s', '--stock', help='stock symbol to be loaded')
     parser.add_argument('-p', '--period', default='10y', help='period of stock to be loaded')
     parser.add_argument('-i', '--interval',default='1d', help='interval of stock data')
     parser.add_argument('-w', '--window-size', default=60, dest='win_size', type=int, help='window size of training model')
