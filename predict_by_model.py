@@ -78,15 +78,12 @@ class Model_Prediction:
     def prepare_prediction_data(self, scaled_data):
         self._prepared_predict_data = np.array(scaled_data[-self._stock_model.window_size:])
 
-    def predict_data(self, data=None):
+    def predict_data(self):
         if self._stock_model.model is None:
             print("Warning: model is None. It must be created or loaded!")
             return
-        if data is None:
-            y_predict = self._stock_model.model.predict(self._prepared_predict_data)
-        else:
-            y_predict = self._stock_model.model.predict(data)
-        return self._stock_model.invert_normalized_data(y_predict)
+        predict_data = self._stock_model.model.predict(self._prepared_predict_data)
+        self._Y_pred_actual = self._stock_model.invert_normalized_data(predict_data)
         
     def multi_day_predict(self, days=-1) -> list:
         self._Y_pred_actual = []
@@ -98,7 +95,6 @@ class Model_Prediction:
             # 确保输入形状为 (1, window_size, n_features)
             X = np.expand_dims(current_sequence, axis=0)
             next_day_scaled_data = self._stock_model.model.predict(X, verbose=0)[0][0]
-            # next_day_scaled_data = self.predict_data(current_sequence)
             # update sequence: slide window
             new_row = current_sequence[-1].copy()
             new_row[3] = next_day_scaled_data  # Close列
@@ -125,31 +121,17 @@ class Model_Prediction:
 
     #region main methods
     def process_prediction(self):
+        self._stock_model.load_stock()
+        self._stock_model.load_keras_model()
+        self._stock_model.load_scaler()
+        data = self._stock_model.prepare_data()
+        scaled_data = self._stock_model.scale_data(data, create=False, save=False)
+        self.prepare_prediction_data(scaled_data)
         if self._stock_model.delay_days + self.predicting_days == 1:
-            self.process_single_day_predicting_data()
+            self.predict_data()
         else:
-            self.process_multi_day_predicting_data()
-        self.save_prediction_result()
-            
-    def process_single_day_predicting_data(self):
-        self._stock_model.load_stock()
-        self._stock_model.load_keras_model()
-        self._stock_model.load_scaler()
-        data = self._stock_model.prepare_data()
-        scaled_data = self._stock_model.scale_data(data, create=False, save=False)
-        self.prepare_prediction_data(scaled_data)
-        self._Y_pred_actual = self.predict_data()
-        self.save_prediction_result()
-        
-    def process_multi_day_predicting_data(self):
-        self._stock_model.load_stock()
-        self._stock_model.load_keras_model()
-        self._stock_model.load_scaler()
-        data = self._stock_model.prepare_data()
-        scaled_data = self._stock_model.scale_data(data, create=False, save=False)
-        self.prepare_prediction_data(scaled_data)
-        self.multi_day_predict()   
-        self.save_prediction_result()
+            self.multi_day_predict()   
+        self.save_prediction_result()            
     #endregion main methods
     
 if __name__ == "__main__":
