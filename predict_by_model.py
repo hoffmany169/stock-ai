@@ -9,7 +9,6 @@ import os, sys
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 from keras.models import load_model
 from joblib import load
 from stock_model import Stock_Model, FILE_TYPE
@@ -77,14 +76,17 @@ class Model_Prediction:
         return parts
     
     def prepare_prediction_data(self, scaled_data):
-        self._prepared_predict_data = np.array([scaled_data[-self._stock_model.window_size:]])
+        self._prepared_predict_data = np.array(scaled_data[-self._stock_model.window_size:])
 
-    def predict_data(self):
+    def predict_data(self, data=None):
         if self._stock_model.model is None:
             print("Warning: model is None. It must be created or loaded!")
             return
-        self._Y_predict = self._stock_model.model.predict(self._prepared_predict_data)
-        self._Y_pred_actual = self._stock_model.invert_normalized_data(self._Y_predict)
+        if data is None:
+            y_predict = self._stock_model.model.predict(self._prepared_predict_data)
+        else:
+            y_predict = self._stock_model.model.predict(data)
+        return self._stock_model.invert_normalized_data(y_predict)
         
     def multi_day_predict(self, days=-1) -> list:
         self._Y_pred_actual = []
@@ -93,13 +95,24 @@ class Model_Prediction:
         current_sequence = self._prepared_predict_data.copy()
 
         for _ in range(self._predicting_days + self._stock_model.delay_days):
-            next_day_scaled_data = self._stock_model.model.predict(current_sequence.reshape(1, self._stock_model.window_size, -1))
+            # 确保输入形状为 (1, window_size, n_features)
+            X = np.expand_dims(current_sequence, axis=0)
+            next_day_scaled_data = self._stock_model.model.predict(X, verbose=0)[0][0]
+            # next_day_scaled_data = self.predict_data(current_sequence)
             # update sequence: slide window
             new_row = current_sequence[-1].copy()
-            new_row[3] = next_day_scaled_data[0][0]  # 更新Close列
+            new_row[3] = next_day_scaled_data  # Close列
+            new_row[0] = next_day_scaled_data  # Open
+            new_row[1] = next_day_scaled_data  # High
+            new_row[2] = next_day_scaled_data  # Low
+            new_row[4] = 0  # Volume设为0（或自定义逻辑）
             current_sequence = np.vstack([current_sequence[1:], new_row])
-            new_predicted_data = self._stock_model.invert_normalized_data(next_day_scaled_data)
-            self._Y_pred_actual.append(new_predicted_data)            
+            # new_predicted_data = self._stock_model.invert_normalized_data(next_day_scaled_data)
+            # 反归一化Close价格
+            dummy = np.zeros((1, self.stock.features.shape[1]))
+            dummy[0, 3] = next_day_scaled_data
+            predicted_close = self.stock.scaler.inverse_transform(dummy)[0, 3]
+            self._Y_pred_actual.append(predicted_close)            
 
     def save_prediction_result(self, sep=':', decimal=','):
         if type(self._Y_pred_actual) is not list:
@@ -125,7 +138,8 @@ class Model_Prediction:
         data = self._stock_model.prepare_data()
         scaled_data = self._stock_model.scale_data(data, create=False, save=False)
         self.prepare_prediction_data(scaled_data)
-        self.predict_data()
+        self._Y_pred_actual = self.predict_data()
+        self.save_prediction_result()
         
     def process_multi_day_predicting_data(self):
         self._stock_model.load_stock()
@@ -135,6 +149,7 @@ class Model_Prediction:
         scaled_data = self._stock_model.scale_data(data, create=False, save=False)
         self.prepare_prediction_data(scaled_data)
         self.multi_day_predict()   
+        self.save_prediction_result()
     #endregion main methods
     
 if __name__ == "__main__":

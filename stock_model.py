@@ -115,6 +115,10 @@ class Stock_Model:
         return self._model
         
     @property
+    def scaler(self):
+        return self._scaler
+        
+    @property
     def period(self):
         return self._period
     
