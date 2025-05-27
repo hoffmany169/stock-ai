@@ -50,6 +50,7 @@ from keras.layers import LSTM, Dense, Dropout
 from keras.callbacks import EarlyStopping
 from curl_cffi import requests
 from joblib import dump, load
+from datetime import date, timedelta
 
 
 FILE_TYPE = {'NON':-1, 'MODEL':0, 'SCALER':1, 'TRAIN_DATA':2, 'RESULT_DATA':3, 'PREDICT_DATA':4, "EVALUATE_DATA":5}
@@ -68,7 +69,7 @@ class Stock_Model:
     """
     CLASSES = ["Bull", "Bear"]
     EVALUATE = ["mse", "mae", "rmse", "r2", "acc_score"]
-    CONFIG = ['stock', 'period', 'interval', 'win_size', 'path', 'delay']
+    CONFIG = ['model_name', 'stock', 'period', 'interval', 'win_size', 'delay', 'last_date']
     def __init__(self, stock, period, interval="1d", win_size=60, path='.', delay_days=3):
         self._stock = None
         self._period = period
@@ -77,6 +78,11 @@ class Stock_Model:
         self._path = path # path of saved file if saving or loading them by default name
         if self._path is not None and not os.path.exists(self._path):
             os.mkdir(os.path.abspath(self._path))
+        self._asumpt_delay_days = delay_days
+        self._delay_days = self._asumpt_delay_days
+        self.day_statistic = [0 for i in range(self._asumpt_delay_days)]
+        # record last date of training model
+        self._last_date = date.today() - timedelta(days=1)
         self._model_name = None
         if type(stock) == str:
             self._stock = stock
@@ -98,7 +104,6 @@ class Stock_Model:
         self._Y_test_actual = None
         self._scaled_data = None
         self._model = None
-        self._asumpt_delay_days = delay_days
         self._evaluate_result = {entry:None for entry in Stock_Model.EVALUATE}
     
     #region Property
@@ -182,6 +187,10 @@ class Stock_Model:
             self._stock_data = yf.Ticker(self._stock, session=SESSION).history(period=self._period, interval=self._interval)
             if self._stock_data.empty:
                 raise ValueError("Return empty data")
+            # save date of yesterday
+            length = len(self._stock_data)
+            timestamp = self._stock_data.index[length-2]
+            self._last_date = f"{timestamp.year}-{timestamp.month}-{timestamp.day}"
         except Exception as e:
             print(f"Exception: {e}")
 
@@ -270,7 +279,7 @@ class Stock_Model:
         if save: # save model
             self.save_model()
         # create configure file for prediction model
-        self.save_config_file()
+        self.export_training_model_config_file()
         
     ### Step 7. predict data with the trained model
     def model_predict(self):
@@ -339,6 +348,21 @@ class Stock_Model:
         self.save_predict_data()
         self.evaluate_result()
         self.save_evaluation_data()
+
+    def export_training_model_config_file(self):
+        config_file_name = f"{self._model_name}.cfg"
+        path_name = os.path.join(self._path, config_file_name)
+        if os.path.exists(path_name):
+            with open(path_name, 'r') as cfg:
+                config = json.load(cfg)
+            ## correct delay days after evaluation
+            config['delay'] = self._delay_days
+        else:
+            mfile = self.get_path_file_name(None, FILE_TYPE['MODEL'])
+            config = dict(zip(Stock_Model.CONFIG, [mfile, self._stock, self._period, self._interval, self._window_size, self._path, self._delay_days, self._last_date]))
+        with open(path_name, 'w') as cfg:
+            json.dump(config, cfg, indent=4)
+
     #endregion Process Methods
         
     #region Save Process Data
@@ -373,15 +397,7 @@ class Stock_Model:
         result = np.concatenate(result_arr, axis=1)
         result = pd.DataFrame(result, columns=Stock_Model.EVALUATE)
         path_name = self.get_path_file_name(fname, FILE_TYPE['EVALUATE_DATA'])
-        result.to_csv(path_name, sep=sep, decimal=decimal)
-        
-    def save_config_file(self):
-        config = dict(zip(Stock_Model.CONFIG, [self._stock, self._period, self._interval, self._window_size, self._path, self._asumpt_delay_days]))
-        config_file_name = f"{self._model_name}.cfg"
-        path_file_name = os.path.join(self._path, config_file_name)
-        with open(path_file_name, 'w') as cfg:
-            json.dump(config, cfg)
-        
+        result.to_csv(path_name, sep=sep, decimal=decimal)        
     #endregion Save Process Data
     
     #region Load Process Data
@@ -425,6 +441,12 @@ class Stock_Model:
             days = delay_days + 1
         self.evaluate_result_data(days)
         self.evaluate_with_direction(days)
+        max_day = max(self.day_statistic)
+        for i, value in enumerate(self.day_statistic):
+            if value == max_day:
+                self._delay_days = i
+                break
+        self.export_training_model_config_file()
         
     def get_nth_day_evaluate_data(self, nth_day):
         days = 0
@@ -455,18 +477,22 @@ class Stock_Model:
             r2.append(self.get_r2(d))
         print("Best delay days:")
         mse_day = np.array(mse).argmin()
+        self.day_statistic[mse_day] += 1
         self._evaluate_result['mse'] = f"day[{mse_day}]:{mse[mse_day]:.2%}"
         print(f"Mean Squared Error: delay day [{mse_day}], value: [{mse[mse_day]}]")
         
         mae_day = np.array(mae).argmin()
+        self.day_statistic[mae_day] += 1
         self._evaluate_result['mae'] = f"day[{mae_day}]:{mae[mae_day]:.2%}"
         print(f"Mean Absolute Error: delay day [{mae_day}], value: [{mae[mae_day]}]")
         
         rmse_day = np.array(rmse).argmin()
+        self.day_statistic[rmse_day] += 1
         self._evaluate_result['rmse'] = f"day[{rmse_day}]:{rmse[rmse_day]:.2%}"
         print(f"RMSE: delay day [{rmse_day}], value: [{rmse[rmse_day]}]")
         
         r2_day = np.array(r2).argmax()
+        self.day_statistic[r2_day] += 1
         self._evaluate_result['r2'] = f"day[{r2_day}]:{r2[r2_day]:.2%}"
         print(f"R2 Score: delay day [{r2_day}], value: [{r2[r2_day]}]")
 
@@ -477,6 +503,7 @@ class Stock_Model:
         for d in range(days):
             accuracy.append(self.get_direction_rate(d))
         direction_day = np.array(accuracy).argmax()
+        self.day_statistic[direction_day] += 1
         self._evaluate_result['acc_score'] = f"day[{direction_day}]:{accuracy[direction_day]:.2%}"
         print(f"Best Correct Rate of Prediction of Direction: delay day [{direction_day}], value [{accuracy[direction_day]:.2%}]")
 
@@ -558,14 +585,14 @@ class Stock_Model:
 if __name__ == "__main__":
     import json, sys, argparse
     parser = argparse.ArgumentParser(prog='stock_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
+    parser.add_argument('stock', help='stock symbol to be loaded')
+    parser.add_argument('action', help='process action: tmf - train model from finance markt data, tmd - train model from data file, evl - evaluate data, cfm - calculate confusion matrix data, mse - mean squared error, mas - mean absolute error, rmse - sqared mse, r2 - r2 score, ars - accuracy score')
     parser.add_argument('-f', '--file', help='load arguments from file')
-    parser.add_argument('-s', '--stock', help='stock symbol to be loaded')
     parser.add_argument('-p', '--period', default='10y', help='period of stock to be loaded')
     parser.add_argument('-i', '--interval',default='1d', help='interval of stock data')
     parser.add_argument('-w', '--window-size', default=60, dest='win_size', type=int, help='window size of training model')
     parser.add_argument('-t', '--path', default='.', help='common path of resource and output')
     parser.add_argument('-d', '--delay-days', default=3, dest="delay", type=int, help='delay days of predicted data relative to real data')
-    parser.add_argument('-a', '--action', help='process action: tmf - train model from finance markt data, tmd - train model from data file, evl - evaluate data, cfm - calculate confusion matrix data, mse - mean squared error, mas - mean absolute error, rmse - sqared mse, r2 - r2 score, ars - accuracy score')
     parser.add_argument('-n', '--nth-day', dest="day", type=int, default=1, help='Nth-delay day for confusion matrix, mse, mae, rmse, r2 and ars')
     parser.add_argument('-c', '--config', action='store_true', help='create a configure file for prediction')
     args = parser.parse_args()

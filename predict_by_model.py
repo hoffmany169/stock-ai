@@ -18,10 +18,12 @@ SYMBOL = "IFX.DE"
 HISTORY = "3mo"
 
 class Model_Prediction:
-    CONFIG_FILE = 'config.json'
-    def __init__(self, model_file, period='3mo', pred_days=5, delay_days=3, path='.'):
+    CONFIG = None
+    CFG_ENTRY = ['model_name', 'stock', 'model_period', 'interval', 'win_size', 'delay', 'last_date']
+    def __init__(self, model_file, period='3mo', pred_days=5, path='.'):
         self._model_file = model_file
-        parts = self._get_stock_info_from_model_file()
+        if Model_Prediction.CONFIG is None:
+            parts = self._get_stock_info_from_model_file()
         self._predicting_days = pred_days
         self._path = path
         self._stock_model = Stock_Model(parts[0], period, interval=parts[1], win_size=int(parts[2]), path=parts[3], delay_days=delay_days)
@@ -137,8 +139,8 @@ class Model_Prediction:
 if __name__ == "__main__":
     import json, sys, argparse
     parser = argparse.ArgumentParser(prog='predict_by_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
-    parser.add_argument('-c', '--config', help='load arguments from config file')
-    parser.add_argument("mfile", help='model file which will be loaded')
+    parser.add_argument('-c', '--config', action='store_true', help='load arguments from config file')
+    parser.add_argument("file", help='model file which will be loaded or configure file if -c is specified')
     parser.add_argument('-t', '--path', default='.', help='common path of resource and output')
     parser.add_argument('-d', '--delay-days', default=3, dest="delay", type=int, help='delay days of predicted data relative to real data')
     parser.add_argument('-r', '--predict-days', default=3, dest="predays", type=int, help='delay days of predicted data relative to real data')
@@ -146,7 +148,7 @@ if __name__ == "__main__":
     # parser.add_argument('-m', '--multi', action="store_true", help='process multi-day prediction')
     args = parser.parse_args()
     print("--- arguments ---")
-    if args.config is None:
+    if args.config == False:
         mp = Model_Prediction(args.mfile, pred_days=args.predays, path=args.path, delay_days=args.delay)
         print(f"Model file: {mp.model_file}")
         print(f"Predict days: {mp.predicting_days}")
@@ -154,18 +156,11 @@ if __name__ == "__main__":
         print(f"Delay Days: {mp.stock.delay_days}")
         mp.process_prediction()
     else:
-        '''
-        configure file for stock model:
-        {'model_file': str,
-         'pred_days' : int, 
-         'path': str,
-         'delay': int
-        }
-        '''
         print(f"File: {args.file}")
         with open(args.file, 'r') as f:
             config = json.load(f)
-        mp = Model_Prediction(config['model_file'], period=config['pred_days'], path=config['path'], delay_days=config['delay'])
+        Model_Prediction.CONFIG = config
+        mp = Model_Prediction(config['model_file'], period=config['pred_days'])
         mp.process_prediction()
         
 
