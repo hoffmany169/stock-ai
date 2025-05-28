@@ -51,12 +51,42 @@ from keras.callbacks import EarlyStopping
 from curl_cffi import requests
 from joblib import dump, load
 from datetime import date, timedelta
+from Common.AutoNumber import AutoIndex
+from typing import overload
 
+class CONFIG(AutoIndex):
+    stock = ()
+    stock_period = ()
+    stock_interval = ()
+    window_size = ()
+    delay_days = ()
+    last_date = ()
+    model_file = ()
+    train_data_file = ()
+    scaler_file = ()
+    train_result_file = ()
+    pred_data_file = ()
+    evaluate_data_file = ()
 
-FILE_TYPE = {'NON':-1, 'MODEL':0, 'SCALER':1, 'TRAIN_DATA':2, 'RESULT_DATA':3, 'PREDICT_DATA':4, "EVALUATE_DATA":5}
+class FILE_TYPE(AutoIndex):
+    MODEL = ()
+    SCALER = ()
+    TRAIN_DATA = ()
+    RESULT_DATA = ()
+    PREDICT_DATA = ()
+    EVALUATE_DATA = ()
+
+class EVALUATE(AutoIndex):
+    mse = ()
+    mae = ()
+    rmse = ()
+    r2 = ()
+    acc_score = ()
+
 SESSION = None
 def create_session():
     return requests.Session(impersonate="chrome")
+
 class Stock_Model:
     """
     class Stock_Model
@@ -65,37 +95,137 @@ class Stock_Model:
     param[period] str: length of history of data to be loaded,
                         they are 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
     param[interval] str: interval of data to be obtained, they are 1m, 2m, 5m, 15m, 
-                        30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo                        
+                        30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo   
+    param[win_size] int: size of data in one step for training
+    param[delay_days] int: normally predicted data is slower than real data. this value 
+                        is an assumped maximal days to be evaluated. The final value will
+                        be given after evaluation.
+    param[online] bool: True(default): get stock data directly from finance markt by ticker
+                        or download; 
+                        False: load stock data from local file
     """
     CLASSES = ["Bull", "Bear"]
-    EVALUATE = ["mse", "mae", "rmse", "r2", "acc_score"]
-    CONFIG = ['model_name', 'stock', 'period', 'interval', 'win_size', 'delay', 'last_date']
-    def __init__(self, stock, period, interval="1d", win_size=60, path='.', delay_days=3):
-        self._stock = None
+    
+    def __init__(self, stock_info:list|str, period="10y", interval="1d", win_size=60, delay_days=3):
+        if type(stock_info) is str:
+            self._stock_config = stock_info
+            self._stocks = []
+            self._online = False
+        elif type(stock_info) is list:
+            self._stocks = stock_info
+            self._stock_config = None
+            self._online = True
+        self._current_stock = ''
         self._period = period
         self._interval = interval
         self._window_size = win_size # default 60 days
-        self._path = path # path of saved file if saving or loading them by default name
-        if self._path is not None and not os.path.exists(self._path):
-            os.mkdir(os.path.abspath(self._path))
         self._asumpt_delay_days = delay_days
         self._delay_days = self._asumpt_delay_days
-        self.day_statistic = [0 for i in range(self._asumpt_delay_days)]
-        # record last date of training model
-        self._last_date = date.today() - timedelta(days=1)
         self._model_name = None
-        if type(stock) == str:
-            self._stock = stock
-            self._model_name = f"{self._stock}_{self._interval}_{self._window_size}"
-        else:
-            raise ValueError("stock has only str type!")
+        self._path = None
         global SESSION
         if SESSION is None:
             SESSION = create_session()
+        self._train_stock_model = None
+
+    #region Property
+    @property
+    def stock_symbols(self):
+        return self._stocks
+        
+    @property
+    def period(self):
+        return self._period
+    
+    @property
+    def interval(self):
+        return self._interval
+
+    @property
+    def delay_days(self):
+        return self._asumpt_delay_days
+
+    @property
+    def window_size(self):
+        return self._window_size
+
+    @window_size.setter
+    def window_size(self, ws):
+        self._window_size = ws
+    #endregion property
+
+    def start(self):
+        if self._online:
+            for s in self._stocks:
+                self._model_name = f"{s}_{self._interval}_{self._window_size}"
+                stock_data = self.load_stock(s)
+                if stock_data is None:
+                    raise ValueError("Error: cannot load stock data!!")
+                output_path = s
+                if output_path is not None and not os.path.exists(output_path):
+                    os.mkdir(output_path)
+                self._path = output_path
+                self._train_stock_model = TrainStockModel(self._stock_config, stock_data=stock_data, stock_path=output_path)
+                config = self._train_stock_model.train_model_with_actual_data()
+                self.export_training_model_config_file(config)
+        else:
+            self._train_stock_model = TrainStockModel(self._stock_config, stock_path=s)
+            self._train_stock_model.train_model_with_loaded_data()
+
+
+    ### Step 1. obtain stock data from markt
+    def load_stock(self, stock):
+        ## read stock data from stock markt
+        global SESSION
+        try:
+            stock_data = yf.Ticker(stock, session=SESSION).history(period=self._period, interval=self._interval)
+            if stock_data.empty:
+                raise ValueError("Return empty data")
+            # save date of yesterday
+            length = len(stock_data)
+            timestamp = stock_data.index[length-2]
+            # record last date of training model
+            last_date = f"{timestamp.year}-{timestamp.month}-{timestamp.day}"
+            self._stock_config = {i.name : None for i in CONFIG}
+            self._stock_config[CONFIG.stock.name] = stock
+            self._stock_config[CONFIG.stock_period.name] = self._period
+            self._stock_config[CONFIG.stock_interval.name] = self._interval
+            self._stock_config[CONFIG.window_size.name] = self._window_size
+            self._stock_config[CONFIG.delay_days.name] = self._delay_days
+            self._stock_config[CONFIG.last_date.name] = last_date
+        except Exception as e:
+            print(f"Exception: {e}")
+            stock_data = None
+        finally:
+            return stock_data
+
+    def export_training_model_config_file(self, config):
+        config_file_name = f"{self._model_name}.cfg"
+        path_name = os.path.join(self._path, config_file_name)
+        with open(path_name, 'w') as cfg:
+            json.dump(config, cfg, indent=4)
+
+
+class TrainStockModel:
+    def __init__(self, stock_config:dict, stock_data=None, stock_path='.'):
+        if stock_data is not None:
+            self._stock_data = stock_data
+            self._stock_config = stock_config
+            # this is an output path
+            self._stock_path = stock_path
+            self.__init_vars__()
+        else:
+            self._stock_config = stock_config
+            ## this is an input path
+            if not os.path.exists(stock_path):
+                raise ValueError(f"Error: cannot open input path: {stock_path}")
+            self._stock_path = stock_path
+            self.__init_vars__()
+
+    def __init_vars__(self):
         ### default all features
         self._base_features = np.array([['Open', 'High', 'Low', 'Close', 'Volume', "Dividends", "Stock Splits"]])
         self._features = []
-        self._stock_data = None
         self._X_train = None
         self._Y_train = None
         self._X_test = None
@@ -104,17 +234,20 @@ class Stock_Model:
         self._Y_test_actual = None
         self._scaled_data = None
         self._model = None
-        self._evaluate_result = {entry:None for entry in Stock_Model.EVALUATE}
-    
+        self._evaluate_result = {entry.name:None for entry in EVALUATE}
+        self._asumpt_delay_days = self._stock_config[CONFIG.delay_days.name]
+        self.day_statistic = [0 for i in range(self._asumpt_delay_days)]
+        self._model_file_name = f"{self._stock_config[CONFIG.stock.name]}_{self._stock_config[CONFIG.stock_interval.name]}_{self._stock_config[CONFIG.window_size.name]}"
+
     #region Property
     @property
-    def stock_symbol(self):
-        return self._stock
-    
+    def stock_data(self):
+        return self._stock_data
+
     @property
-    def model_name(self):
-        return self._model_name
-    
+    def model_config(self):
+        return self._stock_config
+
     @property
     def model(self):
         return self._model
@@ -124,18 +257,6 @@ class Stock_Model:
         return self._scaler
         
     @property
-    def period(self):
-        return self._period
-    
-    @property
-    def interval(self):
-        return self._interval
-            
-    @property
-    def stock_data(self):
-        return self._stock_data
-
-    @property
     def scaled_data(self):
         return self._scaled_data
 
@@ -144,56 +265,19 @@ class Stock_Model:
         return self._scaled_data.shape[0]
         
     @property
-    def session(self):
-        return SESSION
-        
-    @property
-    def features(self):
-        return self._features
-
-    @property
-    def path(self):
-        return self._path
-
-    @property
-    def delay_days(self):
-        return self._asumpt_delay_days
+    def predicted_data(self):
+        return self._Y_pred_actual
 
     @property
     def base_features(self):
         return self._base_features
         
     @property
-    def window_size(self):
-        return self._window_size
+    def features(self):
+        return self._features
 
-    @window_size.setter
-    def window_size(self, ws):
-        self._window_size = ws
-
-    @property
-    def predicted_data(self):
-        return self._Y_pred_actual
     #endregion Property
        
-    ### Step 1. obtain stock data from markt
-    def load_stock(self, stock=None, period=None, interval=None):
-        ## read stock data from stock markt
-        global SESSION
-        self._stock = stock if stock is not None else self._stock
-        self._period = period if period is not None else self._period
-        self._interval = interval if interval is not None else self._interval
-        try:
-            self._stock_data = yf.Ticker(self._stock, session=SESSION).history(period=self._period, interval=self._interval)
-            if self._stock_data.empty:
-                raise ValueError("Return empty data")
-            # save date of yesterday
-            length = len(self._stock_data)
-            timestamp = self._stock_data.index[length-2]
-            self._last_date = f"{timestamp.year}-{timestamp.month}-{timestamp.day}"
-        except Exception as e:
-            print(f"Exception: {e}")
-
     ### Step 2. prepare data for training
     def prepare_data(self, start_feature=0, end_feature=5, remove_cols=["Dividends", "Stock Splits"]):
         self._features = np.array([self._base_features[0, start_feature:end_feature]])
@@ -214,19 +298,20 @@ class Stock_Model:
         return self._scaled_data
 
     def _create_sequences(self):
-        if self.tested_data_number < self._window_size:
+        ws = int(self._stock_config[CONFIG.window_size.name])
+        if self.tested_data_number < ws:
             raise ValueError("Too few number of data")
         X, Y = [], []
-        for i in range(self.tested_data_number - self._window_size):
+        for i in range(self.tested_data_number - ws):
             # Input: add all features: Open, High, Low, Close, Volume
-            X.append(self._scaled_data[i:i+self._window_size, :]) 
+            X.append(self._scaled_data[i:i+ws, :]) 
             # Output: predict Close price
-            Y.append(self._scaled_data[i+self._window_size, 3]) 
+            Y.append(self._scaled_data[i+ws, 3]) 
         return np.array(X), np.array(Y)
 
     ### Step 3. construct data for training
     def create_train_test_data(self, train_data_percentage=0.7, save=True):
-        if self.tested_data_number < self._window_size:
+        if self.tested_data_number < int(self._stock_config[CONFIG.window_size.name]):
             raise ValueError("Too few number of data")
         if train_data_percentage >= 1.0:
             raise ValueError("Percent must less than 1.0")
@@ -278,8 +363,6 @@ class Stock_Model:
         )
         if save: # save model
             self.save_model()
-        # create configure file for prediction model
-        self.export_training_model_config_file()
         
     ### Step 7. predict data with the trained model
     def model_predict(self):
@@ -321,7 +404,6 @@ class Stock_Model:
         the connection to stock yahoo finance markt is neccessary to obtain training data
         for training model
         '''
-        self.load_stock()
         data = self.prepare_data()
         self.scale_data(data)
         self.create_train_test_data()
@@ -332,6 +414,7 @@ class Stock_Model:
         self.save_predict_data()
         self.evaluate_result()
         self.save_evaluation_data()
+        return self._stock_config
         
     def train_model_with_loaded_data(self, data_file=None, 
                                      model_file=None, 
@@ -348,21 +431,6 @@ class Stock_Model:
         self.save_predict_data()
         self.evaluate_result()
         self.save_evaluation_data()
-
-    def export_training_model_config_file(self):
-        config_file_name = f"{self._model_name}.cfg"
-        path_name = os.path.join(self._path, config_file_name)
-        if os.path.exists(path_name):
-            with open(path_name, 'r') as cfg:
-                config = json.load(cfg)
-            ## correct delay days after evaluation
-            config['delay'] = self._delay_days
-        else:
-            mfile = self.get_path_file_name(None, FILE_TYPE['MODEL'])
-            config = dict(zip(Stock_Model.CONFIG, [mfile, self._stock, self._period, self._interval, self._window_size, self._path, self._delay_days, self._last_date]))
-        with open(path_name, 'w') as cfg:
-            json.dump(config, cfg, indent=4)
-
     #endregion Process Methods
         
     #region Save Process Data
@@ -373,32 +441,39 @@ class Stock_Model:
         result = np.concatenate((result_y_test, result_y_test_pred), axis=1)
         print(result.shape)
         result = pd.DataFrame(result, columns=['real price', 'predicted price'])
-        path_name = self.get_path_file_name(file_path_name, FILE_TYPE['RESULT_DATA'])
+        path_name = self.get_path_file_name(file_path_name, FILE_TYPE.RESULT_DATA)
         result.to_csv(path_name, sep=sep, decimal=decimal)
+        self._stock_config[CONFIG.train_result_file.name] = path_name
 
     def save_model(self, model_file=None):
-        mfile = self.get_path_file_name(model_file, FILE_TYPE['MODEL'])
+        mfile = self.get_path_file_name(model_file, FILE_TYPE.MODEL)
         self._model.save(mfile, overwrite=True, include_optimizer=False)
+        self._stock_config[CONFIG.model_file.name] = mfile
 
     def save_scaler(self, file_path_name=None):
-        path_name = self.get_path_file_name(file_path_name, FILE_TYPE['SCALER'])
+        path_name = self.get_path_file_name(file_path_name, FILE_TYPE.SCALER)
         dump(self._scaler, path_name)
+        self._stock_config[CONFIG.scaler_file.name] = path_name
 
     def save_train_data(self, file_path_name=None):
-        path_name = self.get_path_file_name(file_path_name, FILE_TYPE['TRAIN_DATA'])
+        path_name = self.get_path_file_name(file_path_name, FILE_TYPE.TRAIN_DATA)
         np.savez(path_name, x_train=self._X_train, y_train=self._Y_train, x_test=self._X_test, y_test=self._Y_test)
+        self._stock_config[CONFIG.train_data_file.name] = path_name
     
     def save_predict_data(self, fname=None):
-        path_name = self.get_path_file_name(fname, FILE_TYPE['PREDICT_DATA'])
+        path_name = self.get_path_file_name(fname, FILE_TYPE.PREDICT_DATA)
         np.savez(path_name, y_test=self._Y_test_actual, y_pred=self._Y_pred_actual)
+        self._stock_config[CONFIG.pred_data_file.name] = path_name
         
     def save_evaluation_data(self, fname=None, sep=':', decimal=','):
         result_arr = [np.array(arr).reshape(-1, 1) for name, arr in self._evaluate_result.items()]
         result = np.concatenate(result_arr, axis=1)
-        result = pd.DataFrame(result, columns=Stock_Model.EVALUATE)
-        path_name = self.get_path_file_name(fname, FILE_TYPE['EVALUATE_DATA'])
+        evl_cols = [i.name for i in EVALUATE]
+        result = pd.DataFrame(result, columns=evl_cols)
+        path_name = self.get_path_file_name(fname, FILE_TYPE.EVALUATE_DATA)
         result.to_csv(path_name, sep=sep, decimal=decimal)        
-    #endregion Save Process Data
+        self._stock_config[CONFIG.evaluate_data_file.name] = path_name
+#endregion Save Process Data
     
     #region Load Process Data
     def load_keras_model(self, model_file=None, compile=True):
@@ -406,11 +481,11 @@ class Stock_Model:
         load_keras_model
         after load model, process step 5 or 6 depending if model is compiled.
         '''
-        mfile = self.get_path_file_name(model_file, FILE_TYPE['MODEL'])
+        mfile = self.get_path_file_name(model_file, FILE_TYPE.MODEL)
         if os.path.exists(mfile):
             basename = os.path.basename(mfile)
             model_name = os.path.splitext(basename)
-            self._model_name = model_name[0]
+            self._model_file_name = model_name[0]
         else:
             raise ValueError("The load data file is not found!")
         self._model = load_model(mfile, compile=False)
@@ -418,19 +493,19 @@ class Stock_Model:
             self.compile_model()
 
     def load_predict_data(self, fname=None):
-        path_name = self.get_path_file_name(fname, FILE_TYPE['PREDICT_DATA'])
+        path_name = self.get_path_file_name(fname, FILE_TYPE.PREDICT_DATA)
         datasets = np.load(path_name)
         self._Y_test_actual, self._Y_pred_actual = datasets["y_test"], datasets["y_pred"]
         
     def load_train_data(self, file_path_name=None):
-        path_name = self.get_path_file_name(file_path_name, FILE_TYPE['TRAIN_DATA'])
+        path_name = self.get_path_file_name(file_path_name, FILE_TYPE.TRAIN_DATA)
         datasets = np.load(path_name)
         self._X_train, self._Y_train = datasets["x_train"], datasets["y_train"]
         self._X_test, self._Y_test = datasets["x_test"], datasets["y_test"]
         self._features = np.array([self._base_features[0, 0:self._X_train.shape[2]]])
 
     def load_scaler(self, file_path_name=None):
-        path_name = self.get_path_file_name(file_path_name, FILE_TYPE['SCALER'])
+        path_name = self.get_path_file_name(file_path_name, FILE_TYPE.SCALER)
         self._scaler = load(path_name)
     #endregion Load Process Data
     
@@ -446,8 +521,8 @@ class Stock_Model:
             if value == max_day:
                 self._delay_days = i
                 break
-        self.export_training_model_config_file()
-        
+        self._stock_config[CONFIG.delay_days.name] = self._delay_days
+
     def get_nth_day_evaluate_data(self, nth_day):
         days = 0
         if type(nth_day) == str:
@@ -509,21 +584,21 @@ class Stock_Model:
 
     def get_path_file_name(self, fn, ftype):
         if fn is None:
-            if ftype == FILE_TYPE['MODEL']:
-                file_name = f"{self._model_name}.keras"
-            elif ftype == FILE_TYPE['SCALER']:
-                file_name = f"{self._model_name}_scaler.joblib"
-            elif ftype == FILE_TYPE['PREDICT_DATA']:
-                file_name = f"{self._model_name}_pred.npz"
-            elif ftype == FILE_TYPE['RESULT_DATA']:
-                file_name = f"{self._model_name}_result.csv"
-            elif ftype == FILE_TYPE['TRAIN_DATA']:
-                file_name = f"{self._model_name}_train.npz"
-            elif ftype == FILE_TYPE['EVALUATE_DATA']:
-                file_name = f"{self._model_name}_eval.csv"
+            if ftype == FILE_TYPE.MODEL:
+                file_name = f"{self._model_file_name}.keras"
+            elif ftype == FILE_TYPE.SCALER:
+                file_name = f"{self._model_file_name}_scaler.joblib"
+            elif ftype == FILE_TYPE.PREDICT_DATA:
+                file_name = f"{self._model_file_name}_pred.npz"
+            elif ftype == FILE_TYPE.RESULT_DATA:
+                file_name = f"{self._model_file_name}_result.csv"
+            elif ftype == FILE_TYPE.TRAIN_DATA:
+                file_name = f"{self._model_file_name}_train.npz"
+            elif ftype == FILE_TYPE.EVALUATE_DATA:
+                file_name = f"{self._model_file_name}_eval.csv"
             else:
                 raise ValueError("Error: false file type")
-            path_name = os.path.join(self._path, file_name)
+            path_name = os.path.join(self._stock_path, file_name)
         else:
             path_name = fn
         return path_name
@@ -585,27 +660,26 @@ class Stock_Model:
 if __name__ == "__main__":
     import json, sys, argparse
     parser = argparse.ArgumentParser(prog='stock_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
-    parser.add_argument('stock', help='stock symbol to be loaded')
     parser.add_argument('action', help='process action: tmf - train model from finance markt data, tmd - train model from data file, evl - evaluate data, cfm - calculate confusion matrix data, mse - mean squared error, mas - mean absolute error, rmse - sqared mse, r2 - r2 score, ars - accuracy score')
-    parser.add_argument('-f', '--file', help='load arguments from file')
+    parser.add_argument('-s', '--stock', action='append', help='stock symbol list to be loaded')
+    # parser.add_argument('-f', '--file', help='load arguments from file')
     parser.add_argument('-p', '--period', default='10y', help='period of stock to be loaded')
     parser.add_argument('-i', '--interval',default='1d', help='interval of stock data')
     parser.add_argument('-w', '--window-size', default=60, dest='win_size', type=int, help='window size of training model')
-    parser.add_argument('-t', '--path', default='.', help='common path of resource and output')
+    # parser.add_argument('-t', '--path', default='.', help='common path of resource and output')
     parser.add_argument('-d', '--delay-days', default=3, dest="delay", type=int, help='delay days of predicted data relative to real data')
     parser.add_argument('-n', '--nth-day', dest="day", type=int, default=1, help='Nth-delay day for confusion matrix, mse, mae, rmse, r2 and ars')
     parser.add_argument('-c', '--config', action='store_true', help='create a configure file for prediction')
     args = parser.parse_args()
     print("--- arguments ---")
-    if args.file is None:
+    if args.config == False:
         print(f"Stock: {args.stock}")
         print(f"Period: {args.period}")
         print(f"Interval: {args.interval}")
         print(f"Window Size: {args.win_size}")
-        print(f"Path: {args.path}")
+        # print(f"Path: {args.path}")
         print(f"Delay Days: {args.delay}")
         print(f"Config: {args.config}")
-        sm = Stock_Model(args.stock, args.period, interval=args.interval, win_size=args.win_size, path=args.path, delay_days=args.delay)
     else:
         '''
         configure file for stock model:
@@ -617,20 +691,16 @@ if __name__ == "__main__":
          'delay': int
         }
         '''
-        print(f"File: {args.file}")
-        with open(args.file, 'r') as f:
-            config = json.load(f)
-        sm = Stock_Model(config['stock'], period=config['period'], interval=config['interval'], win_size=config['win_size'], path=config['path'], delay_days=config['delay'])
-    
+        pass
+
     if args.action == 'tmf':
-        sm.train_model_with_actual_data()
+        sm = Stock_Model(args.stock, args.period, interval=args.interval, win_size=args.win_size, delay_days=args.delay)
+        sm.start()
     elif args.action == 'tmd':
-        sm.train_model_with_loaded_data()
-    elif args.config == True:
-         for s in sm.stock_symbols:
-            sm.current_stock = s
-            sm.save_config_file()
+        sm = Stock_Model('./resource/IFX.DE_1d_60.cfg')
+        sm.start()
     else:
+        sm = Stock_Model('./resource/IFX.DE_1d_60.cfg')
         if args.action == 'evl':
             for index, s in enumerate(sm.stock_symbols):
                 sm.current_stock = s
