@@ -108,13 +108,15 @@ class Stock_Model:
     
     def __init__(self, stock_info:list|str, period="10y", interval="1d", win_size=60, delay_days=3):
         if type(stock_info) is str:
-            self._stock_config = stock_info
+            self._config_file = stock_info
             self._stocks = []
             self._online = False
         elif type(stock_info) is list:
             self._stocks = stock_info
-            self._stock_config = None
             self._online = True
+        else:
+            raise ValueError("Error: invalid argument!")
+        self._stock_config = None
         self._current_stock = ''
         self._period = period
         self._interval = interval
@@ -169,7 +171,9 @@ class Stock_Model:
                 config = self._train_stock_model.train_model_with_actual_data()
                 self.export_training_model_config_file(config)
         else:
-            self._train_stock_model = TrainStockModel(self._stock_config, stock_path=s)
+            with open(self._config_file, 'r') as cfg:
+                self._stock_config = json.load(cfg)
+            self._train_stock_model = TrainStockModel(self._stock_config, stock_path=self._stock_config[CONFIG.stock.name])
             self._train_stock_model.train_model_with_loaded_data()
 
 
@@ -207,7 +211,7 @@ class Stock_Model:
 
 
 class TrainStockModel:
-    def __init__(self, stock_config:dict, stock_data=None, stock_path='.'):
+    def __init__(self, stock_config:str, stock_data=None, stock_path='.'):
         if stock_data is not None:
             self._stock_data = stock_data
             self._stock_config = stock_config
@@ -236,7 +240,7 @@ class TrainStockModel:
         self._model = None
         self._evaluate_result = {entry.name:None for entry in EVALUATE}
         self._asumpt_delay_days = self._stock_config[CONFIG.delay_days.name]
-        self.day_statistic = [0 for i in range(self._asumpt_delay_days)]
+        self.day_statistic = [0 for i in range(self._asumpt_delay_days*2)]
         self._model_file_name = f"{self._stock_config[CONFIG.stock.name]}_{self._stock_config[CONFIG.stock_interval.name]}_{self._stock_config[CONFIG.window_size.name]}"
 
     #region Property
@@ -662,42 +666,27 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='stock_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
     parser.add_argument('action', help='process action: tmf - train model from finance markt data, tmd - train model from data file, evl - evaluate data, cfm - calculate confusion matrix data, mse - mean squared error, mas - mean absolute error, rmse - sqared mse, r2 - r2 score, ars - accuracy score')
     parser.add_argument('-s', '--stock', action='append', help='stock symbol list to be loaded')
-    # parser.add_argument('-f', '--file', help='load arguments from file')
+    parser.add_argument('-f', '--file', help='load arguments from file')
     parser.add_argument('-p', '--period', default='10y', help='period of stock to be loaded')
     parser.add_argument('-i', '--interval',default='1d', help='interval of stock data')
     parser.add_argument('-w', '--window-size', default=60, dest='win_size', type=int, help='window size of training model')
-    # parser.add_argument('-t', '--path', default='.', help='common path of resource and output')
     parser.add_argument('-d', '--delay-days', default=3, dest="delay", type=int, help='delay days of predicted data relative to real data')
     parser.add_argument('-n', '--nth-day', dest="day", type=int, default=1, help='Nth-delay day for confusion matrix, mse, mae, rmse, r2 and ars')
-    parser.add_argument('-c', '--config', action='store_true', help='create a configure file for prediction')
     args = parser.parse_args()
     print("--- arguments ---")
-    if args.config == False:
-        print(f"Stock: {args.stock}")
-        print(f"Period: {args.period}")
-        print(f"Interval: {args.interval}")
-        print(f"Window Size: {args.win_size}")
-        # print(f"Path: {args.path}")
-        print(f"Delay Days: {args.delay}")
-        print(f"Config: {args.config}")
-    else:
-        '''
-        configure file for stock model:
-        {'stock': str or list,
-         'period' : str, # 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
-         'interval': str, # 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
-         'win_size': int,
-         'path': str,
-         'delay': int
-        }
-        '''
-        pass
+    print(f"Stock: {args.stock}")
+    print(f"Period: {args.period}")
+    print(f"Interval: {args.interval}")
+    print(f"Window Size: {args.win_size}")
+    print(f"File: {args.file}")
+    print(f"Delay Days: {args.delay}")
+    print(f"Nth-Day: {args.day}")
 
     if args.action == 'tmf':
         sm = Stock_Model(args.stock, args.period, interval=args.interval, win_size=args.win_size, delay_days=args.delay)
         sm.start()
     elif args.action == 'tmd':
-        sm = Stock_Model('./resource/IFX.DE_1d_60.cfg')
+        sm = Stock_Model(args.file)
         sm.start()
     else:
         sm = Stock_Model('./resource/IFX.DE_1d_60.cfg')
