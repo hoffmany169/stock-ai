@@ -12,11 +12,21 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python-Debugger: predict_by_model(GUI)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "predict_by_model.py",
+            "args": "gui",  
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python-Debugger: predict_by_model",
             "type": "debugpy",
             "request": "launch",
             "program": "predict_by_model.py",
-            "args": ["./resource/IFX.DE_1d_60.keras"],  
+            "args": ["./IFX.DE/IFX.DE_1d_60.cfg",
+                    "-d", "7",
+                    "-p", "IFX.DE"],  
             "console": "integratedTerminal"
         },
         {
@@ -39,7 +49,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "stock_model.py",
-            "args": "data",
+            "args": ["tmd", "-f", ".\\IFX.DE\\IFX.DE_1d_60.cfg"],
             "console": "integratedTerminal"
         },
         {
@@ -47,7 +57,13 @@
             "type": "debugpy",
             "request": "launch",
             "program": "stock_model.py",
-            "args": "cm 3",
+            "args": [
+                "cfm",
+                "-f",
+                ".\\BMW.DE\\BMW.DE_1d_60.cfg",
+                "-n",
+                "2"
+            ],
             "console": "integratedTerminal"
         },
         {
