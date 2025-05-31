@@ -238,7 +238,7 @@ class Stock_Model:
             if function == MODEL_FUNCTION.predict_model:
                 stock_data = self.load_stock(self._stocks[0])
                 if stock_data is None:
-                    raise ValueError("Error: cannot load stock data!!")
+                    raise ValueError(f"Error: cannot load stock data from {self._stocks[0]}!!")
                 self._train_stock_model = TrainStockModel(self._stock_config, stock_path=self._path)
                 self._train_stock_model.stock_data = stock_data
                 self._train_stock_model.load_keras_model(self._stock_config[CONFIG.model_file.name])

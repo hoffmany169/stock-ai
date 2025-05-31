@@ -124,30 +124,34 @@ class Model_Prediction:
             json.dump(self._config, cfg, indent=4)          
     #endregion main methods
 
-from tkinter import Tk, Label
+from tkinter import Tk, Label, filedialog, StringVar
 from tkinter.ttk import Combobox
 from Common.CreateGuiElement import CreateGuiElement
+from Common.ToolTip import create_tooltip
 
-PERIOD = {'1 month': '1mo', '3 month': '3mo', '6 month': '6mo'}
+PERIOD = {'1mo':'1 month', '3mo':'3 months', '6mo':'6 months'}
 class Prediction(Tk):
     def __init__(self):
         super().__init__()
         self.title = 'Prediction'
         self.geometry('350x240')
+        self._cbox_select = StringVar(self, '3 months')
         self._creator = CreateGuiElement(self)
+        self._model_pred = None
         self._create_gui()
         
     def _create_gui(self):
         self._creator.CreateEntry(0, 'Configure File', entry_name='cfg', width_0=14, padx_1=0)\
             .CreateEntry(1, 'Output Folder', entry_name='output', width_0=14, padx_1=0)\
                 .CreateEntry(3, 'Prediction Days', entry_name='pred', width_0=14, padx_1=0)
-        
+                
         # create combobox
         Label(self, text='Data Period', anchor='e', width=16)\
             .grid(row=2, column=0, padx=10, pady=10)
         self._combobox = Combobox(self, 
-                                  values=list(PERIOD.keys()),
-                                 width=17)
+                                  values=list(PERIOD.values()),
+                                  textvariable=self._cbox_select.get(),
+                                  width=17)
         self._combobox.grid(row=2, column=1, padx=10, pady=10)
         self._combobox.bind('<<ComboboxSelected>>', self._select_period)
         
@@ -155,23 +159,33 @@ class Prediction(Tk):
             .CreateButton(4, 1, 'Exit', self._exit, name='exit')\
                 .CreateButton(0, 2, '...', self._select_config, name='sel_cfg', width=2, padx=2)\
                     .CreateButton(1, 2, '...', self._select_output, name='sel_out', width=2, padx=2)
-                
-                
     
     def show(self):
         self.mainloop()
     
-    def _select_period(self):
+    def _select_period(self, *args):
         pass
     
-    def _select_config(self):
-        pass
-    
-    def _select_output(self):
-        pass
+    def _select_config(self, *args):
+        fn = filedialog.askopenfilename(title='Choose Configure File', initialdir='.', filetypes=[('configure file', '*.cfg')])
+        if len(fn) > 0:
+            self._creator.SetEntryText(fn, name='cfg')
+            
+    def _select_output(self, *args):
+        dirn = filedialog.askdirectory(title='Choose Output Directory', initialdir='.', mustexist=True)
+        if len(dirn) > 0:
+            self._creator.SetEntryText(dirn, name='output')
     
     def _start(self):
-        pass
+        cfg_file = self._creator.GetEntryText(name='cfg')
+        output_dir = self._creator.GetEntryText(name='output')
+        pred_days = self._creator.GetEntryText(name='pred')
+        for k, v in PERIOD.items():
+            if v == self._cbox_select.get():
+                period = k
+                break   
+        self._model_pred = Model_Prediction(cfg_file, predict_days=int(pred_days), path=output_dir)
+        self._model_pred.process_prediction(period)
     
     def _exit(self):
         sys.exit()
