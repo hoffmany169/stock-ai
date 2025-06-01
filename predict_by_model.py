@@ -124,22 +124,43 @@ class Model_Prediction:
             json.dump(self._config, cfg, indent=4)          
     #endregion main methods
 
-from tkinter import Tk, Label, filedialog, StringVar
+from tkinter import Tk, Label, filedialog, StringVar, messagebox
 from tkinter.ttk import Combobox
 from Common.CreateGuiElement import CreateGuiElement
-from Common.ToolTip import create_tooltip
 
 PERIOD = {'1mo':'1 month', '3mo':'3 months', '6mo':'6 months'}
+class PRED_CONFIG(AutoIndex):
+    config_file = ()
+    output_dir = ()
+    predict_days = ()
+    predict_period = ()
 class Prediction(Tk):
+    CONFIG_FILE = 'config.cfg'
     def __init__(self):
         super().__init__()
         self.title = 'Prediction'
         self.geometry('350x240')
+        self.resizable(False, False)
         self._cbox_select = StringVar(self, '3 months')
         self._creator = CreateGuiElement(self)
         self._model_pred = None
+        self._config = None
+        self._load_config()
         self._create_gui()
         
+    def _load_config(self):
+        if os.path.exists(Prediction.CONFIG_FILE):
+            with open(Prediction.CONFIG_FILE, 'r') as cfg:
+                self._config = json.load(cfg)
+        else: # create configure file
+            self._config = {entry.name : '' for entry in PRED_CONFIG}
+            self._config[PRED_CONFIG.config_file.name] = 'config.cfg'
+            self._config[PRED_CONFIG.output_dir.name] = '.'
+            self._config[PRED_CONFIG.predict_period.name] = '3 months'
+            self._config[PRED_CONFIG.predict_days.name] = 7
+            with open(Prediction.CONFIG_FILE, 'w') as cfg:
+                json.dump(self._config, cfg, indent=4)
+            
     def _create_gui(self):
         self._creator.CreateEntry(0, 'Configure File', entry_name='cfg', width_0=14, padx_1=0)\
             .CreateEntry(1, 'Output Folder', entry_name='output', width_0=14, padx_1=0)\
@@ -151,6 +172,7 @@ class Prediction(Tk):
         self._combobox = Combobox(self, 
                                   values=list(PERIOD.values()),
                                   textvariable=self._cbox_select.get(),
+                                  name='period',
                                   width=17)
         self._combobox.grid(row=2, column=1, padx=10, pady=10)
         self._combobox.bind('<<ComboboxSelected>>', self._select_period)
@@ -159,6 +181,10 @@ class Prediction(Tk):
             .CreateButton(4, 1, 'Exit', self._exit, name='exit')\
                 .CreateButton(0, 2, '...', self._select_config, name='sel_cfg', width=2, padx=2)\
                     .CreateButton(1, 2, '...', self._select_output, name='sel_out', width=2, padx=2)
+        self._creator.SetEntryText(self._config[PRED_CONFIG.config_file.name], name='cfg')
+        self._creator.SetEntryText(self._config[PRED_CONFIG.output_dir.name], name='output')
+        self._creator.SetEntryText(self._config[PRED_CONFIG.predict_days.name], name='pred')
+        self._creator.SetEntryText(self._config[PRED_CONFIG.predict_period.name], name='period')
     
     def show(self):
         self.mainloop()
@@ -184,8 +210,10 @@ class Prediction(Tk):
             if v == self._cbox_select.get():
                 period = k
                 break   
+        
         self._model_pred = Model_Prediction(cfg_file, predict_days=int(pred_days), path=output_dir)
         self._model_pred.process_prediction(period)
+        messagebox.showinfo("Process Prediction", "Process prediction successfully!")
     
     def _exit(self):
         sys.exit()
@@ -194,12 +222,9 @@ class Prediction(Tk):
     
 if __name__ == "__main__":
     import argparse
-    if sys.argv[1] == 'gui':
-        pred = Prediction()
-        pred.show()
-    else:
+    if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(prog='predict_by_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
-        parser.add_argument("file", help='configure file')
+        parser.add_argument("-f", "--file", help='configure file')
         parser.add_argument('-p', '--path', default='.', help='common path of resource and output')
         parser.add_argument('-d', '--predict-days', default=3, dest="predays", type=int, help='delay days of predicted data relative to real data')
         args = parser.parse_args()
@@ -209,6 +234,9 @@ if __name__ == "__main__":
         print(f"Predict days: {mp._predict_days}")
         print(f"Path: {mp._path}")
         mp.process_prediction('3mo')
+    else:
+        pred = Prediction()
+        pred.show()
         
 
         
