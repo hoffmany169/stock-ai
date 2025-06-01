@@ -16,7 +16,6 @@
             "type": "debugpy",
             "request": "launch",
             "program": "predict_by_model.py",
-            "args": "gui",  
             "console": "integratedTerminal"
         },
         {
@@ -34,14 +33,6 @@
             "type": "debugpy",
             "request": "launch",
             "program": "stock_model_test.py",
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python-Debugger: Stock Model from finance markt",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "stock_model.py",
-            "args": "fin",
             "console": "integratedTerminal"
         },
         {
@@ -64,14 +55,6 @@
                 "-n",
                 "2"
             ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python-Debugger: Stock Model save evaluation data",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "stock_model.py",
-            "args": "pred",
             "console": "integratedTerminal"
         }
     ]

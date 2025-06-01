@@ -224,7 +224,7 @@ if __name__ == "__main__":
     import argparse
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(prog='predict_by_model.py', usage='%(prog)s Stock [options]', description='Train AI-model for one or more stock(s)')
-        parser.add_argument("-f", "--file", help='configure file')
+        parser.add_argument("file", help='configure file')
         parser.add_argument('-p', '--path', default='.', help='common path of resource and output')
         parser.add_argument('-d', '--predict-days', default=3, dest="predays", type=int, help='delay days of predicted data relative to real data')
         args = parser.parse_args()
