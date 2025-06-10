@@ -35,9 +35,9 @@ class Select_Stock_LSTM(Select_Stock):
         df[FEATURE.RSI.name] = self._compute_rsi(df[FEATURE.Close.name])      # rsi
         df[FEATURE.MACD.name] = self._compute_macd(df[FEATURE.Close.name])
 
-        # 添加基本面数据（示例）
-        df[FEATURE.PE.name] = self.get_pe_ratio(ticker)  # 需要实现
-        df[FEATURE.PB.name] = self.get_pb_ratio(ticker)  # 需要实现
+        # add basical data（example, can add other critical data）
+        df[FEATURE.PE.name] = self.get_pe_ratio(ticker)  
+        df[FEATURE.PB.name] = self.get_pb_ratio(ticker)  
         self.create_data_sequence(ticker, df)
     
     def create_data_sequence(self, ticker, df):
@@ -58,7 +58,7 @@ class Select_Stock_LSTM(Select_Stock):
         self.create_train_test_data()
     #endregion Step 1
     
-    #region Step 2 修改后的训练流程
+    #region Step 2 traing procedure after correction
     def create_train_test_data(self, test_size=0.2):
         self._full_pd_data = pd.concat(self._full_dataset).sample(frac=1).reset_index(drop=True)
         split_idx = int(len(self._full_pd_data)*(1-test_size))
@@ -70,7 +70,7 @@ class Select_Stock_LSTM(Select_Stock):
         self.build_lstm_model()
     #endregion Step 2
         
-    #region Step 3 LSTM模型构建函数
+    #region Step 3 LSTM model building function
     def build_lstm_model(self):
         self._model = Sequential()
         self._model.add(LSTM(64, return_sequences=True, input_shape=(self._X_train.shape[1], self._X_train.shape[2])))
@@ -86,7 +86,7 @@ class Select_Stock_LSTM(Select_Stock):
         self.train_model()
     #endregion Step 3
                 
-    #region Step 4 训练模型
+    #region Step 4 training model
     def train_model(self):
         history = self._model.fit(self._X_train, self._y_train,
                         epochs=50,
@@ -97,13 +97,13 @@ class Select_Stock_LSTM(Select_Stock):
         self.evaluate_data()
     #region Step 4
         
-    #region Step 5 评估模型
+    #region Step 5 evaluate data
     def evaluate_data(self):
         y_pred = (self._model.predict(self._X_test) > 0.5).astype(int)
         print(classification_report(self._y_test, y_pred))
     #endregion Step 5
     
-    #region Step 6 修改后的选股策略
+    #region Step 6 corrected selecting stock data
     def lstm_selection_strategy(self):
         selected_stocks = []
         
@@ -113,33 +113,33 @@ class Select_Stock_LSTM(Select_Stock):
             if len(ticker_data) < self._window_size:
                 continue
                 
-            # 获取最近window_size天的数据
+            # obtain last window_size days' data
             latest_window = np.stack(ticker_data['Features'].iloc[-self._window_size:])
             
-            # 预测
+            # prediction
             prediction = self._model.predict(latest_window[np.newaxis, ...])[0][0]
             
             if prediction > self.prediction_threshold:  # 设置较高阈值
                 selected_stocks.append(ticker)
-        print(f"LSTM推荐股票：{selected_stocks}")
+        print(f"LSTM Suggesting Stock：{selected_stocks}")
         return selected_stocks
     #endregion Step 6
     
 if __name__ == "__main__":
-    # 配置参数
+    # parameters
     tickers = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'TSLA']
     start_date = '2018-01-01'
     end_date = '2023-01-01'
-    lookback = 60  # 使用60天历史数据
+    lookback = 60  # window size: 60
     
     ss = Select_Stock_LSTM(tickers, start_date, end_date=end_date)
-    # 获取LSTM格式数据
+    # get LSTM data
     ss.get_tickers_data()
     ss.create_train_test_data()
-    # 训练模型
+    # train model
     ss.build_lstm_model()
     ss.train_model()
     ss.evaluate_data()
     
-    # 执行选股策略
+    # execute selection
     ss.lstm_selection_strategy()
