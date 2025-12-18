@@ -1,6 +1,8 @@
 import math
 from tkinter import StringVar, filedialog, messagebox
 import matplotlib
+
+from AxisRatioCalculator import AxisRatioCalculator
 matplotlib.use('TkAgg')  # Use Tk backend
 import matplotlib.pyplot as plt
 import tkinter as tk
@@ -90,6 +92,7 @@ class PlotAnalyser:
             self.fig = fig
             self.ax = ax
         self.canvas = self.fig.canvas
+        self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
         self.__comm_init__()
         plt.show()
         
@@ -269,10 +272,6 @@ class PlotAnalyser:
     def add_second_point(self, coords):
         if coords:
             x, y = coords
-            # print(f"Clicked at data coords: ({x}, {y})")
-            # x_tk = self.root.winfo_pointerx() - self.root.winfo_rootx()
-            # y_tk = self.root.winfo_pointery() - self.root.winfo_rooty()
-            # print(f"Clicked at Tk coords: ({x_tk}, {y_tk})")
             artist = self.ax.plot(x, y, self.marker_style, markersize=10, alpha=0.7, 
                         markeredgecolor='black', markeredgewidth=2)[0]
             if len(self.layers[ElementLayer.MARKER]) == 0:
@@ -320,14 +319,20 @@ class PlotAnalyser:
         print(f"Recorded value: {value}")
 
     def draw_line(self):
+        """
+        Docstring for draw_line
+        Visual angle = arctan(Data slope × (y_scale / x_scale))
+             = arctan(Data slope / Aspect_ratio)
+        """
         if len(self.layers[ElementLayer.MARKER]) == 2:
             x1 = float(self.layers[ElementLayer.MARKER][0].get_xdata()[0])
             y1 = float(self.layers[ElementLayer.MARKER][0].get_ydata()[0])
             x2 = float(self.layers[ElementLayer.MARKER][1].get_xdata()[0])
             y2 = float(self.layers[ElementLayer.MARKER][1].get_ydata()[0])
             artist1 = self.ax.plot([x1, x2], [y1, y2], self.line_style, color='b')
-            artist2 = self.ax.text(x1, y1, f'tangent={(y2-y1)/(x2-x1):.2f}', 
-                        rotation=(math.atan2((y2-y1), (x2-x1)))*60, verticalalignment='top')
+            visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
+            artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'tangent={visual_angle:.2f}', 
+                        rotation=visual_angle, verticalalignment='top')
             self.canvas.draw()
             self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
 
