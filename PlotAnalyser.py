@@ -1,9 +1,10 @@
 import math
-from tkinter import messagebox
+from tkinter import StringVar, filedialog, messagebox
 import matplotlib
 matplotlib.use('TkAgg')  # Use Tk backend
 import matplotlib.pyplot as plt
 import tkinter as tk
+from tkinter import ttk
 from Common.AutoNumber import AutoIndex
 
 class ElementLayer(AutoIndex):
@@ -22,17 +23,28 @@ class COMMAND(AutoIndex):
       add_first_point = ()
       add_second_point = ()
       seperator_3 = ()
-      show_point_properties = ()
 
-class MENU_COMMAND(AutoIndex):
-      calculate_period_distance = ()
-      calculate_value_percentage = ()
+
+class FILE_MENU_COMMAND(AutoIndex):
+      open_file = ()
+      save_image = ()
+      save_image_as = ()
+      export_pdf = ()
+      seperator_1 = ()
+      references = ()
+      seperator_2 = ()
+      exit = ()
+
+class ACTION_MENU_COMMAND(AutoIndex):
+      show_point_properties = ()
+      show_comparison_2_points = ()
       draw_line = ()
       seperator_1 = ()
-      clear_markers = ()
+      remove_last_point = ()
+      remove_last_line = ()
+      clear_all_markers = ()
+      clear_all_lines = ()
       reset_view = ()
-      seperator_2 = ()
-      save_image = ()
 
 class MARKER_STYLE(AutoIndex):
     red_circle = ()
@@ -45,15 +57,41 @@ class LINE_STYLE(AutoIndex):
     dash_dot_line = ()
     dotted_line = ()
 
+class PROPERTY_2_POINTS(AutoIndex):
+    distance = ()
+    value_difference = ()
+    percentage_of_value_change = ()
+    tangent_of_line = ()
+
 class PlotAnalyser:
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, fig, ax):
-        self.fig = fig
-        self.ax = ax
-        self.canvas = fig.canvas
+    def __init__(self, fig=None, ax=None, data=None, figsize=(10,6)):
+        """
+        Docstring for __init__
+        two scenarios:
+        1. pass in fig and ax from outside
+        :param fig: figure object in plotting
+        :param ax: axis object in plotting
+        2. create fig and ax inside
+        :param data: data to plot
+        :param figsize: figure size
+        """
+        self._plot_file_name = None
         self.last_click_coords = None
         self.menu_items = {} # map function name (string) -> command index
+        if data is not None:
+            self.fig, self.ax = plt.subplots(figsize=figsize)
+            x, y = data
+            self.ax.plot(x, y, 'b-', linewidth=2)
+            self.ax.set_xlabel('X')
+            self.ax.set_ylabel('Y')
+            self.ax.grid(True, alpha=0.3)
+        else:
+            self.fig = fig
+            self.ax = ax
+        self.canvas = self.fig.canvas
         self.__comm_init__()
+        plt.show()
         
     # def __init__(self, data):
     #     self.fig, self.ax = plt.subplots(figsize=(10, 6))
@@ -72,7 +110,7 @@ class PlotAnalyser:
         self.root.geometry("800x600")
         
         # Create the menu bar
-        self.create_menu_bar()
+        self._create_menu_bar()
         
         # Create toolbar (matplotlib's default)
         self.fig.canvas.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
@@ -83,7 +121,7 @@ class PlotAnalyser:
         self._create_context_menu_commands()
         # store elements by layer
         self.layers = {
-            ElementLayer.MARKER: [None]*2,
+            ElementLayer.MARKER: [], # keep only two markers for point selection
             ElementLayer.ANNOTATION: [],
             ElementLayer.GUIDELINE: []
         }
@@ -122,21 +160,31 @@ class PlotAnalyser:
             self._line_style = line
 #endregion # properties
 
-    def create_menu_bar(self):
+    def _create_menu_bar(self):
         self.menubar = tk.Menu(self.root)
         self.root.config(menu=self.menubar)
-
+        # File menu
+        self.file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label='File', menu=self.file_menu)
+        self._add_command_to_menu(self.file_menu, FILE_MENU_COMMAND)
+        # Action menu
         self.action_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label='Action', menu=self.action_menu)
-        for e in MENU_COMMAND:
+        self._add_command_to_menu(self.action_menu, ACTION_MENU_COMMAND)
+
+    def _add_command_to_menu(self, menu, commands):
+        for e in commands:
             label_text = ' '.join(e.name.split('_'))
             if e.name.startswith('seperator'):
-                self.action_menu.add_separator()
+                menu.add_separator()
             else:
-                cmd = getattr(self, e.name)
-                self.action_menu.add_command(label=label_text, 
-                                             command=cmd)
-
+                if e.name == 'exit':
+                    menu.add_command(label=label_text, 
+                                    command=cmd)
+                else:
+                    cmd = getattr(self, e.name)
+                    menu.add_command(label=label_text, 
+                                    command=cmd)
 
     def _create_context_menu_commands(self):
         self.context_menu = tk.Menu(self.root, tearoff=0)
@@ -149,10 +197,6 @@ class PlotAnalyser:
 
     def on_right_click(self, event):
         if event.button == 3 and event.inaxes == self.ax:  # Right-click in axes
-            # Convert matplotlib coordinates to tkinter coordinates
-            # x_tk = self.root.winfo_pointerx() - self.root.winfo_rootx()
-            # y_tk = self.root.winfo_pointery() - self.root.winfo_rooty()
-            # menu = self._update_context_menu_event(event)
             self.last_click_coords = (event.xdata, event.ydata)
             self.fig._last_right_click = (event.xdata, event.ydata, event.inaxes)
             for key, index in self.menu_items.items():
@@ -192,14 +236,6 @@ class PlotAnalyser:
                         rotation=90, verticalalignment='top')
             self.canvas.draw()
             self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
-
-    def clear_markers(self):
-        for line in self.fig._last_right_click[2].lines[1:]:
-            line.remove()
-
-    def save_image(self):
-        self.fig.savefig('output.png')
-        print("Image saved")
     
     def zoom_in(self, coords):
         xlim = self.ax.get_xlim()
@@ -214,37 +250,74 @@ class PlotAnalyser:
         self.ax.set_xlim(xlim[0]*1.2, xlim[1]*1.2)
         self.ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
         self.fig.canvas.draw()
-
-    def reset_view(self):
-        self.ax.relim()
-        self.ax.autoscale_view()
-        self.fig.canvas.draw()
     
     def add_first_point(self, coords):
         if coords:
             x, y = coords
+            # print(f"Clicked at data coords: ({x}, {y})")
+            # x_tk = self.root.winfo_pointerx() - self.root.winfo_rootx()
+            # y_tk = self.root.winfo_pointery() - self.root.winfo_rooty()
+            # print(f"Clicked at Tk coords: ({x_tk}, {y_tk})")
             artist = self.ax.plot(x, y, self.marker_style, markersize=10, alpha=0.7, 
                         markeredgecolor='black', markeredgewidth=2)[0]
-            self.layers[ElementLayer.MARKER][0] = artist
+            if len(self.layers[ElementLayer.MARKER]) > 0:
+                self.layers[ElementLayer.MARKER].clear()
+            self.layers[ElementLayer.MARKER].append(artist)
             self.canvas.draw()
             print(f"Added point marker at ({x:.3f}, {y:.3f})")
 
     def add_second_point(self, coords):
         if coords:
             x, y = coords
+            # print(f"Clicked at data coords: ({x}, {y})")
+            # x_tk = self.root.winfo_pointerx() - self.root.winfo_rootx()
+            # y_tk = self.root.winfo_pointery() - self.root.winfo_rooty()
+            # print(f"Clicked at Tk coords: ({x_tk}, {y_tk})")
             artist = self.ax.plot(x, y, self.marker_style, markersize=10, alpha=0.7, 
                         markeredgecolor='black', markeredgewidth=2)[0]
-            self.layers[ElementLayer.MARKER][1] = artist
+            if len(self.layers[ElementLayer.MARKER]) == 0:
+                messagebox.showwarning("Warning", "Please add the first point before adding the second point.")
+                return
+            elif len(self.layers[ElementLayer.MARKER]) > 1:
+                self.layers[ElementLayer.MARKER].slice(1, None)  # keep only the first point
+            self.layers[ElementLayer.MARKER].append(artist)  # placeholder for first point
             self.canvas.draw()
             print(f"Added point marker at ({x:.3f}, {y:.3f})")
 
-    def calculate_value_percentage(self):
-        # x_diff = coords[0] - self.first_point[0]
-        # x_perc = x_diff / self.add_first_point[0] * 100
-        pass
+    def show_comparison_2_points(self):
+        x1, y1 = self.layers[ElementLayer.MARKER][0].get_xdata()[0], self.layers[ElementLayer.MARKER][0].get_ydata()[0]
+        x2, y2 = self.layers[ElementLayer.MARKER][1].get_xdata()[0], self.layers[ElementLayer.MARKER][1].get_ydata()[0]
+        x_diff = x2 - x1
+        y_diff = y2 - y1
+        y_perc = (y_diff / y1 * 100) if y1 != 0 else float('inf')
+        tangent = (y_diff / x_diff) if x_diff !=0 else float('inf')
+        # create pup-up dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("comparison of 2 points")
+        dialog.geometry("300x300")
+        
+        selections = [' '.join(e.name.split('_')) for e in PROPERTY_2_POINTS]
+        data = [0]*len(selections)
+        data[0] = x_diff
+        data[1] = y_diff
+        data[2] = y_perc
+        data[3] = tangent
+        sel_data = dict(zip(selections, data))
+        tk.Label(dialog, text=f"Coordinates:", font=('Arial', 12, 'bold')).pack()
+        tk.Label(dialog, text=f"x1, y1 = ({x1:.6f}, {y1:.6f}) ").pack()
+        tk.Label(dialog, text=f"x2, y2 = ({x2:.6f}, {y2:.6f})").pack()
+        tk.Label(dialog, text=f"{selections[0]} = {x_diff:.6f}").pack()
+        tk.Label(dialog, text=f"{selections[1]} = {y_diff:.6f}").pack()
+        tk.Label(dialog, text=f"{selections[2]} = {y_perc:.2f}%").pack()
+        tk.Label(dialog, text=f"{selections[3]} = {tangent:.2f}").pack()
+        tk.Label(dialog, text=f"Degree of Line = {math.atan2(y_diff, x_diff)*180/math.pi:.2f}").pack()
+        selected_text = StringVar(value=selections[0])
+        combo = ttk.Combobox(dialog, values=selections, state='readonly', textvariable=selected_text)
+        combo.pack(pady=10)
+        tk.Button(dialog, text="Record", command=lambda text=selected_text.get(): self.record_data(sel_data[text])).pack(pady=10)
 
-    def calculate_period_distance(self):
-        pass
+    def record_data(self, value):
+        print(f"Recorded value: {value}")
 
     def draw_line(self):
         if len(self.layers[ElementLayer.MARKER]) == 2:
@@ -258,8 +331,9 @@ class PlotAnalyser:
             self.canvas.draw()
             self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
 
-    def show_point_properties(self, coords):
+    def show_point_properties(self):
         # Create a properties dialog
+        coords = self.last_click_coords
         if coords:
             x, y = coords
             dialog = tk.Toplevel(self.root)
@@ -289,6 +363,86 @@ class PlotAnalyser:
                     pass
             tk.Button(dialog, text="Update", command=update_point).pack(pady=10)
 
+    def open_file(self):
+        pass
+
+    def save_image(self):
+        if self._plot_file_name:
+            self.fig.savefig(self._plot_file_name, dpi=300, bbox_inches='tight')
+            messagebox.showinfo("Save", f"Plot saved to:\n{self._plot_file_name}")
+        else:
+            self.save_image_as()
+
+    def save_image_as(self):
+        self._plot_file_name = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[
+                ("PNG files", "*.png"),
+                ("PDF files", "*.pdf"),
+                ("SVG files", "*.svg"),
+                ("All files", "*.*")
+            ]
+        )
+        if self._plot_file_name:
+            self.fig.savefig(self._plot_file_name, dpi=300, bbox_inches='tight')
+            messagebox.showinfo("Save as", f"Plot saved to:\n{self._plot_file_name}")
+
+    def export_pdf(self):
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")]
+        )
+        if filename:
+            self.fig.savefig(filename, format='pdf', bbox_inches='tight')
+            messagebox.showinfo("Export PDF", f"Plot saved to:\n{filename}")
+    
+    def exit(self):
+        pass
+
+    def remove_last_point(self):
+        if len(self.layers[ElementLayer.MARKER]) > 0:
+            last_marker = self.layers[ElementLayer.MARKER].pop()
+            if last_marker:
+                last_marker.remove()
+                self.canvas.draw()
+
+    def clear_all_markers(self):
+        for marker in self.layers[ElementLayer.MARKER]:
+            if marker:
+                marker.remove()
+        self.layers[ElementLayer.MARKER].clear()
+        self.canvas.draw()
+
+    def remove_last_line(self):
+        if len(self.layers[ElementLayer.GUIDELINE]) > 0:
+            last_line, text = self.layers[ElementLayer.GUIDELINE].pop()
+            if last_line:
+                for artist in last_line:
+                    if artist:
+                        artist.remove()
+            if text:
+                text.remove()
+            self.canvas.draw()
+
+    def clear_all_lines(self):
+        for line in self.layers[ElementLayer.GUIDELINE]:
+            if line:
+                for artist in line:
+                    if artist:
+                        artist.remove()
+        self.layers[ElementLayer.GUIDELINE] = []
+        self.canvas.draw()
+
+    def reset_view(self):
+        self.ax.relim()
+        self.ax.autoscale_view()
+        self.fig.canvas.draw()
+        self.clear_all_markers()
+        self.clear_all_lines()
+    
+    def references(self):
+        messagebox.showinfo("References", "Plot Analyser\nVersion 1.0")
+
     def on_closing(self):
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
             plt.close(self.fig)
@@ -296,37 +450,27 @@ class PlotAnalyser:
             self.root.destroy()
 #endregion
 
-
-    # def _update_context_menu_event(self, event):
-    #     self.last_click_coords = (event.xdata, event.ydata)
-    #     self.fig._last_right_click = (event.xdata, event.ydata, event.inaxes)
-    #     menu = tk.Menu(self.root, tearoff=0)
-    #     for item in self.commands:
-    #         keys = list(item.keys())
-    #         if item.get(keys[0]).startswith('seperator'):
-    #             cmd = getattr(menu, item.get(keys[1]))
-    #             cmd()
-    #         else:
-    #             cmd = item.get(keys[1])
-    #             menu.add_command(label=item.get(keys[0]), command=lambda: cmd(self.last_click_coords))
-    #     return menu
-
 import numpy as np
-def main():
-    fig, ax = plt.subplots(figsize=(10, 6))
-    x = np.linspace(0, 4*np.pi, 200)
-    y = np.sin(x) * np.exp(-0.1*x)
-    ax.plot(x, y, 'b-', linewidth=2, label='sin(x) * exp(-0.1x)')
-    ax.fill_between(x, y, alpha=0.2)
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.legend()
-    ax.grid(True, alpha=0.3)
+def main(type):
+    if type == 1:
+        # 1- Create sample plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.linspace(0, 4*np.pi, 200)
+        y = np.sin(x) * np.exp(-0.1*x)
+        ax.plot(x, y, 'b-', linewidth=2, label='sin(x) * exp(-0.1x)')
+        ax.fill_between(x, y, alpha=0.2)
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
 
-    # Create dynamic context menu
-    dynamic_menu = PlotAnalyser(fig, ax)
-
-    plt.show()
+        # Create dynamic context menu
+        dynamic_menu = PlotAnalyser(fig, ax)
+    else:
+        # 2- create plot in PlotAnalyser class
+        data_x = np.linspace(0, 10, 100)
+        data_y = np.cos(data_x) * np.exp(-0.05*data_x)
+        dynamic_menu = PlotAnalyser(data=(data_x, data_y), figsize=(10,6))
 
 if __name__ == '__main__':
-    main()
+    main(0)
