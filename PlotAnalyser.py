@@ -290,11 +290,6 @@ class PlotAnalyser:
         y_diff = y2 - y1
         y_perc = (y_diff / y1 * 100) if y1 != 0 else float('inf')
         tangent = (y_diff / x_diff) if x_diff !=0 else float('inf')
-        # create pup-up dialog
-        dialog = tk.Toplevel(self.root)
-        dialog.title("comparison of 2 points")
-        dialog.geometry("300x300")
-        
         selections = [' '.join(e.name.split('_')) for e in PROPERTY_2_POINTS]
         data = [0]*len(selections)
         data[0] = x_diff
@@ -302,18 +297,25 @@ class PlotAnalyser:
         data[2] = y_perc
         data[3] = tangent
         sel_data = dict(zip(selections, data))
-        tk.Label(dialog, text=f"Coordinates:", font=('Arial', 12, 'bold')).pack()
-        tk.Label(dialog, text=f"x1, y1 = ({x1:.6f}, {y1:.6f}) ").pack()
-        tk.Label(dialog, text=f"x2, y2 = ({x2:.6f}, {y2:.6f})").pack()
-        tk.Label(dialog, text=f"{selections[0]} = {x_diff:.6f}").pack()
-        tk.Label(dialog, text=f"{selections[1]} = {y_diff:.6f}").pack()
-        tk.Label(dialog, text=f"{selections[2]} = {y_perc:.2f}%").pack()
-        tk.Label(dialog, text=f"{selections[3]} = {tangent:.2f}").pack()
-        tk.Label(dialog, text=f"Degree of Line = {math.atan2(y_diff, x_diff)*180/math.pi:.2f}").pack()
         selected_text = StringVar(value=selections[0])
-        combo = ttk.Combobox(dialog, values=selections, state='readonly', textvariable=selected_text)
-        combo.pack(pady=10)
-        tk.Button(dialog, text="Record", command=lambda text=selected_text.get(): self.record_data(sel_data[text])).pack(pady=10)
+        # create pup-up dialog
+        def create_properties_dialog():
+            dialog = tk.Toplevel(self.root)
+            dialog.title("comparison of 2 points")
+            dialog.geometry("300x300")
+            
+            tk.Label(dialog, text=f"Coordinates:", font=('Arial', 12, 'bold')).pack()
+            tk.Label(dialog, text=f"x1, y1 = ({x1:.6f}, {y1:.6f}) ").pack()
+            tk.Label(dialog, text=f"x2, y2 = ({x2:.6f}, {y2:.6f})").pack()
+            tk.Label(dialog, text=f"{selections[0]} = {x_diff:.6f}").pack()
+            tk.Label(dialog, text=f"{selections[1]} = {y_diff:.6f}").pack()
+            tk.Label(dialog, text=f"{selections[2]} = {y_perc:.2f}%").pack()
+            tk.Label(dialog, text=f"{selections[3]} = {tangent:.2f}").pack()
+            tk.Label(dialog, text=f"Degree of Line = {math.atan2(y_diff, x_diff)*180/math.pi:.2f}").pack()
+            combo = ttk.Combobox(dialog, values=selections, state='readonly', textvariable=selected_text)
+            combo.pack(pady=10)
+            tk.Button(dialog, text="Record", command=lambda text=selected_text.get(): self.record_data(sel_data[text])).pack(pady=10)
+        create_properties_dialog()
 
     def record_data(self, value):
         print(f"Recorded value: {value}")
