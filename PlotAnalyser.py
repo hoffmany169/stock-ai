@@ -1,4 +1,4 @@
-import math
+import math, sys
 from tkinter import StringVar, filedialog, messagebox
 import matplotlib
 
@@ -22,9 +22,8 @@ class COMMAND(AutoIndex):
       draw_horizontal_line = ()
       draw_vertical_line = ()
       seperator_2 = ()
-      add_first_point = ()
-      add_second_point = ()
-      seperator_3 = ()
+      add_point = ()
+    #   add_second_point = ()
 
 
 class FILE_MENU_COMMAND(AutoIndex):
@@ -67,7 +66,7 @@ class PROPERTY_2_POINTS(AutoIndex):
 
 class PlotAnalyser:
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, fig=None, ax=None, data=None, figsize=(10,6)):
+    def __init__(self, fig=None, ax=None, data=None, plot_label='Data', figsize=(10,6)):
         """
         Docstring for __init__
         two scenarios:
@@ -78,29 +77,28 @@ class PlotAnalyser:
         :param data: data to plot
         :param figsize: figure size
         """
+        if data is None:
+            raise ValueError("Data must be provided when fig and ax are not given.")
         self._plot_file_name = None
         self.last_click_coords = None
         self.menu_items = {} # map function name (string) -> command index
-        if data is not None:
-            self.fig, self.ax = plt.subplots(figsize=figsize)
-            x, y = data
-            self.ax.plot(x, y, 'b-', linewidth=2)
-            self.ax.set_xlabel('X')
-            self.ax.set_ylabel('Y')
-            self.ax.grid(True, alpha=0.3)
-        else:
+        if fig:
             self.fig = fig
+            self.ax = plt.gca()
+        elif ax:
             self.ax = ax
+            self.fig = plt.gcf()
+        else:
+            self.fig, self.ax = plt.subplots(figsize=figsize)
+
+        self.x, self.y = data
+        self.ax.plot(self.x, self.y, 'b-', label=plot_label, linewidth=2)
+        self.ax.grid(True, alpha=0.3)
         self.canvas = self.fig.canvas
         self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
         self.__comm_init__()
-        plt.show()
+        # plt.show()
         
-    # def __init__(self, data):
-    #     self.fig, self.ax = plt.subplots(figsize=(10, 6))
-    #     self.canvas = self.fig.canvas
-    #     self.__comm_init__()
-
     def __comm_init__(self):
         # Get the Tk root window
         self.root = self.canvas.manager.window
@@ -128,10 +126,11 @@ class PlotAnalyser:
             ElementLayer.ANNOTATION: [],
             ElementLayer.GUIDELINE: []
         }
+        self.points_to_line = {}
         # We'll create the menu dynamically each time        
         self.canvas.mpl_connect('button_press_event', self.on_right_click)
 
-#region # properties    
+#region # properties   
     @property
     def marker_style(self):
         if self._marker_style == MARKER_STYLE.green_cross:
@@ -163,6 +162,9 @@ class PlotAnalyser:
             self._line_style = line
 #endregion # properties
 
+    def show_plot(self):
+        plt.show()
+
     def _create_menu_bar(self):
         self.menubar = tk.Menu(self.root)
         self.root.config(menu=self.menubar)
@@ -181,13 +183,9 @@ class PlotAnalyser:
             if e.name.startswith('seperator'):
                 menu.add_separator()
             else:
-                if e.name == 'exit':
-                    menu.add_command(label=label_text, 
-                                    command=cmd)
-                else:
-                    cmd = getattr(self, e.name)
-                    menu.add_command(label=label_text, 
-                                    command=cmd)
+                cmd = getattr(self, e.name)
+                menu.add_command(label=label_text, 
+                                command=cmd)
 
     def _create_context_menu_commands(self):
         self.context_menu = tk.Menu(self.root, tearoff=0)
@@ -197,6 +195,22 @@ class PlotAnalyser:
             else:
                 self.context_menu.add_command(label=' '.join(e.name.split('_')), command=self.dummy_command)
                 self.menu_items[e.name] = self.context_menu.index("end")
+
+    def fill_between(self, alpha=0.2):
+        """Fill area under the curve with specified alpha transparency."""
+        self.ax.fill_between(self.x, self.y, alpha=alpha)
+        self.canvas.draw()
+
+    def set_labels(self, xlabel='', ylabel=''):
+        """Set x and y axis labels."""
+        self.ax.set_xlabel(xlabel)
+        self.ax.set_ylabel(ylabel)
+        self.canvas.draw()
+
+    def set_legend(self, location='upper right', shadow=True, fsize='x-small'):
+        """Set legend on the plot."""
+        self.ax.legend(loc=location, shadow=shadow, fontsize=fsize)
+        self.canvas.draw()
 
     def on_right_click(self, event):
         if event.button == 3 and event.inaxes == self.ax:  # Right-click in axes
@@ -254,7 +268,7 @@ class PlotAnalyser:
         self.ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
         self.fig.canvas.draw()
     
-    def add_first_point(self, coords):
+    def add_point(self, coords):
         if coords:
             x, y = coords
             # print(f"Clicked at data coords: ({x}, {y})")
@@ -278,7 +292,7 @@ class PlotAnalyser:
                 messagebox.showwarning("Warning", "Please add the first point before adding the second point.")
                 return
             elif len(self.layers[ElementLayer.MARKER]) > 1:
-                self.layers[ElementLayer.MARKER].slice(1, None)  # keep only the first point
+                self.layers[ElementLayer.MARKER].pop()  # keep only the first point
             self.layers[ElementLayer.MARKER].append(artist)  # placeholder for first point
             self.canvas.draw()
             print(f"Added point marker at ({x:.3f}, {y:.3f})")
@@ -326,17 +340,49 @@ class PlotAnalyser:
         Visual angle = arctan(Data slope × (y_scale / x_scale))
              = arctan(Data slope / Aspect_ratio)
         """
-        if len(self.layers[ElementLayer.MARKER]) == 2:
-            x1 = float(self.layers[ElementLayer.MARKER][0].get_xdata()[0])
-            y1 = float(self.layers[ElementLayer.MARKER][0].get_ydata()[0])
-            x2 = float(self.layers[ElementLayer.MARKER][1].get_xdata()[0])
-            y2 = float(self.layers[ElementLayer.MARKER][1].get_ydata()[0])
+        if len(self.layers[ElementLayer.MARKER]) >= 2:
+            point_num = len(self.layers[ElementLayer.MARKER])
+            first_points_idx = [i for i in range(1, point_num)]
+            second_points_idx = [i for i in range(1, point_num)]
+            def create_select_start_end_point_dialog():
+                dialog = tk.Toplevel(self.root)
+                dialog.title("Select Start and End Points")
+                dialog.geometry("300x200")
+                
+                tk.Label(dialog, text="Select Start Point:").pack()
+                start_var = StringVar(value=str(first_points_idx[0]))
+                start_combo = ttk.Combobox(dialog, values=first_points_idx, state='readonly', textvariable=start_var)
+                start_combo.pack(pady=5)
+                
+                tk.Label(dialog, text="Select End Point:").pack()
+                end_var = StringVar(value=str(second_points_idx[0]))
+                end_combo = ttk.Combobox(dialog, values=second_points_idx, state='readonly', textvariable=end_var)
+                end_combo.pack(pady=5)
+                
+                def on_confirm():
+                    start_idx = int(start_var.get()) - 1
+                    end_idx = int(end_var.get()) - 1
+                    if start_idx != end_idx:
+                        self._draw_line_between_points(start_idx, end_idx)
+                        dialog.destroy()
+                    else:
+                        messagebox.showwarning("Warning", "Start and End points must be different.")
+                
+                tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
+    
+    def _draw_line_between_points(self, start_idx, end_idx):
+            x1 = float(self.layers[ElementLayer.MARKER][start_idx].get_xdata()[0])
+            y1 = float(self.layers[ElementLayer.MARKER][start_idx].get_ydata()[0])
+            x2 = float(self.layers[ElementLayer.MARKER][end_idx].get_xdata()[0])
+            y2 = float(self.layers[ElementLayer.MARKER][end_idx].get_ydata()[0])
             artist1 = self.ax.plot([x1, x2], [y1, y2], self.line_style, color='b')
             visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
             artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'tangent={visual_angle:.2f}', 
                         rotation=visual_angle, verticalalignment='top')
             self.canvas.draw()
             self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
+            self.points_to_line[(start_idx, end_idx)] = len(self.layers[ElementLayer.GUIDELINE]) - 1
+
 
     def show_point_properties(self):
         # Create a properties dialog
@@ -404,7 +450,7 @@ class PlotAnalyser:
             messagebox.showinfo("Export PDF", f"Plot saved to:\n{filename}")
     
     def exit(self):
-        pass
+        sys.exit(0)
 
     def remove_last_point(self):
         if len(self.layers[ElementLayer.MARKER]) > 0:
@@ -459,25 +505,27 @@ class PlotAnalyser:
 
 import numpy as np
 def main(type):
-    if type == 1:
-        # 1- Create sample plot
-        fig, ax = plt.subplots(figsize=(10, 6))
-        x = np.linspace(0, 4*np.pi, 200)
-        y = np.sin(x) * np.exp(-0.1*x)
-        ax.plot(x, y, 'b-', linewidth=2, label='sin(x) * exp(-0.1x)')
-        ax.fill_between(x, y, alpha=0.2)
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-
-        # Create dynamic context menu
-        dynamic_menu = PlotAnalyser(fig, ax)
-    else:
+    if type == 0: ## without fig
         # 2- create plot in PlotAnalyser class
         data_x = np.linspace(0, 10, 100)
         data_y = np.cos(data_x) * np.exp(-0.05*data_x)
         dynamic_menu = PlotAnalyser(data=(data_x, data_y), figsize=(10,6))
+    else:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x = np.linspace(0, 4*np.pi, 200)
+        y = np.sin(x) * np.exp(-0.1*x)
+        # ax.legend()
+        # ax.grid(True, alpha=0.3)
+
+        if type == 1: ## with fig
+            # Create dynamic context menu
+            dynamic_menu = PlotAnalyser(data=(x, y), fig=fig)
+        else: ## with ax
+            dynamic_menu = PlotAnalyser(data=(x, y), ax=ax)
+    dynamic_menu.fill_between(alpha=0.2)
+    dynamic_menu.set_labels(xlabel='X-axis', ylabel='Y-axis')
+    dynamic_menu.set_legend()
+    dynamic_menu.show_plot()
 
 if __name__ == '__main__':
-    main(0)
+    main(2)
