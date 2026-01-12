@@ -41,8 +41,8 @@ class ACTION_MENU_COMMAND(AutoIndex):
       show_comparison_2_points = ()
       draw_line = ()
       seperator_1 = ()
-      remove_last_point = ()
-      remove_last_line = ()
+      remove_point = ()
+      remove_line = ()
       clear_all_markers = ()
       clear_all_lines = ()
       reset_view = ()
@@ -275,27 +275,22 @@ class PlotAnalyser:
             # x_tk = self.root.winfo_pointerx() - self.root.winfo_rootx()
             # y_tk = self.root.winfo_pointery() - self.root.winfo_rooty()
             # print(f"Clicked at Tk coords: ({x_tk}, {y_tk})")
-            artist = self.ax.plot(x, y, self.marker_style, markersize=10, alpha=0.7, 
+            artist = self.ax.plot(x, y, self.marker_style, markersize=4, alpha=0.7, 
                         markeredgecolor='black', markeredgewidth=2)[0]
-            if len(self.layers[ElementLayer.MARKER]) > 0:
-                self.layers[ElementLayer.MARKER].clear()
-            self.layers[ElementLayer.MARKER].append(artist)
+            idx = len(self.layers[ElementLayer.MARKER]) + 1
+            artist_idx = self.ax.text(x, y, f'P{idx}', weight='bold', 
+                        verticalalignment='bottom', horizontalalignment='left', color='black')
+            self.layers[ElementLayer.MARKER].append((artist, artist_idx, idx))
             self.canvas.draw()
             print(f"Added point marker at ({x:.3f}, {y:.3f})")
 
-    def add_second_point(self, coords):
-        if coords:
-            x, y = coords
-            artist = self.ax.plot(x, y, self.marker_style, markersize=10, alpha=0.7, 
-                        markeredgecolor='black', markeredgewidth=2)[0]
-            if len(self.layers[ElementLayer.MARKER]) == 0:
-                messagebox.showwarning("Warning", "Please add the first point before adding the second point.")
-                return
-            elif len(self.layers[ElementLayer.MARKER]) > 1:
-                self.layers[ElementLayer.MARKER].pop()  # keep only the first point
-            self.layers[ElementLayer.MARKER].append(artist)  # placeholder for first point
-            self.canvas.draw()
-            print(f"Added point marker at ({x:.3f}, {y:.3f})")
+    def update_points_marker(self):
+        for artist, artist_idx, idx in self.layers[ElementLayer.MARKER]:
+            x = float(artist.get_xdata()[0])
+            y = float(artist.get_ydata()[0])
+            artist_idx.set_position((x, y))
+            artist_idx.set_text(f'P{idx}')
+        self.canvas.draw()
 
     def show_comparison_2_points(self):
         x1, y1 = self.layers[ElementLayer.MARKER][0].get_xdata()[0], self.layers[ElementLayer.MARKER][0].get_ydata()[0]
@@ -342,8 +337,8 @@ class PlotAnalyser:
         """
         if len(self.layers[ElementLayer.MARKER]) >= 2:
             point_num = len(self.layers[ElementLayer.MARKER])
-            first_points_idx = [i for i in range(1, point_num)]
-            second_points_idx = [i for i in range(1, point_num)]
+            first_points_idx = [i for i in range(1, point_num+1)]
+            second_points_idx = [i for i in range(1, point_num+1)]
             def create_select_start_end_point_dialog():
                 dialog = tk.Toplevel(self.root)
                 dialog.title("Select Start and End Points")
@@ -369,20 +364,36 @@ class PlotAnalyser:
                         messagebox.showwarning("Warning", "Start and End points must be different.")
                 
                 tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
-    
+            create_select_start_end_point_dialog()
+
     def _draw_line_between_points(self, start_idx, end_idx):
-            x1 = float(self.layers[ElementLayer.MARKER][start_idx].get_xdata()[0])
-            y1 = float(self.layers[ElementLayer.MARKER][start_idx].get_ydata()[0])
-            x2 = float(self.layers[ElementLayer.MARKER][end_idx].get_xdata()[0])
-            y2 = float(self.layers[ElementLayer.MARKER][end_idx].get_ydata()[0])
+            if start_idx == end_idx:
+                messagebox.showwarning("Warning", "Start and End points must be different.")
+                return
+            x1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_xdata()[0])
+            y1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_ydata()[0])
+            x2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_xdata()[0])
+            y2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_ydata()[0])
             artist1 = self.ax.plot([x1, x2], [y1, y2], self.line_style, color='b')
             visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
-            artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'tangent={visual_angle:.2f}', 
+            text_number = len(self.layers[ElementLayer.GUIDELINE]) + 1
+            artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'L{text_number}', 
                         rotation=visual_angle, verticalalignment='top')
             self.canvas.draw()
-            self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
-            self.points_to_line[(start_idx, end_idx)] = len(self.layers[ElementLayer.GUIDELINE]) - 1
+            self.points_to_line[(start_idx, end_idx)] = len(self.layers[ElementLayer.GUIDELINE])
+            self.layers[ElementLayer.GUIDELINE].append((artist1, artist2, text_number))
 
+    def update_lines(self):
+        for line, text, text_number in self.layers[ElementLayer.GUIDELINE]:
+            xdata = line[0].get_xdata()
+            ydata = line[0].get_ydata()
+            x1, x2 = xdata[0], xdata[1]
+            y1, y2 = ydata[0], ydata[1]
+            visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
+            text.set_position(((x1+x2)/2, (y1+y2)/2))
+            text.set_rotation(visual_angle)
+            text.set_text(f'L{text_number}')
+        self.canvas.draw()
 
     def show_point_properties(self):
         # Create a properties dialog
@@ -452,12 +463,87 @@ class PlotAnalyser:
     def exit(self):
         sys.exit(0)
 
-    def remove_last_point(self):
-        if len(self.layers[ElementLayer.MARKER]) > 0:
-            last_marker = self.layers[ElementLayer.MARKER].pop()
-            if last_marker:
-                last_marker.remove()
-                self.canvas.draw()
+    def remove_point(self):
+        def create_remove_point_dialog():
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Remove Point Marker")
+            dialog.geometry("300x150")
+            
+            tk.Label(dialog, text="Select Point to Remove:").pack()
+            point_indices = [item[2] for item in self.layers[ElementLayer.MARKER]]
+            point_var = StringVar(value=str(point_indices[0]))
+            point_combo = ttk.Combobox(dialog, values=point_indices, state='readonly', textvariable=point_var)
+            point_combo.pack(pady=5)
+            def on_delete_point():
+                point_idx = point_combo.current()
+                print(f"Deleting point index: {point_idx}")
+                to_deleted_line_idx = []
+                to_deleted_points =None
+                to_deleted_point_idx = -1
+                if 0 <= point_idx < len(self.layers[ElementLayer.MARKER]):
+                    ## remove entry in the points_to_line dict and update accordingly
+                    for points, line_idx in list(self.points_to_line.items()):
+                        if point_idx in points:
+                            # remember to delete this line
+                            to_deleted_line_idx.append(line_idx)
+                            to_deleted_points = points
+                            print(f"Will delete line index: {line_idx} associated with points: {points}")
+                        else:
+                            # update point indices in the keys
+                            new_pnts = tuple(p-1 if p > point_idx else p for p in points)
+                            if new_pnts != points:
+                                self.points_to_line[new_pnts] = self.points_to_line.pop(points)
+                    # remove the point
+                    for i, (artist, artist_idx, idx) in enumerate(self.layers[ElementLayer.MARKER]):
+                        if i == point_idx:
+                            if artist:
+                                artist.remove()
+                            if artist_idx:
+                                artist_idx.remove()
+                            self.layers[ElementLayer.MARKER][i] = None
+                            to_deleted_point_idx = i
+                            self.canvas.draw()
+                        else:
+                            if idx > point_idx:
+                                self.layers[ElementLayer.MARKER][i] = (artist, artist_idx, idx-1)
+                    self.layers[ElementLayer.MARKER].pop(to_deleted_point_idx)
+                    # remove the associated lines
+                    if len(to_deleted_line_idx) > 0:
+                        sorted_line_idx = sorted(to_deleted_line_idx)
+                        # update line indices in points_to_line dict
+                        for points, l_idx in list(self.points_to_line.items()):
+                            decrement = sum(1 for dl_idx in sorted_line_idx if dl_idx < l_idx)
+                            if decrement > 0:
+                                self.points_to_line[points] = l_idx - decrement
+                        # update indices of lines
+                        for i, (line, text, idx) in enumerate(self.layers[ElementLayer.GUIDELINE]):
+                            # update only those lines after the removed line
+                            decrement = sum(1 for dl_idx in sorted_line_idx if dl_idx < idx)
+                            if decrement > 0:
+                                self.layers[ElementLayer.GUIDELINE][i] = (line, text, idx - decrement)
+
+                        # delete item from points_to_line
+                        del self.points_to_line[to_deleted_points]
+                        # remove associated line
+                        for line_idx in to_deleted_line_idx:
+                            line, text, idx = self.layers[ElementLayer.GUIDELINE][line_idx]
+                            if line:
+                                for artist in line:
+                                    if artist:
+                                        artist.remove()
+                            if text:
+                                text.remove()
+                            self.layers[ElementLayer.GUIDELINE].pop(line_idx)
+                    self.update_points_marker()
+                    self.update_lines()
+                    self.canvas.draw()
+                    if dialog:
+                        dialog.destroy()
+                else:
+                    messagebox.showwarning("Warning", "Invalid point index.")
+            tk.Button(dialog, text="Confirm", command=on_delete_point).pack(pady=10)
+        create_remove_point_dialog()
+
 
     def clear_all_markers(self):
         for marker in self.layers[ElementLayer.MARKER]:
@@ -466,16 +552,59 @@ class PlotAnalyser:
         self.layers[ElementLayer.MARKER].clear()
         self.canvas.draw()
 
-    def remove_last_line(self):
-        if len(self.layers[ElementLayer.GUIDELINE]) > 0:
-            last_line, text = self.layers[ElementLayer.GUIDELINE].pop()
-            if last_line:
-                for artist in last_line:
-                    if artist:
-                        artist.remove()
-            if text:
-                text.remove()
-            self.canvas.draw()
+    def remove_line(self):
+        def create_remove_line_dialog():
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Remove Guideline")
+            dialog.geometry("300x150")
+            
+            tk.Label(dialog, text="Select Line to Remove:").pack()
+            line_indices = [i+1 for i in range(len(self.layers[ElementLayer.GUIDELINE]))]
+            line_var = StringVar(value=str(line_indices[0]))
+            line_combo = ttk.Combobox(dialog, values=line_indices, state='readonly', textvariable=line_var)
+            line_combo.pack(pady=5)
+            remove_points_var = tk.BooleanVar(value=False)
+            tk.Checkbutton(dialog, text="Also remove associated points", variable=remove_points_var).pack()
+            
+            def on_confirm():
+                line_idx = int(line_var.get()) - 1
+                delete_points = []
+                if 0 <= line_idx < len(self.layers[ElementLayer.GUIDELINE]):
+                    # update points_to_line dict
+                    for points, l_idx in list(self.points_to_line.items()):
+                        if l_idx == line_idx:
+                            if remove_points_var.get():
+                                delete_points.extend(points)
+                            # del self.points_to_line[points]
+                        elif l_idx > line_idx:
+                            self.points_to_line[points] = l_idx - 1
+                    line, text = self.layers[ElementLayer.GUIDELINE].pop(line_idx)
+                    if line:
+                        for artist in line:
+                            if artist:
+                                artist.remove()
+                    if text:
+                        text.remove()
+                    if remove_points_var.get():
+                        for points, l_idx in list(self.points_to_line.items()):
+                            if l_idx == line_idx:
+                                for p_idx in points:
+                                    if 0 <= p_idx < len(self.layers[ElementLayer.MARKER]):
+                                        marker, idx = self.layers[ElementLayer.MARKER][p_idx]
+                                        if marker:
+                                            marker.remove()
+                                        if idx:
+                                            idx.remove()
+                                del self.points_to_line[points]
+                    self.update_points_marker()
+                    self.update_lines()
+                    self.canvas.draw()
+                    dialog.destroy()
+                else:
+                    messagebox.showwarning("Warning", "Invalid line index.")
+            
+            tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
+        create_remove_line_dialog()
 
     def clear_all_lines(self):
         for line in self.layers[ElementLayer.GUIDELINE]:
