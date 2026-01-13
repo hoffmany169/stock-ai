@@ -45,7 +45,7 @@ class StockModelTest(TestCase):
     def testLoadScaler(self):
         pass
 
-from predict_by_model import Model_Prediction
+from reference_methods.predict_by_model import Model_Prediction
 class ModelPredictionTest(TestCase):
     @classmethod
     def setUpClass(cls):
