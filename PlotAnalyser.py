@@ -92,10 +92,17 @@ class PlotAnalyser:
             self.fig, self.ax = plt.subplots(figsize=figsize)
 
         self.x, self.y = data
-        self.ax.plot(self.x, self.y, 'b-', label=plot_label, linewidth=2)
+        line, = self.ax.plot(self.x, self.y, 'b-', label=plot_label, linewidth=2)
         self.ax.grid(True, alpha=0.3)
         self.canvas = self.fig.canvas
         self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
+        self.curve = {
+            'x': np.array(self.x),
+            'y': np.array(self.y),
+            'points': np.column_stack((self.x, self.y)),
+            'artist': line,
+            'color': line.get_color()
+        }
         self.__comm_init__()
         # plt.show()
         
@@ -104,6 +111,8 @@ class PlotAnalyser:
         self.root = self.canvas.manager.window
         self._marker_style = MARKER_STYLE.red_circle
         self._line_style = LINE_STYLE.dashed_line
+        # if activate real-time search
+        self._real_time_search = True # default is True
         # Set window title
         self.root.title("Matplotlib Plot with Menu Bar")
         
@@ -129,8 +138,17 @@ class PlotAnalyser:
         self.points_to_line = {}
         # We'll create the menu dynamically each time        
         self.canvas.mpl_connect('button_press_event', self.on_right_click)
+        # self.canvas.mpl_connect('motion_notify_event', self.on_hover)
 
 #region # properties   
+    @property
+    def real_time_search(self):
+        return self._real_time_search
+    @real_time_search.setter
+    def real_time_search(self, value):
+        if type(value) == bool:
+            self._real_time_search = value
+
     @property
     def marker_style(self):
         if self._marker_style == MARKER_STYLE.green_cross:
@@ -226,6 +244,7 @@ class PlotAnalyser:
             except:
                 # Fallback
                 self.context_menu.post(self.last_click_coords)
+            
 #region ### event callback functions    
     def dummy_command(self):
         """Placeholder - will be replaced"""
@@ -270,7 +289,8 @@ class PlotAnalyser:
     
     def add_point(self, coords):
         if coords:
-            x, y = coords
+            result = self.find_closest_point(coords[0], coords[1])
+            x, y = result['point']
             # print(f"Clicked at data coords: ({x}, {y})")
             # x_tk = self.root.winfo_pointerx() - self.root.winfo_rootx()
             # y_tk = self.root.winfo_pointery() - self.root.winfo_rooty()
@@ -283,6 +303,37 @@ class PlotAnalyser:
             self.layers[ElementLayer.MARKER].append((artist, artist_idx, idx))
             self.canvas.draw()
             print(f"Added point marker at ({x:.3f}, {y:.3f})")
+
+    def find_closest_point(self, x_click, y_click):
+        """
+        暴力搜索：计算所有距离，找到最小值
+        时间复杂度：O(n)，适合小数据集
+        """
+        x_curve = self.curve['x']
+        y_curve = self.curve['y']
+        # 计算所有距离
+        distances = np.sqrt((x_curve - x_click)**2 + (y_curve - y_click)**2)
+        
+        # 找到最小距离的索引
+        min_index = np.argmin(distances)
+        
+        return {
+            'index': min_index,
+            'point': (x_curve[min_index], y_curve[min_index]),
+            'distance': distances[min_index]
+        }
+
+    def _find_closest_marker_index(self, x, y):
+        min_dist = float('inf')
+        closest_idx = -1
+        for i, (artist, artist_idx, idx) in enumerate(self.layers[ElementLayer.MARKER]):
+            px = float(artist.get_xdata()[0])
+            py = float(artist.get_ydata()[0])
+            dist = math.hypot(px - x, py - y)
+            if dist < min_dist:
+                min_dist = dist
+                closest_idx = i
+        return closest_idx
 
     def update_points_marker(self):
         for artist, artist_idx, idx in self.layers[ElementLayer.MARKER]:
@@ -533,7 +584,9 @@ class PlotAnalyser:
                                         artist.remove()
                             if text:
                                 text.remove()
-                            self.layers[ElementLayer.GUIDELINE].pop(line_idx)
+                            self.layers[ElementLayer.GUIDELINE][line_idx] = None
+                        # remove None entries
+                        self.layers[ElementLayer.GUIDELINE] = [item for item in self.layers[ElementLayer.GUIDELINE] if item is not None]
                     self.update_points_marker()
                     self.update_lines()
                     self.canvas.draw()
