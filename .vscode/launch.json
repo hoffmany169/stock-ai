@@ -41,10 +41,10 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python-Debugger: stock_model_test",
+            "name": "Python-Debugger: select_stock",
             "type": "debugpy",
             "request": "launch",
-            "program": "stock_model_test.py",
+            "program": "select_stock.py",
             "console": "integratedTerminal"
         },
         {
