@@ -115,20 +115,22 @@ class LSTM_Select_Stock(MachineLearningFramework):
             if LSTM_Select_Stock.is_feature_used(FEATURE.RSI) :df[FEATURE.RSI] = self._compute_rsi(df['Close'])
             if LSTM_Select_Stock.is_feature_used(FEATURE.MACD) :df[FEATURE.MACD] = self._compute_macd(df['Close'])
             if LSTM_Select_Stock.is_feature_used(FEATURE.Volume_MA_5) :df[FEATURE.Volume_MA_5] = df['Volume'].rolling(5).mean() 
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Price_Volume_Ratio) :df[FEATURE.Price_Volume_Ratio] = df['Close'] / df['Volume_MA_5'] 
+            if LSTM_Select_Stock.is_feature_used(FEATURE.Price_Volume_Ratio) :df[FEATURE.Price_Volume_Ratio] = df['Close'] / df[FEATURE.Volume_MA_5] 
             # 获取基本面指标
-            value = self.get_pe_ratio(ticker)
-            if np.isnan(value):
-                LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PE] = False
-            else:
-                df[FEATURE.PE] = value
-            value = self.get_pb_ratio(ticker)
-            if np.isnan(value):
-                LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PB] = False
-            else:
-                df[FEATURE.PB] = value
-            df[FEATURE.PB] = value
-            df[FEATURE.Volume] = df['Volume']
+            if LSTM_Select_Stock.is_feature_used(FEATURE.PE):
+                value = self.get_pe_ratio(ticker)
+                if value is None:
+                    LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PE] = False
+                else:
+                    df[FEATURE.PE] = value
+            if LSTM_Select_Stock.is_feature_used(FEATURE.PB):                    
+                value = self.get_pb_ratio(ticker)
+                if value is None:
+                    LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PB] = False
+                else:
+                    df[FEATURE.PB] = value
+            if LSTM_Select_Stock.is_feature_used(FEATURE.Volume):   
+                df[FEATURE.Volume] = df['Volume']
 
             # 创建时间序列窗口
             target = 'Label'
@@ -193,19 +195,11 @@ class LSTM_Select_Stock(MachineLearningFramework):
                                     validation_split=0.1,
                                     callbacks=[early_stop],
                                     verbose=1)
+        
     def evaluate_model(self, output=False):        
         # 评估模型
         y_pred = (self.lstm_model.predict(self.X_test) > 0.5).astype(int)
         print(classification_report(self.y_test, y_pred, output_dict=output))
-
-    # def process_train_data(self, output=True):
-    #     # 加载并预处理数据
-    #     self.load_train_data()
-    #     self.preprocess_data()
-        
-    #     # 训练模型
-    #     self.train_model()
-    #     self.evaluate_model(output=output)
 
     def predict(self, data=None):
         """
@@ -271,7 +265,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
             }
         except Exception as e:
             print(f"Error getting P/E for {ticker}: {str(e)}")
-            return np.nan
+            return None
         
     # get price to book ratio 市净率
     # 示例用法
@@ -295,7 +289,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
                     if book_value and book_value > 0:
                         pb_ratio = current_price / book_value
                 
-                return pb_ratio if pb_ratio and pb_ratio > 0 else np.nan
+                return pb_ratio if pb_ratio and pb_ratio > 0 else None
             except Exception as e:
                 if attempt < max_retries - 1:
                     wait_time = 2 ** attempt  # 指数退避
@@ -303,7 +297,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
                     time.sleep(wait_time)
                 else:
                     print(f"Error getting P/B ratio for {ticker}: {str(e)}")
-                    return np.nan
+                    return None
                 
     
 # 主程序

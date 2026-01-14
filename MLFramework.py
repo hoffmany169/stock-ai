@@ -77,7 +77,7 @@ class MachineLearningFramework(metaclass=ABCMeta):
         """
         pass
 
-    def process_train_data(self, output=True):
+    def process_train_data(self, data, output=True):
         # 加载并预处理数据
         self.load_train_data()
         self.preprocess_data()
