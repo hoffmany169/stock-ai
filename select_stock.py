@@ -1,4 +1,3 @@
-from Common.AutoNumber import AutoIndex
 from datetime import date, time, timedelta
 import yfinance as yf
 import numpy as np
@@ -11,37 +10,17 @@ from keras.layers import LSTM, Dense, Dropout
 from keras.callbacks import EarlyStopping
 from sklearn.metrics import classification_report
 from MLFramework import MachineLearningFramework
-
-class FEATURE(AutoIndex):
-    Open_Close = ()
-    High_Low = ()
-    Close_Low = ()
-    Close_High = ()
-    Avg_Price = ()
-    Volume_Change = ()
-    MA_5 = ()
-    MA_20 = ()
-    RSI = ()
-    MACD = ()
-    Volume_MA_5 = ()
-    Price_Volume_Ratio = ()
-    PE = ()
-    PB = ()
-    Volume = ()
+from stock import TICKER, FEATURE
 
 class LSTM_Select_Stock(MachineLearningFramework):
     FEATURE_STATE_LIST = {}
-    def __init__(self, tickers:list, start_date, end_date=None, lookback=60):
-        self._tickers = tickers
-        self._start_date =  start_date
-        self._yesterday = date.today() - timedelta(days=1)
-        self._end_date = f"{self._yesterday.year}-{self._yesterday.month}-{self._yesterday}" if end_date is None else end_date
+    def __init__(self, lookback=60):
+        self._ticker = None
         self._lookback = lookback
-        self.all_data = None # data downloaded from yfinance
         self._features = []
         self._threshold = 0.05  # 5%收益率阈值
-        self.lstm_model = None
-        self.all_ticker_data = None
+        self._percent_train_test_split = 0.2
+        self._evaluation_output = False
         self.X_train = None
         self.y_train = None
         self.X_test = None
@@ -77,108 +56,131 @@ class LSTM_Select_Stock(MachineLearningFramework):
     @staticmethod
     def is_feature_used(feature):
         return LSTM_Select_Stock.FEATURE_STATE_LIST[feature]
+    
+    @staticmethod
+    def enable_feature(feature):
+        LSTM_Select_Stock.FEATURE_STATE_LIST[feature] = True
+
+    @staticmethod
+    def disable_feature(feature):
+        LSTM_Select_Stock.FEATURE_STATE_LIST[feature] = False
 #endregion
 
 #region properties
     @property
-    def threshold(self):
-        return self._threshold
-    
+    def ticker(self):
+        return self._ticker
+    @ticker.setter
+    def ticker(self, value):
+        self._ticker = value
+
     @property
-    def prediction_threshold(self):
-        return self._prediction_threshold
-    
+    def percent_train_test_split(self):
+        return self._percent_train_test_split
+    @percent_train_test_split.setter
+    def percent_train_test_split(self, value):
+        self._percent_train_test_split = value
+
     @property
     def lookback(self):
         return self._lookback
-#endregion
+    @lookback.setter
+    def lookback(self, value):
+        self._lookback = value
 
-    def load_train_data(self):
-        """load historical stock data from yfinance"""
-        self.all_data = yf.download(self._tickers, start=self._start_date, end=self._end_date, group_by='ticker')
+    @property
+    def evaluation_output(self):
+        return self._evaluation_output
+    @evaluation_output.setter
+    def evaluation_output(self, value):
+        self._evaluation_output = value
+
+    @property
+    def feature_stats(self):
+        return self._ticker[TICKER.FEATURE_STATS]
+    @feature_stats.setter
+    def feature_stats(self, value):
+        self._ticker[TICKER.FEATURE_STATS] = value
+#endregion
 
     def preprocess_data(self):
         """prepare features for model training"""
-        full_dataset = []
-        for ticker in self._tickers:
-            df = self.all_data[ticker].copy()
-            df['Ticker'] = ticker
-            # 计算技术指标
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Open_Close) :df[FEATURE.Open_Close] = df['Close'] - df['Open'] 
-            if LSTM_Select_Stock.is_feature_used(FEATURE.High_Low) :df[FEATURE.High_Low] = df['High'] - df['Low']
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Close_Low) :df[FEATURE.Close_Low] = df['Close'] - df['Low']
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Close_High) :df[FEATURE.Close_High] = df['Close'] - df['High'] 
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Avg_Price) :df[FEATURE.Avg_Price] = (df['Open'] + df['Close']) / 2
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Volume_Change) :df[FEATURE.Volume_Change] = df['Volume'].pct_change().fillna(0) 
-            if LSTM_Select_Stock.is_feature_used(FEATURE.MA_5) :df[FEATURE.MA_5] = df['Close'].rolling(window=5).mean() 
-            if LSTM_Select_Stock.is_feature_used(FEATURE.MA_20) :df[FEATURE.MA_20] = df['Close'].rolling(window=20).mean() 
-            if LSTM_Select_Stock.is_feature_used(FEATURE.RSI) :df[FEATURE.RSI] = self._compute_rsi(df['Close'])
-            if LSTM_Select_Stock.is_feature_used(FEATURE.MACD) :df[FEATURE.MACD] = self._compute_macd(df['Close'])
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Volume_MA_5) :df[FEATURE.Volume_MA_5] = df['Volume'].rolling(5).mean() 
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Price_Volume_Ratio) :df[FEATURE.Price_Volume_Ratio] = df['Close'] / df[FEATURE.Volume_MA_5] 
-            # 获取基本面指标
-            if LSTM_Select_Stock.is_feature_used(FEATURE.PE):
-                value = self.get_pe_ratio(ticker)
-                if value is None:
-                    LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PE] = False
-                else:
-                    df[FEATURE.PE] = value
-            if LSTM_Select_Stock.is_feature_used(FEATURE.PB):                    
-                value = self.get_pb_ratio(ticker)
-                if value is None:
-                    LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PB] = False
-                else:
-                    df[FEATURE.PB] = value
-            if LSTM_Select_Stock.is_feature_used(FEATURE.Volume):   
-                df[FEATURE.Volume] = df['Volume']
+        df = self._ticker[TICKER.DATA].copy()
+        if self._ticker[TICKER.FEATURE_STATS] is not None:
+            for feature in self._ticker[TICKER.FEATURE_STATS]:
+                LSTM_Select_Stock.enable_feature(feature)
+        else:
+            self._ticker[TICKER.FEATURE_STATS] = [f for f in FEATURE if LSTM_Select_Stock.is_feature_used(f)]
+        # 计算技术指标
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Open_Close)    :   df[FEATURE.Open_Close] = df['Close'] - df['Open'] 
+        if LSTM_Select_Stock.is_feature_used(FEATURE.High_Low)      :   df[FEATURE.High_Low] = df['High'] - df['Low']
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Close_Low)     :   df[FEATURE.Close_Low] = df['Close'] - df['Low']
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Close_High)    :   df[FEATURE.Close_High] = df['Close'] - df['High'] 
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Avg_Price)     :   df[FEATURE.Avg_Price] = (df['Open'] + df['Close']) / 2
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Volume_Change) :   df[FEATURE.Volume_Change] = df['Volume'].pct_change().fillna(0) 
+        if LSTM_Select_Stock.is_feature_used(FEATURE.MA_5)          :   df[FEATURE.MA_5] = df['Close'].rolling(window=5).mean() 
+        if LSTM_Select_Stock.is_feature_used(FEATURE.MA_20)         :   df[FEATURE.MA_20] = df['Close'].rolling(window=20).mean() 
+        if LSTM_Select_Stock.is_feature_used(FEATURE.RSI)           :   df[FEATURE.RSI] = self._compute_rsi(df['Close'])
+        if LSTM_Select_Stock.is_feature_used(FEATURE.MACD)          :   df[FEATURE.MACD] = self._compute_macd(df['Close'])
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Volume_MA_5)   :   df[FEATURE.Volume_MA_5] = df['Volume'].rolling(5).mean() 
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Price_Volume_Ratio):df[FEATURE.Price_Volume_Ratio] = df['Close'] / df[FEATURE.Volume_MA_5] 
+        if LSTM_Select_Stock.is_feature_used(FEATURE.Volume)        :   df[FEATURE.Volume] = df['Volume']
+        # 获取基本面指标
+        if LSTM_Select_Stock.is_feature_used(FEATURE.PE):
+            value = self.get_pe_ratio(self._ticker[TICKER.ID])
+            if value is None:
+                LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PE] = False
+            else:
+                df[FEATURE.PE] = value
+        if LSTM_Select_Stock.is_feature_used(FEATURE.PB):                    
+            value = self.get_pb_ratio(self._ticker[TICKER.ID])
+            if value is None:
+                LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PB] = False
+            else:
+                df[FEATURE.PB] = value
 
-            # 创建时间序列窗口
-            target = 'Label'
-            scaled_data = self.create_scaled_data(df) 
+        scaled_data = self.create_scaled_data(df)
 
-            X = []
-            y = []
-            for i in range(self._lookback, len(scaled_data)-5):
-                X.append(scaled_data[i-self._lookback:i, :])
-                y.append(1 if (df['Close'].iloc[i+5]/df['Close'].iloc[i] -1) > 0.05 else 0)
-            
-            self.ticker_df = pd.DataFrame({
-                'Ticker': [ticker]*len(X), # corresponding row number of X data
-                'Features': X,
-                'Label': y
-            })
-            full_dataset.append(df)
-        self.all_ticker_data = pd.concat(full_dataset).sample(frac=1).reset_index(drop=True)
+        X = []
+        y = []
+        for i in range(self._lookback, len(scaled_data)-5):
+            X.append(scaled_data[i-self._lookback:i, :])
+            y.append(1 if (df['Close'].iloc[i+5]/df['Close'].iloc[i] -1) > 0.05 else 0)
+
+        self._ticker[TICKER.TRAIN_DATA] = pd.DataFrame({
+            'Ticker': [self._ticker[TICKER.ID]]*len(X), # corresponding row number of X data, this is used for ticker identification
+            'Features': X,
+            'Label': y
+        })
 
     def create_scaled_data(self, df):
-        features = [f for f in FEATURE if LSTM_Select_Stock.is_feature_used(f)]
-        scaler = StandardScaler()
-        return scaler.fit_transform(df[features])
+        if self._ticker[TICKER.SCALER] is None:
+            self._ticker[TICKER.SCALER] = StandardScaler()
+        return self._ticker[TICKER.SCALER].fit_transform(df[self._ticker[TICKER.FEATURE_STATS]])
 
     def build_model(self, input_shape):
         '''
         function _build_lstm_model
         '''
-        self.lstm_model = Sequential()
-        self.lstm_model.add(LSTM(64, return_sequences=True, input_shape=input_shape))
-        self.lstm_model.add(Dropout(0.2))
-        self.lstm_model.add(LSTM(32, return_sequences=False))
-        self.lstm_model.add(Dropout(0.2))
-        self.lstm_model.add(Dense(16, activation='relu'))
-        self.lstm_model.add(Dense(1, activation='sigmoid'))
-        
-        self.lstm_model.compile(optimizer='adam',
+        self._ticker[TICKER.MODEL] = Sequential()
+        self._ticker[TICKER.MODEL].add(LSTM(64, return_sequences=True, input_shape=input_shape))
+        self._ticker[TICKER.MODEL].add(Dropout(0.2))
+        self._ticker[TICKER.MODEL].add(LSTM(32, return_sequences=False))
+        self._ticker[TICKER.MODEL].add(Dropout(0.2))
+        self._ticker[TICKER.MODEL].add(Dense(16, activation='relu'))
+        self._ticker[TICKER.MODEL].add(Dense(1, activation='sigmoid'))
+
+        self._ticker[TICKER.MODEL].compile(optimizer='adam',
                     loss='binary_crossentropy',
                     metrics=['accuracy'])
 
-    def create_train_test_data(self, percent_split=0.2):
+    def create_train_test_data(self):
         # 数据集划分
-        split_idx = int(len(self.all_ticker_data)*(1-percent_split))
-        
-        self.X_train = np.stack(self.all_ticker_data['Features'].iloc[:split_idx])
-        self.y_train = self.all_ticker_data['Label'].iloc[:split_idx]
-        self.X_test = np.stack(self.all_ticker_data['Features'].iloc[split_idx:])
-        self.y_test = self.all_ticker_data['Label'].iloc[split_idx:]
+        split_idx = int(len(self._ticker[TICKER.TRAIN_DATA])*(1-self._percent_train_test_split))
+        self.X_train = np.stack(self._ticker[TICKER.TRAIN_DATA]['Features'].iloc[:split_idx])
+        self.y_train = self._ticker[TICKER.TRAIN_DATA]['Label'].iloc[:split_idx]
+        self.X_test = np.stack(self._ticker[TICKER.TRAIN_DATA]['Features'].iloc[split_idx:])
+        self.y_test = self._ticker[TICKER.TRAIN_DATA]['Label'].iloc[split_idx:]
 
     def train_model(self):
         self.create_train_test_data()
@@ -189,19 +191,20 @@ class LSTM_Select_Stock(MachineLearningFramework):
         early_stop = EarlyStopping(monitor='val_loss', patience=5)
         
         # 训练模型
-        history = self.lstm_model.fit(self.X_train, self.y_train,
+        history = self._ticker[TICKER.MODEL].fit(self.X_train, self.y_train,
                                     epochs=50,
                                     batch_size=32,
                                     validation_split=0.1,
                                     callbacks=[early_stop],
                                     verbose=1)
         
-    def evaluate_model(self, output=False):        
+    def evaluate_model(self):        
         # 评估模型
-        y_pred = (self.lstm_model.predict(self.X_test) > 0.5).astype(int)
-        print(classification_report(self.y_test, y_pred, output_dict=output))
+        y_pred = (self._ticker[TICKER.MODEL].predict(self.X_test) > 0.5).astype(int)
+        self._ticker[TICKER.PERFORMANCE] = classification_report(self.y_test, y_pred, output_dict=self._evaluation_output)
+        print(self._ticker[TICKER.PERFORMANCE])
 
-    def predict(self, data=None):
+    def predict(self, data):
         """
         Docstring for predict
         predict with trained model on new data
@@ -210,28 +213,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
         """
         if data is None:
             raise ValueError("Input data for prediction cannot be None")
-        return self.lstm_model.predict(data)
-
-    def select_stocks(self, start_date, end_date, lookback, prediction_threshold=0.7):
-        selected_stocks = []
-        current_data = yf.download(self._tickers, start=start_date, end=end_date, group_by='ticker')
-        for ticker in current_data['Ticker'].unique():
-            ticker_data = current_data[current_data['Ticker'] == ticker]
-            
-            if len(ticker_data) < self._lookback:
-                continue
-                
-            # 获取最近lookback天的数据
-            latest_window = np.stack(ticker_data['Features'].iloc[-lookback:])
-            
-            # 预测
-            prediction = self.predict(latest_window[np.newaxis, ...])[0][0]
-            
-            if prediction > prediction_threshold:  # 设置较高阈值
-                selected_stocks.append(ticker)
-        print(f"Selected {len(selected_stocks)} stocks based on LSTM predictions:")
-        print(selected_stocks)
-        return selected_stocks
+        return self._ticker[TICKER.MODEL].predict(data)
 
     # compute rsi
     def _compute_rsi(self, data_sequence, period=14):
@@ -303,16 +285,17 @@ class LSTM_Select_Stock(MachineLearningFramework):
 # 主程序
 if __name__ == "__main__":
     # 配置参数
-    tickers = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'TSLA']
+    ticker = 'AAPL'
     start_date = '2018-01-01'
     end_date = '2023-01-01'
     lookback = 60  # 使用60天历史数据
-    
-    ss = LSTM_Select_Stock(tickers, start_date, end_date=end_date, lookback=lookback)
-    ss.process_train_data(output=True)
 
-    # 执行选股策略
-    selected = ss.select_stocks(pd.to_datetime(end_date) - pd.DateOffset(90),
-                    pd.to_datetime(end_date),
-                    lookback=lookback)
-    print("LSTM推荐股票：", selected)
+    ss = LSTM_Select_Stock(lookback=lookback)
+    ticker_info = yf.Ticker(ticker)
+    ss.ticker = {
+        TICKER.ID: ticker,
+        TICKER.DATA: ticker_info.history(start=start_date, end=end_date)
+    }
+    ss.evaluation_output = True
+    ss.process_train_data()
+

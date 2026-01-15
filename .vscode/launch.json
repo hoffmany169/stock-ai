@@ -41,6 +41,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python-Debugger: Ticker Manager",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "TickerManager.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python-Debugger: select_stock",
             "type": "debugpy",
             "request": "launch",
