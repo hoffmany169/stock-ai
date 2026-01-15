@@ -57,10 +57,12 @@ class TickerManager:
             local_selector.ticker = {
                 TICKER.ID: ticker,
                 TICKER.DATA: current_data[ticker],
-                TICKER.FEATURE_STATS: self.tickers[ticker][TICKER.FEATURE_STATS],
+                TICKER.FEATURES: self.tickers[ticker][TICKER.FEATURES],
                 TICKER.MODEL: self.tickers[ticker][TICKER.MODEL],
                 TICKER.SCALER: self.tickers[ticker][TICKER.SCALER]
             }
+
+
             local_selector.preprocess_data()                
             # 获取最近lookback天的数据
             latest_window = np.stack(local_selector.ticker[TICKER.TRAIN_DATA]['Features'].iloc[-lookback:])

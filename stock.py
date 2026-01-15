@@ -20,7 +20,7 @@ class FEATURE(AutoIndex):
 class TICKER(AutoIndex):
     ID = ()
     DATA = ()
-    FEATURE_STATS = ()
+    FEATURES = ()
     MODEL = ()
     SCALER = ()
     TRAIN_DATA = ()
