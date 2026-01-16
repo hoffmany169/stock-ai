@@ -12,7 +12,14 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python-Debugger: stock prediction",
+            "name": "Python Debugger: Setup Fonts",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "setup_fonts.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python-Debugger: stock prediction (GUI)",
             "type": "debugpy",
             "request": "launch",
             "program": "stock_prediction.py",

@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
+from matplotlib import font_manager
 from tkcalendar import DateEntry
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -18,6 +19,9 @@ class StockPredictionGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("股票预测系统")
+
+        # 设置字体
+        self.setup_fonts()
         self.root.geometry("1200x800")
         
         # 创建Notebook（标签页）
@@ -35,7 +39,55 @@ class StockPredictionGUI:
         
         # 加载已保存的模型列表
         self.load_saved_models()
-    
+
+    def setup_fonts(self):
+        """设置中文字体"""
+        try:
+            # 尝试设置Tkinter字体
+            font_names = [
+                "WenQuanYi Zen Hei MONO",  # 文泉驿正黑
+                "WenQuanYi Micro Hei MONO",  # 文泉驿微米黑
+                "Noto Sans Mono CJK SC",  # Google Noto字体
+                "DejaVu Sans",  # 备选英文字体
+                "Ubuntu"  # Ubuntu系统字体
+            ]
+            
+            # 为Tkinter设置默认字体
+            for font_name in font_names:
+                try:
+                    default_font = tk.font.nametofont("TkDefaultFont")
+                    default_font.configure(family=font_name, size=10)
+                    print(f"Tkinter font set to: {font_name}")
+                    break
+                except:
+                    continue
+            
+            # 为ttk设置样式
+            style = ttk.Style()
+            style.configure('.', font=(font_names[0], 10))
+            
+            # 设置Matplotlib字体
+            matplotlib_fonts = [
+                "WenQuanYi Zen Hei",
+                "WenQuanYi Micro Hei Mono",
+                "Noto Sans CJK SC",
+                "DejaVu Sans",
+                "Arial"
+            ]
+            
+            for font_name in matplotlib_fonts:
+                if font_name in [f.name for f in font_manager.fontManager.ttflist]:
+                    plt.rcParams['font.sans-serif'] = [font_name]
+                    plt.rcParams['axes.unicode_minus'] = False
+                    print(f"Matplotlib font set to: {font_name}")
+                    break
+            
+        except Exception as e:
+            print(f"Font setup error: {e}")
+            # 如果中文字体设置失败，使用默认英文字体
+            plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
+            plt.rcParams['axes.unicode_minus'] = False
+                
     def create_training_tab(self):
         """创建训练标签页"""
         self.training_frame = ttk.Frame(self.notebook)
