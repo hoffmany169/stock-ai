@@ -16,7 +16,7 @@ class TickerManager:
         self.tickers[ticker_symbol] = {
             TICKER.ID: ticker_symbol,
             TICKER.DATA: None,
-            TICKER.FEATURE_STATS: None,
+            TICKER.FEATURES: None,
             TICKER.MODEL: None,
             TICKER.SCALER: None,
             TICKER.PERFORMANCE: None,
@@ -66,14 +66,15 @@ class TickerManager:
             local_selector.preprocess_data()                
             # 获取最近lookback天的数据
             latest_window = np.stack(local_selector.ticker[TICKER.TRAIN_DATA]['Features'].iloc[-lookback:])
-            
+            # latest_window_3d = latest_window[np.newaxis, ...] # 转换为3D数组,以适应LSTM输入要求,但模型已经适应3D输入,不需要再转换
             # 预测
-            prediction = local_selector.ticker[TICKER.MODEL].predict(latest_window[np.newaxis, ...])[0][0]
-            
+            prediction = local_selector.ticker[TICKER.MODEL].predict(latest_window)[0][0]
+
             if prediction > prediction_threshold:  # 设置较高阈值
                 self.tickers[ticker][TICKER.SELECTED] = True
 
     def get_selected_stocks(self):
+        selected_stocks = []
         for ticker in self.get_all_tickers():
             if self.tickers[ticker][TICKER.SELECTED]:
                 print(f"Selected stock: {ticker}")

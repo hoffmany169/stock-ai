@@ -97,47 +97,47 @@ class LSTM_Select_Stock(MachineLearningFramework):
 
     @property
     def feature_stats(self):
-        return self._ticker[TICKER.FEATURE_STATS]
+        return self._ticker[TICKER.FEATURES]
     @feature_stats.setter
     def feature_stats(self, value):
-        self._ticker[TICKER.FEATURE_STATS] = value
+        self._ticker[TICKER.FEATURES] = value
 #endregion
 
     def preprocess_data(self):
         """prepare features for model training"""
         df = self._ticker[TICKER.DATA].copy()
-        if self._ticker[TICKER.FEATURE_STATS] is not None:
-            for feature in self._ticker[TICKER.FEATURE_STATS]:
-                LSTM_Select_Stock.enable_feature(feature)
-        else:
-            self._ticker[TICKER.FEATURE_STATS] = [f for f in FEATURE if LSTM_Select_Stock.is_feature_used(f)]
-        # 计算技术指标
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Open_Close)    :   df[FEATURE.Open_Close] = df['Close'] - df['Open'] 
-        if LSTM_Select_Stock.is_feature_used(FEATURE.High_Low)      :   df[FEATURE.High_Low] = df['High'] - df['Low']
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Close_Low)     :   df[FEATURE.Close_Low] = df['Close'] - df['Low']
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Close_High)    :   df[FEATURE.Close_High] = df['Close'] - df['High'] 
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Avg_Price)     :   df[FEATURE.Avg_Price] = (df['Open'] + df['Close']) / 2
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Volume_Change) :   df[FEATURE.Volume_Change] = df['Volume'].pct_change().fillna(0) 
-        if LSTM_Select_Stock.is_feature_used(FEATURE.MA_5)          :   df[FEATURE.MA_5] = df['Close'].rolling(window=5).mean() 
-        if LSTM_Select_Stock.is_feature_used(FEATURE.MA_20)         :   df[FEATURE.MA_20] = df['Close'].rolling(window=20).mean() 
-        if LSTM_Select_Stock.is_feature_used(FEATURE.RSI)           :   df[FEATURE.RSI] = self._compute_rsi(df['Close'])
-        if LSTM_Select_Stock.is_feature_used(FEATURE.MACD)          :   df[FEATURE.MACD] = self._compute_macd(df['Close'])
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Volume_MA_5)   :   df[FEATURE.Volume_MA_5] = df['Volume'].rolling(5).mean() 
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Price_Volume_Ratio):df[FEATURE.Price_Volume_Ratio] = df['Close'] / df[FEATURE.Volume_MA_5] 
-        if LSTM_Select_Stock.is_feature_used(FEATURE.Volume)        :   df[FEATURE.Volume] = df['Volume']
-        # 获取基本面指标
-        if LSTM_Select_Stock.is_feature_used(FEATURE.PE):
-            value = self.get_pe_ratio(self._ticker[TICKER.ID])
-            if value is None:
-                LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PE] = False
-            else:
-                df[FEATURE.PE] = value
-        if LSTM_Select_Stock.is_feature_used(FEATURE.PB):                    
-            value = self.get_pb_ratio(self._ticker[TICKER.ID])
-            if value is None:
-                LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PB] = False
-            else:
-                df[FEATURE.PB] = value
+        if TICKER.FEATURES in self._ticker and self._ticker[TICKER.FEATURES] is None:
+            self._ticker[TICKER.FEATURES] = [f for f in FEATURE if LSTM_Select_Stock.is_feature_used(f)]
+        for f in FEATURE:
+            # 计算技术指标
+            if FEATURE.Open_Close in self._ticker[TICKER.FEATURES]    :   df[FEATURE.Open_Close] = df['Close'] - df['Open'] 
+            if FEATURE.High_Low in self._ticker[TICKER.FEATURES]      :   df[FEATURE.High_Low] = df['High'] - df['Low']
+            if FEATURE.Close_Low in self._ticker[TICKER.FEATURES]     :   df[FEATURE.Close_Low] = df['Close'] - df['Low']
+            if FEATURE.Close_High in self._ticker[TICKER.FEATURES]    :   df[FEATURE.Close_High] = df['Close'] - df['High'] 
+            if FEATURE.Avg_Price in self._ticker[TICKER.FEATURES]     :   df[FEATURE.Avg_Price] = (df['Open'] + df['Close']) / 2
+            if FEATURE.Volume_Change in self._ticker[TICKER.FEATURES] :   df[FEATURE.Volume_Change] = df['Volume'].pct_change().fillna(0) 
+            if FEATURE.MA_5 in self._ticker[TICKER.FEATURES]          :   df[FEATURE.MA_5] = df['Close'].rolling(window=5).mean() 
+            if FEATURE.MA_20 in self._ticker[TICKER.FEATURES]         :   df[FEATURE.MA_20] = df['Close'].rolling(window=20).mean() 
+            if FEATURE.RSI in self._ticker[TICKER.FEATURES]           :   df[FEATURE.RSI] = self._compute_rsi(df['Close'])
+            if FEATURE.MACD in self._ticker[TICKER.FEATURES]          :   df[FEATURE.MACD] = self._compute_macd(df['Close'])
+            if FEATURE.Volume_MA_5 in self._ticker[TICKER.FEATURES]   :   df[FEATURE.Volume_MA_5] = df['Volume'].rolling(5).mean() 
+            if FEATURE.Price_Volume_Ratio in self._ticker[TICKER.FEATURES]:df[FEATURE.Price_Volume_Ratio] = df['Close'] / df[FEATURE.Volume_MA_5] 
+            if FEATURE.Volume in self._ticker[TICKER.FEATURES]        :   df[FEATURE.Volume] = df['Volume']
+            # 获取基本面指标
+            if FEATURE.PE in self._ticker[TICKER.FEATURES]:
+                value = self.get_pe_ratio(self._ticker[TICKER.ID])
+                if value is None:
+                    LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PE] = False
+                    self._ticker.pop(FEATURE.PE, None)
+                else:
+                    df[FEATURE.PE] = value
+            if FEATURE.PB in self._ticker[TICKER.FEATURES]:
+                value = self.get_pb_ratio(self._ticker[TICKER.ID])
+                if value is None:
+                    LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PB] = False
+                    self._ticker.pop(FEATURE.PB, None)
+                else:
+                    df[FEATURE.PB] = value
 
         scaled_data = self.create_scaled_data(df)
 
@@ -156,7 +156,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
     def create_scaled_data(self, df):
         if self._ticker[TICKER.SCALER] is None:
             self._ticker[TICKER.SCALER] = StandardScaler()
-        return self._ticker[TICKER.SCALER].fit_transform(df[self._ticker[TICKER.FEATURE_STATS]])
+        return self._ticker[TICKER.SCALER].fit_transform(df[self._ticker[TICKER.FEATURES]])
 
     def build_model(self, input_shape):
         '''
