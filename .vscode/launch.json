@@ -12,6 +12,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python-Debugger: stock prediction",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "stock_prediction.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python-Debugger: PlotAnalyser",
             "type": "debugpy",
             "request": "launch",
