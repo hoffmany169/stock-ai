@@ -57,7 +57,7 @@ class MachineLearningFramework(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def evaluate_model(self):
+    def evaluate_model(self, model=None):
         """
         Docstring for evaluate_model
         evaluate the model performance with test data
@@ -82,4 +82,3 @@ class MachineLearningFramework(metaclass=ABCMeta):
 
         # 训练模型
         self.train_model()
-        self.evaluate_model()

@@ -11,6 +11,10 @@ class TickerManager:
         self.end_date = end_date
         self.selector = select_stock.LSTM_Select_Stock(lookback)
 
+    @property
+    def stock_selector(self):
+        return self.selector
+
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
         self.tickers[ticker_symbol] = {
@@ -42,6 +46,11 @@ class TickerManager:
             self.selector.ticker = self.tickers[ticker]
             self.selector.process_train_data()
     
+    def process_valuate_models(self):
+        for ticker in self.get_all_tickers():
+            self.selector.ticker = self.tickers[ticker]
+            self.selector.evaluate_model()
+
     def select_stocks(self, date_offset, lookback, prediction_threshold=0.7):
         selected_stocks = []
         start_date = pd.to_datetime(self.end_date) - pd.DateOffset(date_offset)
@@ -83,8 +92,8 @@ class TickerManager:
 
 if __name__ == "__main__":
     manager = TickerManager(start_date="2024-01-01", end_date="2025-01-01", lookback=60)
-    manager.add_ticker("AAPL")
-    manager.add_ticker("MSFT")
+    manager.add_ticker("TSLA")
+    manager.add_ticker("NVDA")
     manager.load_ticker_data()
     manager.process_select_stocks()
     selected_stocks = manager.select_stocks(180, lookback=60, prediction_threshold=0.7)
