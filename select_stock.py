@@ -38,19 +38,21 @@ class LSTM_Select_Stock(MachineLearningFramework):
 
     @staticmethod
     def get_feature_name(feature):
+        name = 'No such feature'
         for f in FEATURE:
-            if f == FEATURE.Open_Close:
-                name = "Open-Close Difference"
-            elif f == FEATURE.High_Low:
-                name = "High-Low Difference"
-            elif f == FEATURE.Close_Low:
-                name = "Close-Low Difference"
-            elif f == FEATURE.Close_High:
-                name = "Close-High Difference"
-            elif f == FEATURE.Avg_Price:
-                name = "Average Price"
-            else:
-                name = ' '.join(f.name.split('_'))
+            if f == feature:
+                if f == FEATURE.Open_Close:
+                    name = "Open-Close Difference"
+                elif f == FEATURE.High_Low:
+                    name = "High-Low Difference"
+                elif f == FEATURE.Close_Low:
+                    name = "Close-Low Difference"
+                elif f == FEATURE.Close_High:
+                    name = "Close-High Difference"
+                elif f == FEATURE.Avg_Price:
+                    name = "Average Price"
+                else:
+                    name = ' '.join(f.name.split('_'))
         return name
 
     @staticmethod
@@ -108,6 +110,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
         df = self._ticker[TICKER.DATA].copy()
         if TICKER.FEATURES in self._ticker and self._ticker[TICKER.FEATURES] is None:
             self._ticker[TICKER.FEATURES] = [f for f in FEATURE if LSTM_Select_Stock.is_feature_used(f)]
+        print(f"Processing ticker: {self._ticker[TICKER.ID]} with features: {[LSTM_Select_Stock.get_feature_name(f) for f in self._ticker[TICKER.FEATURES]]}")
         for f in FEATURE:
             # 计算技术指标
             if FEATURE.Open_Close in self._ticker[TICKER.FEATURES]    :   df[FEATURE.Open_Close] = df['Close'] - df['Open'] 
@@ -128,14 +131,22 @@ class LSTM_Select_Stock(MachineLearningFramework):
                 value = self.get_pe_ratio(self._ticker[TICKER.ID])
                 if value is None:
                     LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PE] = False
-                    self._ticker.pop(FEATURE.PE, None)
+                    for i, f in enumerate(self._ticker[TICKER.FEATURES]):
+                        if f == FEATURE.PE:
+                            print("Removing PE feature due to unavailable data.")
+                            del self._ticker[TICKER.FEATURES][i]
+                            break
                 else:
                     df[FEATURE.PE] = value
             if FEATURE.PB in self._ticker[TICKER.FEATURES]:
                 value = self.get_pb_ratio(self._ticker[TICKER.ID])
                 if value is None:
                     LSTM_Select_Stock.FEATURE_STATE_LIST[FEATURE.PB] = False
-                    self._ticker.pop(FEATURE.PB, None)
+                    for i, f in enumerate(self._ticker[TICKER.FEATURES]):
+                        if f == FEATURE.PB:
+                            print("Removing PB feature due to unavailable data.")
+                            del self._ticker[TICKER.FEATURES][i]
+                            break
                 else:
                     df[FEATURE.PB] = value
 
@@ -191,16 +202,18 @@ class LSTM_Select_Stock(MachineLearningFramework):
         early_stop = EarlyStopping(monitor='val_loss', patience=5)
         
         # 训练模型
-        history = self._ticker[TICKER.MODEL].fit(self.X_train, self.y_train,
-                                    epochs=50,
-                                    batch_size=32,
-                                    validation_split=0.1,
-                                    callbacks=[early_stop],
-                                    verbose=1)
+        self._ticker[TICKER.HISTORY] = self._ticker[TICKER.MODEL].fit(self.X_train, self.y_train,
+                                                                      epochs=50,
+                                                                      batch_size=32,
+                                                                      validation_split=0.1,
+                                                                      callbacks=[early_stop],
+                                                                      verbose=1)
         
-    def evaluate_model(self):        
+    def evaluate_model(self, model=None):        
         # 评估模型
-        y_pred = (self._ticker[TICKER.MODEL].predict(self.X_test) > 0.5).astype(int)
+        if model is None:
+            model = self._ticker[TICKER.MODEL]
+        y_pred = (model.predict(self.X_test) > 0.5).astype(int)
         self._ticker[TICKER.PERFORMANCE] = classification_report(self.y_test, y_pred, output_dict=self._evaluation_output)
         print(self._ticker[TICKER.PERFORMANCE])
 

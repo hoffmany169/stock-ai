@@ -1,12 +1,18 @@
+import subprocess
+import sys, os
+
+# os.environ["LANG"] = "C.UTF-8"
+# os.environ["LC_ALL"] = "C.UTF-8"
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
-from matplotlib import font_manager
+from tkinter import ttk, messagebox, scrolledtext, font
 from tkcalendar import DateEntry
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import font_manager
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 import json
-import os
 from datetime import datetime
 import yfinance as yf
 import numpy as np
@@ -14,16 +20,13 @@ import pandas as pd
 from select_stock import LSTM_Select_Stock, FEATURE
 from stock import TICKER
 from TickerManager import TickerManager
-
 class StockPredictionGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("股票预测系统")
-
-        # 设置字体
-        self.setup_fonts()
+        self.root.title("Stock Prediction GUI")
         self.root.geometry("1200x800")
-        
+        # 初始化股票列表
+        self.stocks = []  # 存储股票代码的列表        
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -40,99 +43,71 @@ class StockPredictionGUI:
         # 加载已保存的模型列表
         self.load_saved_models()
 
-    def setup_fonts(self):
-        """设置中文字体"""
-        try:
-            # 尝试设置Tkinter字体
-            font_names = [
-                "WenQuanYi Zen Hei MONO",  # 文泉驿正黑
-                "WenQuanYi Micro Hei MONO",  # 文泉驿微米黑
-                "Noto Sans Mono CJK SC",  # Google Noto字体
-                "DejaVu Sans",  # 备选英文字体
-                "Ubuntu"  # Ubuntu系统字体
-            ]
-            
-            # 为Tkinter设置默认字体
-            for font_name in font_names:
-                try:
-                    default_font = tk.font.nametofont("TkDefaultFont")
-                    default_font.configure(family=font_name, size=10)
-                    print(f"Tkinter font set to: {font_name}")
-                    break
-                except:
-                    continue
-            
-            # 为ttk设置样式
-            style = ttk.Style()
-            style.configure('.', font=(font_names[0], 10))
-            
-            # 设置Matplotlib字体
-            matplotlib_fonts = [
-                "WenQuanYi Zen Hei",
-                "WenQuanYi Micro Hei Mono",
-                "Noto Sans CJK SC",
-                "DejaVu Sans",
-                "Arial"
-            ]
-            
-            for font_name in matplotlib_fonts:
-                if font_name in [f.name for f in font_manager.fontManager.ttflist]:
-                    plt.rcParams['font.sans-serif'] = [font_name]
-                    plt.rcParams['axes.unicode_minus'] = False
-                    print(f"Matplotlib font set to: {font_name}")
-                    break
-            
-        except Exception as e:
-            print(f"Font setup error: {e}")
-            # 如果中文字体设置失败，使用默认英文字体
-            plt.rcParams['font.sans-serif'] = ['DejaVu Sans']
-            plt.rcParams['axes.unicode_minus'] = False
-                
+    def get_stored_stocks(self):
+        """获取所有选中的股票"""
+        return self.stocks.copy()
+
     def create_training_tab(self):
         """创建训练标签页"""
         self.training_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.training_frame, text="模型训练")
+        self.notebook.add(self.training_frame, text="Model Training")
         
         # 左侧面板 - 股票管理
-        left_frame = ttk.LabelFrame(self.training_frame, text="股票管理", padding=10)
+        left_frame = ttk.LabelFrame(self.training_frame, text="Stock Management", padding=10)
         left_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
         
         # 股票输入
-        ttk.Label(left_frame, text="股票代码:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(left_frame, text="Stock Symbol:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.stock_combo = ttk.Combobox(left_frame, width=20)
         self.stock_combo.grid(row=0, column=1, padx=5, pady=5)
-        
+        # 设置一些常见的股票代码作为提示
+        self.stock_combo['values'] = ('AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
+                                     'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
+                                     'BABA', 'JD', 'PDD', 'BIDU', 'NTES')
+
         # 股票列表
-        ttk.Label(left_frame, text="股票列表:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(left_frame, text="Stock List:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.stock_listbox = tk.Listbox(left_frame, height=10, width=25)
         self.stock_listbox.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
-        
-        # 按钮
+
+        # 添加滚动条
+        scrollbar = tk.Scrollbar(left_frame, orient=tk.VERTICAL)
+        scrollbar.grid(row=2, column=2, sticky="ns")
+        self.stock_listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.stock_listbox.yview)
+
+        # 按钮框架
         btn_frame = ttk.Frame(left_frame)
         btn_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        # 添加股票按钮
+        ttk.Button(btn_frame, text="Add", command=self.add_stock).pack(side=tk.LEFT, padx=5)
+        # 删除股票按钮
+        ttk.Button(btn_frame, text="Remove", command=self.remove_stock).pack(side=tk.LEFT, padx=5)
+        # 清空列表按钮
+        ttk.Button(btn_frame, text="Clean", command=self.clear_stocks).pack(side=tk.LEFT, padx=5)
         
-        ttk.Button(btn_frame, text="添加", command=self.add_stock).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="删除", command=self.remove_stock).pack(side=tk.LEFT, padx=5)
-        
+        # 绑定键盘事件
+        self.stock_combo.bind('<Return>', lambda event: self.add_stock())  # 按回车添加
+        self.stock_listbox.bind('<Delete>', lambda event: self.remove_stock())  # 按Delete删除
         # 日期选择
-        ttk.Label(left_frame, text="开始日期:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        ttk.Label(left_frame, text="Start Date:").grid(row=4, column=0, sticky=tk.W, pady=5)
         self.start_date_train = DateEntry(left_frame, width=18, background='darkblue',
-                                         foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+                                        foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         self.start_date_train.grid(row=4, column=1, padx=5, pady=5)
-        
-        ttk.Label(left_frame, text="结束日期:").grid(row=5, column=0, sticky=tk.W, pady=5)
+
+        ttk.Label(left_frame, text="End Date:").grid(row=5, column=0, sticky=tk.W, pady=5)
         self.end_date_train = DateEntry(left_frame, width=18, background='darkblue',
-                                       foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+                                    foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         self.end_date_train.grid(row=5, column=1, padx=5, pady=5)
         
         # Lookback设置
-        ttk.Label(left_frame, text="Lookback天数:").grid(row=6, column=0, sticky=tk.W, pady=5)
+        ttk.Label(left_frame, text="Lookback Days:").grid(row=6, column=0, sticky=tk.W, pady=5)
         self.lookback_train = ttk.Entry(left_frame, width=10)
         self.lookback_train.grid(row=6, column=1, padx=5, pady=5)
         self.lookback_train.insert(0, "60")
         
         # 右侧面板 - 特征选择
-        right_frame = ttk.LabelFrame(self.training_frame, text="特征选择", padding=10)
+        right_frame = ttk.LabelFrame(self.training_frame, text="Feature Selection", padding=10)
         right_frame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
         
         # 创建特征复选框
@@ -152,11 +127,11 @@ class StockPredictionGUI:
         btn_frame2 = ttk.Frame(self.training_frame)
         btn_frame2.grid(row=1, column=0, columnspan=2, pady=20)
         
-        ttk.Button(btn_frame2, text="开始训练", command=self.start_training).pack(side=tk.LEFT, padx=10)
-        ttk.Button(btn_frame2, text="评估模型", command=self.evaluate_model).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame2, text="Start Training", command=self.start_training).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame2, text="Evaluate Model", command=self.evaluate_model).pack(side=tk.LEFT, padx=10)
         
         # 日志显示
-        ttk.Label(self.training_frame, text="训练日志:").grid(row=2, column=0, sticky=tk.W, padx=5)
+        ttk.Label(self.training_frame, text="Training Log:").grid(row=2, column=0, sticky=tk.W, padx=5)
         self.log_text = scrolledtext.ScrolledText(self.training_frame, height=10, width=100)
         self.log_text.grid(row=3, column=0, columnspan=2, padx=5, pady=5, sticky="nsew")
         
@@ -168,35 +143,35 @@ class StockPredictionGUI:
     def create_prediction_tab(self):
         """创建预测标签页"""
         self.prediction_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.prediction_frame, text="股票预测")
+        self.notebook.add(self.prediction_frame, text="Stock Prediction")
         
         # 模型选择
-        ttk.Label(self.prediction_frame, text="选择训练好的模型:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.prediction_frame, text="Select Trained Model:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.model_combo = ttk.Combobox(self.prediction_frame, width=30)
         self.model_combo.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
         
-        ttk.Button(self.prediction_frame, text="加载模型", command=self.load_model).grid(row=0, column=2, padx=5, pady=5)
+        ttk.Button(self.prediction_frame, text="Load Model", command=self.load_model).grid(row=0, column=2, padx=5, pady=5)
         
         # 预测参数
-        params_frame = ttk.LabelFrame(self.prediction_frame, text="预测参数", padding=10)
+        params_frame = ttk.LabelFrame(self.prediction_frame, text="Prediction Parameters", padding=10)
         params_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=10, sticky="ew")
         
-        ttk.Label(params_frame, text="开始日期:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(params_frame, text="Start Date:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.start_date_pred = DateEntry(params_frame, width=18, background='darkblue',
                                         foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         self.start_date_pred.grid(row=0, column=1, padx=5, pady=5)
         
-        ttk.Label(params_frame, text="结束日期:").grid(row=0, column=2, sticky=tk.W, pady=5, padx=(20,0))
+        ttk.Label(params_frame, text="End Date:").grid(row=0, column=2, sticky=tk.W, pady=5, padx=(20,0))
         self.end_date_pred = DateEntry(params_frame, width=18, background='darkblue',
-                                      foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
+                                    foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
         self.end_date_pred.grid(row=0, column=3, padx=5, pady=5)
         
-        ttk.Label(params_frame, text="Lookback天数:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(params_frame, text="Lookback Days:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.lookback_pred = ttk.Entry(params_frame, width=10)
         self.lookback_pred.grid(row=1, column=1, padx=5, pady=5)
         self.lookback_pred.insert(0, "60")
         
-        ttk.Label(params_frame, text="预测阈值:").grid(row=1, column=2, sticky=tk.W, pady=5, padx=(20,0))
+        ttk.Label(params_frame, text="Prediction Threshold:").grid(row=1, column=2, sticky=tk.W, pady=5, padx=(20,0))
         self.pred_threshold = ttk.Entry(params_frame, width=10)
         self.pred_threshold.grid(row=1, column=3, padx=5, pady=5)
         self.pred_threshold.insert(0, "0.7")
@@ -205,11 +180,11 @@ class StockPredictionGUI:
         btn_frame = ttk.Frame(self.prediction_frame)
         btn_frame.grid(row=2, column=0, columnspan=3, pady=20)
         
-        ttk.Button(btn_frame, text="开始预测", command=self.start_prediction).pack(side=tk.LEFT, padx=10)
-        ttk.Button(btn_frame, text="显示结果", command=self.show_prediction_results).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame, text="Start Prediction", command=self.start_prediction).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame, text="Show Results", command=self.show_prediction_results).pack(side=tk.LEFT, padx=10)
         
         # 预测结果显示
-        ttk.Label(self.prediction_frame, text="预测结果:").grid(row=3, column=0, sticky=tk.W, padx=5)
+        ttk.Label(self.prediction_frame, text="Prediction Results:").grid(row=3, column=0, sticky=tk.W, padx=5)
         self.result_text = scrolledtext.ScrolledText(self.prediction_frame, height=15, width=100)
         self.result_text.grid(row=4, column=0, columnspan=3, padx=5, pady=5, sticky="nsew")
         
@@ -220,15 +195,15 @@ class StockPredictionGUI:
     def create_visualization_tab(self):
         """创建可视化标签页"""
         self.visualization_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.visualization_frame, text="数据可视化")
+        self.notebook.add(self.visualization_frame, text="Data Visualization")
         
         # 控制面板
         control_frame = ttk.Frame(self.visualization_frame)
         control_frame.pack(fill=tk.X, padx=5, pady=5)
         
-        ttk.Button(control_frame, text="显示原始数据", command=self.show_raw_data).pack(side=tk.LEFT, padx=5)
+        ttk.Button(control_frame, text="Show Raw Data", command=self.show_raw_data).pack(side=tk.LEFT, padx=5)
         
-        ttk.Label(control_frame, text="选择特征:").pack(side=tk.LEFT, padx=(20,5))
+        ttk.Label(control_frame, text="Select Feature:").pack(side=tk.LEFT, padx=(20,5))
         
         # 特征选择下拉框
         self.feature_combo = ttk.Combobox(control_frame, width=25)
@@ -242,7 +217,7 @@ class StockPredictionGUI:
         if feature_names:
             self.feature_combo.current(0)
         
-        ttk.Button(control_frame, text="显示特征曲线", command=self.show_feature_curve).pack(side=tk.LEFT, padx=5)
+        ttk.Button(control_frame, text="Show Feature Curve", command=self.show_feature_curve).pack(side=tk.LEFT, padx=5)
         
         # 图表显示区域
         self.figure_frame = ttk.Frame(self.visualization_frame)
@@ -256,42 +231,105 @@ class StockPredictionGUI:
         """添加股票代码"""
         stock = self.stock_combo.get().strip().upper()
         if not stock:
-            messagebox.showwarning("警告", "请输入股票代码")
+            messagebox.showwarning("Warning", "Please enter a stock code")
             return
         
-        if stock in self.stock_listbox.get(0, tk.END):
-            messagebox.showinfo("提示", f"{stock} 已存在")
+        # 检查股票代码格式（简单验证）
+        if len(stock) < 1 or len(stock) > 5:
+            if not messagebox.askyesno("Confirmation", f"Stock '{stock}' length is uncommon, do you want to add it?"):
+                return
+        
+        # 检查是否已存在
+        if stock in self.stocks:
+            messagebox.showinfo("Hint", f"Stock '{stock}' already exists")
             return
         
-        self.stock_listbox.insert(tk.END, stock)
+        # 添加到内部列表
+        self.stocks.append(stock)
+        
+        # 更新Listbox显示
+        self.update_stock_listbox()
+        
+        # 清空输入框
         self.stock_combo.set("")
-        self.log_message(f"添加股票: {stock}")
+        
+        # 记录日志
+        self.log_message(f"Add Stock: {stock}")
+        
+        # 焦点回到输入框
+        self.stock_combo.focus_set()
     
     def remove_stock(self):
-        """删除选中的股票代码"""
+        """从列表中删除选中的股票"""
+        # 获取选中的项目
         selection = self.stock_listbox.curselection()
+        
         if not selection:
-            messagebox.showwarning("警告", "请选择要删除的股票")
+            messagebox.showwarning("Warning", "Please select a stock to delete")
             return
         
-        stock = self.stock_listbox.get(selection[0])
-        self.stock_listbox.delete(selection[0])
-        self.log_message(f"删除股票: {stock}")
+        # 获取选中的股票代码
+        index = selection[0]
+        stock = self.stocks[index]
+        
+        # 确认删除
+        if messagebox.askyesno("Confirmation", f"Are you sure you want to delete stock '{stock}'?"):
+            # 从内部列表删除
+            self.stocks.pop(index)
+            
+            # 更新Listbox显示
+            self.update_stock_listbox()
+            
+            # 记录日志
+            self.log_message(f"Deleted stock: {stock}")
     
+    def clear_stocks(self):
+        """清空所有股票"""
+        if not self.stocks:
+            messagebox.showinfo("Info", "List of stocks is already empty")
+            return
+        
+        if messagebox.askyesno("Confirmation", f"Are you sure you want to clear all {len(self.stocks)} stocks?"):
+            # 清空内部列表
+            self.stocks.clear()
+            
+            # 更新Listbox显示
+            self.update_stock_listbox()
+            
+            # 记录日志
+            self.log_message("Cleared all stocks already in the list")
+
+    def update_stock_listbox(self):
+        """更新Listbox显示"""
+        # 清空Listbox
+        self.stock_listbox.delete(0, tk.END)
+        
+        # 添加所有股票
+        for i, stock in enumerate(self.stocks, 1):
+            self.stock_listbox.insert(tk.END, f"{i}. {stock}")
+        
+        # 更新状态显示
+        self.update_status()
+
+    def update_status(self):
+        """更新状态信息"""
+        # 这里可以添加状态栏更新逻辑
+        pass
+
     def toggle_feature(self, feature, var):
         """切换特征启用状态"""
         if var.get():
             LSTM_Select_Stock.enable_feature(feature)
-            self.log_message(f"启用特征: {LSTM_Select_Stock.get_feature_name(feature)}")
+            self.log_message(f"Enabled feature: {LSTM_Select_Stock.get_feature_name(feature)}")
         else:
             LSTM_Select_Stock.disable_feature(feature)
-            self.log_message(f"禁用特征: {LSTM_Select_Stock.get_feature_name(feature)}")
-    
+            self.log_message(f"Disabled feature: {LSTM_Select_Stock.get_feature_name(feature)}")
+
     def start_training(self):
         """开始训练模型"""
         stocks = self.stock_listbox.get(0, tk.END)
         if not stocks:
-            messagebox.showwarning("警告", "请先添加股票")
+            messagebox.showwarning("Warning", "Please add stocks first")
             return
         
         try:
@@ -299,7 +337,7 @@ class StockPredictionGUI:
             if lookback <= 0:
                 raise ValueError
         except ValueError:
-            messagebox.showwarning("警告", "请输入有效的Lookback天数")
+            messagebox.showwarning("Warning", "Please enter a valid Lookback days")
             return
         
         # 在新线程中运行训练，避免GUI冻结
@@ -309,7 +347,8 @@ class StockPredictionGUI:
     
     def run_training(self, stocks, lookback):
         """运行训练过程"""
-        self.log_message("开始训练模型...")
+        self.log_message(f"Start training: {len(stocks)}")
+        self.log_message(f"Stock list: {', '.join(stocks)}")
         
         try:
             start_date = self.start_date_train.get_date().strftime("%Y-%m-%d")
@@ -323,53 +362,78 @@ class StockPredictionGUI:
                 self.manager.add_ticker(stock)
             
             # 加载数据
-            self.log_message("加载股票数据...")
+            self.log_message("Loading stock data...")
             self.manager.load_ticker_data()
             
             # 处理数据并训练
-            self.log_message("处理数据并训练模型...")
+            self.log_message("Processing data and training model...")
             self.manager.process_select_stocks()
             
             # 保存模型信息
             self.save_model_info(stocks, start_date, end_date, lookback)
             
-            self.log_message("训练完成！")
-            messagebox.showinfo("成功", "模型训练完成！")
+            self.log_message("Training completed!")
+            messagebox.showinfo("Success", "Model training completed successfully")
             
         except Exception as e:
-            self.log_message(f"训练出错: {str(e)}")
-            messagebox.showerror("错误", f"训练过程中出错: {str(e)}")
+            self.log_message(f"Error in training: {str(e)}")
+            messagebox.showerror("Error", f"Error in Training: {str(e)}")
     
     def evaluate_model(self):
         """评估模型"""
         if not self.manager:
-            messagebox.showwarning("警告", "请先训练模型")
+            messagebox.showwarning("Warning", "Please train the model first")
             return
-        
-        self.log_message("开始评估模型...")
+
+        self.log_message("Start evaluation...")
         
         try:
             # 这里需要根据你的代码调整评估逻辑
             # 假设TickerManager有评估方法
-            self.log_message("评估完成！")
+            # 在新线程中运行训练，避免GUI冻结
+            def start_eval_func(ticker):
+                self.manager.stock_selector.evaluate_model(model=self.manager.tickers[ticker][TICKER.MODEL])
+            thread = threading.Thread(target=lambda: [start_eval_func(ticker) for ticker in self.manager.get_all_tickers()])
+            thread.daemon = True
+            thread.start()
+            self.log_message("Evaluation completed!")
             
         except Exception as e:
-            self.log_message(f"评估出错: {str(e)}")
-    
+            self.log_message(f"Error in evaluation: {str(e)}")
+
+    def save_model(self):
+        """保存当前模型"""
+        if not self.manager:
+            messagebox.showwarning("Warning", "Please train the model first")
+            return
+        
+        try:
+            stocks = self.stock_listbox.get(0, tk.END)
+            start_date = self.start_date_train.get_date().strftime("%Y-%m-%d")
+            end_date = self.end_date_train.get_date().strftime("%Y-%m-%d")
+            lookback = int(self.lookback_train.get())
+            
+            self.save_model_info(stocks, start_date, end_date, lookback)
+            messagebox.showinfo("Success", "Model saved successfully!")
+            
+        except Exception as e:
+            self.log_message(f"Error saving model: {str(e)}")
+            messagebox.showerror("Error", f"Error saving model: {str(e)}")  
+
     def load_model(self):
         """加载已保存的模型"""
         model_name = self.model_combo.get()
         if not model_name:
-            messagebox.showwarning("警告", "请选择要加载的模型")
+            messagebox.showwarning("Warning", "Please select a model to load")
             return
         
         # 这里需要实现具体的模型加载逻辑
-        self.log_message(f"加载模型: {model_name}")
+        self.log_message(f"Loading model: {model_name}")
     
     def start_prediction(self):
         """开始预测"""
         if not self.current_model:
-            messagebox.showwarning("警告", "请先加载模型")
+            messagebox.showwarning("Warning", "Please load a model first")
             return
         
         try:
@@ -379,10 +443,10 @@ class StockPredictionGUI:
             if lookback <= 0 or not (0 <= threshold <= 1):
                 raise ValueError
         except ValueError:
-            messagebox.showwarning("警告", "请输入有效的参数")
+            messagebox.showwarning("Warning", "Please enter valid parameters")
             return
         
-        self.log_message("开始预测...", target="result")
+        self.log_message("Start prediction...", target="result")
         
         # 在新线程中运行预测
         thread = threading.Thread(target=self.run_prediction, args=(lookback, threshold))
@@ -404,19 +468,19 @@ class StockPredictionGUI:
                 selected_stocks = self.manager.get_selected_stocks()
                 
                 self.result_text.delete(1.0, tk.END)
-                self.result_text.insert(tk.END, "预测结果:\n")
+                self.result_text.insert(tk.END, "Prediction Result:\n")
                 self.result_text.insert(tk.END, "="*50 + "\n")
                 
                 for stock in selected_stocks:
-                    self.result_text.insert(tk.END, f"推荐股票: {stock}\n")
+                    self.result_text.insert(tk.END, f"Suggested Stock: {stock}\n")
                 
                 if not selected_stocks:
-                    self.result_text.insert(tk.END, "没有符合条件的股票\n")
+                    self.result_text.insert(tk.END, "No stocks meet the criteria\n")
             
-            self.log_message("预测完成！", target="result")
+            self.log_message("Prediction completed!", target="result")
             
         except Exception as e:
-            self.log_message(f"预测出错: {str(e)}", target="result")
+            self.log_message(f"Error in prediction: {str(e)}", target="result")
     
     def show_prediction_results(self):
         """显示预测结果"""
@@ -426,14 +490,14 @@ class StockPredictionGUI:
     def show_raw_data(self):
         """显示原始数据"""
         if not self.manager:
-            messagebox.showwarning("警告", "请先训练模型")
+            messagebox.showwarning("Warning", "Please train the model first")
             return
         
         try:
             # 获取第一个股票的数据
             stocks = self.manager.get_all_tickers()
             if not stocks:
-                self.log_message("没有可用的股票数据")
+                self.log_message("No available stock data")
                 return
             
             ticker = stocks[0]
@@ -441,34 +505,34 @@ class StockPredictionGUI:
             
             # 绘制价格曲线
             self.ax.clear()
-            self.ax.plot(data.index, data['Close'], label='收盘价', linewidth=2)
-            self.ax.set_title(f"{ticker} 股价走势")
-            self.ax.set_xlabel("日期")
-            self.ax.set_ylabel("价格")
+            self.ax.plot(data.index, data['Close'], label='Close Price', linewidth=2)
+            self.ax.set_title(f"{ticker} Stock Trends")
+            self.ax.set_xlabel("Date")
+            self.ax.set_ylabel("Price")
             self.ax.legend()
             self.ax.grid(True, alpha=0.3)
             
             self.canvas.draw()
             
         except Exception as e:
-            messagebox.showerror("错误", f"显示数据出错: {str(e)}")
+            messagebox.showerror("Error", f"Error displaying data: {str(e)}")
     
     def show_feature_curve(self):
         """显示特征曲线"""
         if not self.manager:
-            messagebox.showwarning("警告", "请先训练模型")
+            messagebox.showwarning("Warning", "Please train the model first")
             return
         
         feature_name = self.feature_combo.get()
         if not feature_name:
-            messagebox.showwarning("警告", "请选择特征")
+            messagebox.showwarning("Warning", "Please select a feature")
             return
         
         try:
             # 获取第一个股票的数据
             stocks = self.manager.get_all_tickers()
             if not stocks:
-                self.log_message("没有可用的股票数据")
+                self.log_message("No available stock data")
                 return
             
             ticker = stocks[0]
@@ -482,7 +546,7 @@ class StockPredictionGUI:
                     break
             
             if not selected_feature:
-                messagebox.showwarning("警告", "特征不存在")
+                messagebox.showwarning("Warning", "Feature does not exist")
                 return
             
             # 计算特征值
@@ -495,21 +559,21 @@ class StockPredictionGUI:
             
             if hasattr(data, selected_feature):
                 self.ax.plot(data.index, data[selected_feature], label=feature_name, linewidth=2)
-                self.ax.set_title(f"{ticker} {feature_name} 曲线")
-                self.ax.set_xlabel("日期")
-                self.ax.set_ylabel("特征值")
+                self.ax.set_title(f"{ticker} {feature_name} Curve")
+                self.ax.set_xlabel("Date")
+                self.ax.set_ylabel("Feature Value")
                 self.ax.legend()
                 self.ax.grid(True, alpha=0.3)
             else:
-                self.ax.text(0.5, 0.5, "特征数据不可用", 
-                           horizontalalignment='center',
-                           verticalalignment='center',
-                           transform=self.ax.transAxes)
+                self.ax.text(0.5, 0.5, "Feature data unavailable", 
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        transform=self.ax.transAxes)
             
             self.canvas.draw()
             
         except Exception as e:
-            messagebox.showerror("错误", f"显示特征曲线出错: {str(e)}")
+            messagebox.showerror("Error", f"Error displaying feature curve: {str(e)}")
     
     def save_model_info(self, stocks, start_date, end_date, lookback):
         """保存模型信息"""
@@ -530,6 +594,25 @@ class StockPredictionGUI:
         with open(f"models/{model_name}.json", "w") as f:
             json.dump(model_info, f, indent=2)
         
+        # 保存每个股票的模型文件，为每个股票建立单独的目录
+        for ticker in stocks:
+            model = self.manager.tickers[ticker][TICKER.MODEL]
+            model_dir = f"models/{ticker}"
+            if not os.path.exists(model_dir):
+                os.makedirs(model_dir)
+            # 保存特征列表
+            features = self.manager.tickers[ticker][TICKER.FEATURES]
+            features_file = f"{model_dir}/{model_name}_features.joblib"
+            json.dump(features, features_file)
+
+            # 保存缩放器文件
+            scaler = self.manager.tickers[ticker][TICKER.SCALER]
+            scaler_file = f"{model_dir}/{model_name}_scaler.joblib"
+            json.dump(scaler, scaler_file)
+
+            # 保存模型文件
+            model.save(f"{model_dir}/{model_name}.h5")
+
         # 更新模型列表
         self.load_saved_models()
     
@@ -540,7 +623,7 @@ class StockPredictionGUI:
         
         model_files = [f for f in os.listdir("models") if f.endswith(".json")]
         model_names = [f.replace(".json", "") for f in model_files]
-        
+        # list in prediction tab
         self.model_combo['values'] = model_names
     
     def log_message(self, message, target="training"):
@@ -556,9 +639,11 @@ class StockPredictionGUI:
             self.result_text.see(tk.END)
 
 def main():
+
     root = tk.Tk()
+    # root.tk.call("encoding", "system", "utf-8")
     app = StockPredictionGUI(root)
     root.mainloop()
-
+        
 if __name__ == "__main__":
     main()

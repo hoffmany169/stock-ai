@@ -83,8 +83,8 @@ class TickerManager:
 
 if __name__ == "__main__":
     manager = TickerManager(start_date="2024-01-01", end_date="2025-01-01", lookback=60)
-    manager.add_ticker("AAPL")
-    manager.add_ticker("MSFT")
+    manager.add_ticker("TSLA")
+    manager.add_ticker("NVDA")
     manager.load_ticker_data()
     manager.process_select_stocks()
     selected_stocks = manager.select_stocks(180, lookback=60, prediction_threshold=0.7)
