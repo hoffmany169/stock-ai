@@ -1,4 +1,5 @@
 from datetime import date, time, timedelta
+from tkinter import messagebox
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ from MLFramework import MachineLearningFramework
 from stock import TICKER, FEATURE
 
 class LSTM_Select_Stock(MachineLearningFramework):
-    FEATURE_STATE_LIST = {}
+    FEATURE_STATE_LIST = None
     def __init__(self, lookback=60):
         self._ticker = None
         self._lookback = lookback
@@ -105,6 +106,16 @@ class LSTM_Select_Stock(MachineLearningFramework):
         self._ticker[TICKER.FEATURES] = value
 #endregion
 
+    def load_tickers(self, ticker_symbols, start_date, end_date):
+        """load ticker data from yfinance"""
+        try:
+            all_data = yf.download(ticker_symbols, start=start_date, end=end_date, group_by='ticker', threads=True)  
+        except Exception as e:
+            print(f"Error downloading data: {e}")
+            messagebox.show_error("Data Download Error", f"Error downloading data: {e}")
+            return None
+        return all_data
+    
     def preprocess_data(self):
         """prepare features for model training"""
         df = self._ticker[TICKER.DATA].copy()

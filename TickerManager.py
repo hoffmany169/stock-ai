@@ -1,3 +1,4 @@
+from tkinter import messagebox
 import select_stock
 import yfinance as yf
 import numpy as np
@@ -5,11 +6,37 @@ import pandas as pd
 from stock import TICKER
 
 class TickerManager:
-    def __init__(self, start_date, end_date, lookback=60):
+    def __init__(self, start_date = None, end_date = None, lookback=60):
         self.tickers = {}
-        self.start_date = start_date
-        self.end_date = end_date
+        self._start_date = start_date
+        self._end_date = end_date
         self.selector = select_stock.LSTM_Select_Stock(lookback)
+        self._reload_data = True
+
+    @property
+    def start_date(self):
+        return self._start_date
+    @start_date.setter
+    def start_date(self, value):
+        self._start_date = value
+
+    @property
+    def end_date(self):
+        return self._end_date
+    @end_date.setter
+    def end_date(self, value):
+        self._end_date = value
+
+    @property
+    def reload_data(self):
+        return self._reload_data
+    @reload_data.setter
+    def reload_data(self, value):
+        self._reload_data = value
+
+    @property
+    def lookback(self):
+        return self.selector.lookback
 
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
@@ -32,10 +59,21 @@ class TickerManager:
         return list(self.tickers.keys())
     
     def load_ticker_data(self):
+        if not self.reload_data:
+            messagebox.showinfo("Info", "Ticker data is already loaded and has not been changed.")
+            return True
         tickers = self.get_all_tickers()
-        all_data = yf.download(tickers, start=self.start_date, end=self.end_date, group_by='ticker')
-        for ticker in tickers:
-            self.tickers[ticker][TICKER.DATA] = all_data[ticker]
+        try:
+            all_data = self.selector.load_tickers(tickers, self.start_date, self.end_date)
+            if all_data is None:
+                return False
+            for ticker in tickers:
+                self.tickers[ticker][TICKER.DATA] = all_data[ticker]
+            self.reload_data = False
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load ticker data: {e}")
+            return False
+        return True
 
     def process_select_stocks(self):
         for ticker in self.get_all_tickers():
@@ -85,7 +123,9 @@ if __name__ == "__main__":
     manager = TickerManager(start_date="2024-01-01", end_date="2025-01-01", lookback=60)
     manager.add_ticker("TSLA")
     manager.add_ticker("NVDA")
-    manager.load_ticker_data()
+    if not manager.load_ticker_data():
+        print("Failed to load ticker data.")
+        exit(1)
     manager.process_select_stocks()
     selected_stocks = manager.select_stocks(180, lookback=60, prediction_threshold=0.7)
     print("Final selected stocks:", manager.get_selected_stocks())
