@@ -206,7 +206,7 @@ class StockPredictionGUI:
         start_date_frame = ttk.Frame(date_frame)
         start_date_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
         
-        start_label = tk.Label(start_date_frame, text="开始年份:")
+        start_label = tk.Label(start_date_frame, text="Start Year:")
         start_label.pack(anchor=tk.W)
         
         # 年份输入框 - 只接受年份输入
@@ -222,7 +222,7 @@ class StockPredictionGUI:
         self.start_year_entry.insert(0, "2020")  # 默认开始年份
         
         # 添加年份输入提示
-        year_hint_label = tk.Label(start_date_frame, text="格式: YYYY", 
+        year_hint_label = tk.Label(start_date_frame, text="Format: YYYY", 
                                 font=("Arial", 9), fg="gray")
         year_hint_label.pack(anchor=tk.W)
         
@@ -230,7 +230,7 @@ class StockPredictionGUI:
         end_date_frame = ttk.Frame(date_frame)
         end_date_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True)
         
-        end_label = tk.Label(end_date_frame, text="结束年份:")
+        end_label = tk.Label(end_date_frame, text="End Year:")
         end_label.pack(anchor=tk.W)
         
         # 年份输入框 - 只接受年份输入
@@ -246,7 +246,7 @@ class StockPredictionGUI:
         self.end_year_entry.insert(0, "2023")  # 默认结束年份
         
         # 添加年份输入提示
-        year_hint_label2 = tk.Label(end_date_frame, text="格式: YYYY", 
+        year_hint_label2 = tk.Label(end_date_frame, text="Format: YYYY", 
                                 font=("Arial", 9), fg="gray")
         year_hint_label2.pack(anchor=tk.W)
                         
@@ -343,7 +343,7 @@ class StockPredictionGUI:
         )
         self.start_year_pred_entry.grid(row=0, column=1, padx=5, pady=5)
         self.start_year_pred_entry.insert(0, "2023")
-        
+         
         # 结束年份
         end_label_pred = tk.Label(params_frame, text="End Year:")
         end_label_pred.grid(row=0, column=2, sticky=tk.W, pady=5, padx=(20,0))
@@ -576,7 +576,9 @@ class StockPredictionGUI:
             self.log_message(f"Training Period: {start_date} to {end_date}")
 
             # 初始化管理器
-            self.manager = TickerManager(start_date, end_date, lookback)
+            self.manager.start_date = start_date
+            self.manager.end_date = end_date
+            self.manager.lookback = lookback
             
             # 添加股票
             for stock in stocks:

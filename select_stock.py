@@ -1,5 +1,7 @@
 from datetime import date, time, timedelta
+import sys
 from tkinter import messagebox
+import requests
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -13,10 +15,12 @@ from sklearn.metrics import classification_report
 from MLFramework import MachineLearningFramework
 from stock import TICKER, FEATURE
 
+
 class LSTM_Select_Stock(MachineLearningFramework):
     FEATURE_STATE_LIST = None
     def __init__(self, lookback=60):
         self._ticker = None
+        self.SESSION = None
         self._lookback = lookback
         self._features = []
         self._threshold = 0.05  # 5%收益率阈值
@@ -26,8 +30,23 @@ class LSTM_Select_Stock(MachineLearningFramework):
         self.y_train = None
         self.X_test = None
         self.y_test = None
+        self._ticker = dict(zip([t for t in TICKER], [None]*len(TICKER) ))
+        self.SESSION = self.create_session()
         LSTM_Select_Stock.create_feature_list()
 
+    def init_ticker_data(self, ticker_symbol, data):
+        """
+        Docstring for init_ticker_data
+        if ticker data is not initialized, initialize it
+        :param self: Description
+        :param ticker_symbol: Description
+        :param data: Description
+        """
+        self._ticker[TICKER.ID] = ticker_symbol
+        self._ticker[TICKER.DATA] = data
+
+    def create_session(self):
+        return requests.Session()
 #region static methods
     @staticmethod
     def create_feature_list():
@@ -106,16 +125,27 @@ class LSTM_Select_Stock(MachineLearningFramework):
         self._ticker[TICKER.FEATURES] = value
 #endregion
 
-    def load_tickers(self, ticker_symbols, start_date, end_date):
-        """load ticker data from yfinance"""
-        try:
-            all_data = yf.download(ticker_symbols, start=start_date, end=end_date, group_by='ticker', threads=True)  
-        except Exception as e:
-            print(f"Error downloading data: {e}")
-            messagebox.show_error("Data Download Error", f"Error downloading data: {e}")
-            return None
-        return all_data
+    # def load_tickers(self, ticker_symbols, start_date, end_date):
+    #     """load ticker data from yfinance"""
+    #     try:
+    #         all_data = yf.download(ticker_symbols, start=start_date, end=end_date, group_by='ticker', threads=True)  
+    #     except Exception as e:
+    #         print(f"Error downloading data: {e}")
+    #         messagebox.show_error("Data Download Error", f"Error downloading data: {e}")
+    #         return None
+    #     return all_data
     
+    def load_historical_data(self, ticker_symbol, start_date, end_date):
+        """load historical data for a single ticker from yfinance"""
+        try:
+            self._ticker[TICKER.ID] = ticker_symbol
+            self._ticker[TICKER.DATA] = yf.Ticker(ticker_symbol).history(start=start_date, end=end_date)
+        except Exception as e:
+            print(f"Error downloading data for {ticker_symbol}: {e}")
+            messagebox.showerror("Data Download Error", f"Error downloading data for {ticker_symbol}: {e}")
+            return None
+        return self._ticker[TICKER.DATA]
+
     def preprocess_data(self):
         """prepare features for model training"""
         df = self._ticker[TICKER.DATA].copy()
@@ -236,7 +266,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
         :param data: Description
         """
         if data is None:
-            raise ValueError("Input data for prediction cannot be None")
+            data = self._ticker[TICKER.DATA]
         return self._ticker[TICKER.MODEL].predict(data)
 
     # compute rsi
@@ -309,17 +339,16 @@ class LSTM_Select_Stock(MachineLearningFramework):
 # 主程序
 if __name__ == "__main__":
     # 配置参数
-    ticker = 'AAPL'
+    ticker = 'NVDA'
     start_date = '2018-01-01'
     end_date = '2023-01-01'
     lookback = 60  # 使用60天历史数据
 
     ss = LSTM_Select_Stock(lookback=lookback)
-    ticker_info = yf.Ticker(ticker)
-    ss.ticker = {
-        TICKER.ID: ticker,
-        TICKER.DATA: ticker_info.history(start=start_date, end=end_date)
-    }
     ss.evaluation_output = True
-    ss.process_train_data()
-
+    if ss.load_historical_data(ticker, start_date, end_date) is None:
+        print("Failed to load historical data.")
+        sys.exit(1)
+    ss.process_train_data(evaluation=True)
+    pred = ss.predict(None)  # 示例调用
+    print(f"Prediction for {ticker}: {pred}")

@@ -40,15 +40,9 @@ class TickerManager:
 
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
-        self.tickers[ticker_symbol] = {
-            TICKER.ID: ticker_symbol,
-            TICKER.DATA: None,
-            TICKER.FEATURES: None,
-            TICKER.MODEL: None,
-            TICKER.SCALER: None,
-            TICKER.PERFORMANCE: None,
-            TICKER.SELECTED: False
-        }
+        self.tickers[ticker_symbol] = dict(zip([t for t in TICKER], [None]*len(TICKER) ))
+        self.tickers[ticker_symbol][TICKER.ID] = ticker_symbol
+        self.tickers[ticker_symbol][TICKER.SELECTED] = False
 
     def remove_ticker(self, ticker):
         """Remove a ticker from the manager."""
@@ -65,9 +59,10 @@ class TickerManager:
         tickers = self.get_all_tickers()
         try:
             all_data = self.selector.load_tickers(tickers, self.start_date, self.end_date)
-            if all_data is None:
-                return False
             for ticker in tickers:
+                if all_data[ticker] is None or all_data[ticker].empty:
+                    messagebox.showerror("Error", f"No data found for ticker: {ticker}")
+                    continue
                 self.tickers[ticker][TICKER.DATA] = all_data[ticker]
             self.reload_data = False
         except Exception as e:
@@ -81,7 +76,6 @@ class TickerManager:
             self.selector.process_train_data()
     
     def select_stocks(self, date_offset, lookback, prediction_threshold=0.7):
-        selected_stocks = []
         start_date = pd.to_datetime(self.end_date) - pd.DateOffset(date_offset)
         end_date = pd.to_datetime(self.end_date)
 

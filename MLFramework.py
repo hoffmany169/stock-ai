@@ -4,17 +4,6 @@ from abc import abstractmethod, ABCMeta
 
 
 class MachineLearningFramework(metaclass=ABCMeta):
-    def load_tickers(self, ticker_symbols, start_date, end_date):
-        """
-        Docstring for load_tickers
-        load the training data from source
-        :param ticker_symbols: list of ticker symbols to load data for
-        :param start_date: start date for the data
-        :param end_date: end date for the data
-        return: DataFrame
-        """
-        pass
-
     def load_historical_data(self, ticker_symbol, start_date, end_date):
         """
         Docstring for load_historical_data
@@ -90,10 +79,13 @@ class MachineLearningFramework(metaclass=ABCMeta):
         """
         pass
 
-    def process_train_data(self):
-        # 加载并预处理数据
+    def process_train_data(self, evaluation=False):
+        """
+        ### 加载并预处理数据
+        """
         self.preprocess_data()
 
         # 训练模型
         self.train_model()
-        self.evaluate_model()
+        if evaluation:
+            self.evaluate_model()
