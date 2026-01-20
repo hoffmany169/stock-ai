@@ -24,6 +24,7 @@ class TICKER(AutoIndex):
     MODEL = ()
     SCALER = ()
     TRAIN_DATA = ()
+    TRAIN_TEST_DATA = ()
     HISTORY = ()
     PERFORMANCE = ()
     SELECTED = ()

@@ -124,19 +124,10 @@ class LSTM_Select_Stock(MachineLearningFramework):
     def feature_stats(self, value):
         self._ticker[TICKER.FEATURES] = value
 #endregion
-
-    # def load_tickers(self, ticker_symbols, start_date, end_date):
-    #     """load ticker data from yfinance"""
-    #     try:
-    #         all_data = yf.download(ticker_symbols, start=start_date, end=end_date, group_by='ticker', threads=True)  
-    #     except Exception as e:
-    #         print(f"Error downloading data: {e}")
-    #         messagebox.show_error("Data Download Error", f"Error downloading data: {e}")
-    #         return None
-    #     return all_data
     
     def load_historical_data(self, ticker_symbol, start_date, end_date):
         """load historical data for a single ticker from yfinance"""
+        print(f"!! Loading Ticker {ticker_symbol}: {start_date} - {end_date} !!")
         try:
             self._ticker[TICKER.ID] = ticker_symbol
             self._ticker[TICKER.DATA] = yf.Ticker(ticker_symbol).history(start=start_date, end=end_date)
@@ -229,45 +220,49 @@ class LSTM_Select_Stock(MachineLearningFramework):
     def create_train_test_data(self):
         # 数据集划分
         split_idx = int(len(self._ticker[TICKER.TRAIN_DATA])*(1-self._percent_train_test_split))
-        self.X_train = np.stack(self._ticker[TICKER.TRAIN_DATA]['Features'].iloc[:split_idx])
-        self.y_train = self._ticker[TICKER.TRAIN_DATA]['Label'].iloc[:split_idx]
-        self.X_test = np.stack(self._ticker[TICKER.TRAIN_DATA]['Features'].iloc[split_idx:])
-        self.y_test = self._ticker[TICKER.TRAIN_DATA]['Label'].iloc[split_idx:]
+        self._ticker[TICKER.TRAIN_TEST_DATA] = {}
+        self._ticker[TICKER.TRAIN_TEST_DATA]['X Tain'] =  np.stack(self._ticker[TICKER.TRAIN_DATA]['Features'].iloc[:split_idx])
+        self._ticker[TICKER.TRAIN_TEST_DATA]['Y Tain'] = self._ticker[TICKER.TRAIN_DATA]['Label'].iloc[:split_idx]
+        self._ticker[TICKER.TRAIN_TEST_DATA]['X Test'] = np.stack(self._ticker[TICKER.TRAIN_DATA]['Features'].iloc[split_idx:])
+        self._ticker[TICKER.TRAIN_TEST_DATA]['Y Test'] = self._ticker[TICKER.TRAIN_DATA]['Label'].iloc[split_idx:]
 
     def train_model(self):
         self.create_train_test_data()
+        x_train = self._ticker[TICKER.TRAIN_TEST_DATA]['X Tain']
+        y_train = self._ticker[TICKER.TRAIN_TEST_DATA]['Y Tain']
         # 模型构建
-        self.build_model((self.X_train.shape[1], self.X_train.shape[2]))
+        self.build_model((x_train.shape[1], x_train.shape[2]))
         
         # 早停法
         early_stop = EarlyStopping(monitor='val_loss', patience=5)
         
         # 训练模型
-        self._ticker[TICKER.HISTORY] = self._ticker[TICKER.MODEL].fit(self.X_train, self.y_train,
+        self._ticker[TICKER.HISTORY] = self._ticker[TICKER.MODEL].fit(x_train, y_train,
                                                                       epochs=50,
                                                                       batch_size=32,
                                                                       validation_split=0.1,
                                                                       callbacks=[early_stop],
                                                                       verbose=1)
+        print("!! Complete Model Training !!")
         
-    def evaluate_model(self, model=None):        
+    def evaluate_model(self):        
         # 评估模型
-        if model is None:
-            model = self._ticker[TICKER.MODEL]
-        y_pred = (model.predict(self.X_test) > 0.5).astype(int)
-        self._ticker[TICKER.PERFORMANCE] = classification_report(self.y_test, y_pred, output_dict=self._evaluation_output)
+        print("!! Evaluate Model !!")
+        x_test = self._ticker[TICKER.TRAIN_TEST_DATA]['X Test']
+        y_test = self._ticker[TICKER.TRAIN_TEST_DATA]['Y Test']
+        model = self._ticker[TICKER.MODEL]
+        y_pred = (model.predict(x_test) > 0.5).astype(int)
+        self._ticker[TICKER.PERFORMANCE] = classification_report(y_test, y_pred, output_dict=self._evaluation_output, zero_division=0)
         print(self._ticker[TICKER.PERFORMANCE])
 
-    def predict(self, data):
+    def predict(self, feature_data):
         """
         Docstring for predict
         predict with trained model on new data
         :param self: Description
         :param data: Description
         """
-        if data is None:
-            data = self._ticker[TICKER.DATA]
-        return self._ticker[TICKER.MODEL].predict(data)
+        return self._ticker[TICKER.MODEL].predict(feature_data)
 
     # compute rsi
     def _compute_rsi(self, data_sequence, period=14):
@@ -345,10 +340,11 @@ if __name__ == "__main__":
     lookback = 60  # 使用60天历史数据
 
     ss = LSTM_Select_Stock(lookback=lookback)
+    ss.disable_feature(FEATURE.PB)
+    ss.disable_feature(FEATURE.PE)
+    ss.disable_feature(FEATURE.RSI)
     ss.evaluation_output = True
     if ss.load_historical_data(ticker, start_date, end_date) is None:
         print("Failed to load historical data.")
         sys.exit(1)
     ss.process_train_data(evaluation=True)
-    pred = ss.predict(None)  # 示例调用
-    print(f"Prediction for {ticker}: {pred}")

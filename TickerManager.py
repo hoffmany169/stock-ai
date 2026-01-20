@@ -37,6 +37,9 @@ class TickerManager:
     @property
     def lookback(self):
         return self.selector.lookback
+    @lookback.setter
+    def lookback(self, value):
+        self.selector.lookback = value
 
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
@@ -57,13 +60,18 @@ class TickerManager:
             messagebox.showinfo("Info", "Ticker data is already loaded and has not been changed.")
             return True
         tickers = self.get_all_tickers()
+        rmv = []
         try:
-            all_data = self.selector.load_tickers(tickers, self.start_date, self.end_date)
+            all_data = yf.download(tickers, start=self.start_date, end=self.end_date, group_by='ticker', threads=True, progress=False)
             for ticker in tickers:
                 if all_data[ticker] is None or all_data[ticker].empty:
                     messagebox.showerror("Error", f"No data found for ticker: {ticker}")
+                    rmv.append(ticker)
                     continue
                 self.tickers[ticker][TICKER.DATA] = all_data[ticker]
+            if len(rmv) > 0:
+                for t in rmv:
+                    del self.tickers[t]
             self.reload_data = False
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load ticker data: {e}")
@@ -76,6 +84,7 @@ class TickerManager:
             self.selector.process_train_data()
     
     def select_stocks(self, date_offset, lookback, prediction_threshold=0.7):
+        print("!! selecting stocks !!")
         start_date = pd.to_datetime(self.end_date) - pd.DateOffset(date_offset)
         end_date = pd.to_datetime(self.end_date)
 
@@ -86,16 +95,13 @@ class TickerManager:
             
             if len(ticker_data) < lookback:
                 continue
-            local_selector.ticker = {
-                TICKER.ID: ticker,
-                TICKER.DATA: current_data[ticker],
-                TICKER.FEATURES: self.tickers[ticker][TICKER.FEATURES],
-                TICKER.MODEL: self.tickers[ticker][TICKER.MODEL],
-                TICKER.SCALER: self.tickers[ticker][TICKER.SCALER]
-            }
+            local_selector.ticker[TICKER.ID] = ticker,
+            local_selector.ticker[TICKER.DATA] = current_data[ticker]
+            local_selector.ticker[TICKER.FEATURES] = self.tickers[ticker][TICKER.FEATURES]
+            local_selector.ticker[TICKER.MODEL] = self.tickers[ticker][TICKER.MODEL]
+            local_selector.ticker[TICKER.SCALER] = self.tickers[ticker][TICKER.SCALER]
 
-
-            local_selector.preprocess_data()                
+            local_selector.preprocess_data()            
             # 获取最近lookback天的数据
             latest_window = np.stack(local_selector.ticker[TICKER.TRAIN_DATA]['Features'].iloc[-lookback:])
             # latest_window_3d = latest_window[np.newaxis, ...] # 转换为3D数组,以适应LSTM输入要求,但模型已经适应3D输入,不需要再转换
