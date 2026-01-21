@@ -1,4 +1,6 @@
-from datetime import date, time, timedelta
+from datetime import date, datetime, time, timedelta
+import json
+import os
 import sys
 from tkinter import messagebox
 import requests
@@ -33,6 +35,38 @@ class LSTM_Select_Stock(MachineLearningFramework):
         self._ticker = dict(zip([t for t in TICKER], [None]*len(TICKER) ))
         self.SESSION = self.create_session()
         LSTM_Select_Stock.create_feature_list()
+
+    def load_historical_data(self, ticker_symbol, start_date, end_date):
+        """load historical data for a single ticker from yfinance"""
+        print(f"!! Loading Ticker {ticker_symbol}: {start_date} - {end_date} !!")
+        try:
+            self._ticker[TICKER.ID] = ticker_symbol
+            self._ticker[TICKER.DATA] = yf.Ticker(ticker_symbol).history(start=start_date, end=end_date)
+        except Exception as e:
+            print(f"Error downloading data for {ticker_symbol}: {e}")
+            messagebox.showerror("Data Download Error", f"Error downloading data for {ticker_symbol}: {e}")
+            return None
+        return self._ticker[TICKER.DATA]
+
+    def download_ticker_data(self, ticker:list, start_date, end_date):
+        try:
+            self._ticker[TICKER.ID] = ticker
+
+            data = yf.download([ticker], 
+                                start=start_date, 
+                                end=end_date,
+                                group_by='ticker',
+                                progress=True,  # 显示进度
+                                timeout=60     # 延长超时时间
+                                # threads=True    # 使用多线程
+                                )
+            self._ticker[TICKER.DATA] = data[ticker]
+        except Exception as e:
+            print(f"Error downloading data for {ticker}: {e}")
+            messagebox.showerror("Data Download Error", f"Error downloading data for {ticker}: {e}")
+            return None
+        return self._ticker[TICKER.DATA]
+
 
     def init_ticker_data(self, ticker_symbol, data):
         """
@@ -125,18 +159,6 @@ class LSTM_Select_Stock(MachineLearningFramework):
         self._ticker[TICKER.FEATURES] = value
 #endregion
     
-    def load_historical_data(self, ticker_symbol, start_date, end_date):
-        """load historical data for a single ticker from yfinance"""
-        print(f"!! Loading Ticker {ticker_symbol}: {start_date} - {end_date} !!")
-        try:
-            self._ticker[TICKER.ID] = ticker_symbol
-            self._ticker[TICKER.DATA] = yf.Ticker(ticker_symbol).history(start=start_date, end=end_date)
-        except Exception as e:
-            print(f"Error downloading data for {ticker_symbol}: {e}")
-            messagebox.showerror("Data Download Error", f"Error downloading data for {ticker_symbol}: {e}")
-            return None
-        return self._ticker[TICKER.DATA]
-
     def preprocess_data(self):
         """prepare features for model training"""
         df = self._ticker[TICKER.DATA].copy()
@@ -244,7 +266,31 @@ class LSTM_Select_Stock(MachineLearningFramework):
                                                                       callbacks=[early_stop],
                                                                       verbose=1)
         print("!! Complete Model Training !!")
-        
+
+    def save_model(self, path, start_date, end_date, lookback):
+        ticker_name = self._ticker[TICKER.ID]
+        folder_name = f"{ticker_name}@{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        model_dir = os.path.join(path, folder_name)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        # 保存特征列表
+        model_info = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "lookback": lookback,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "features": self._ticker[TICKER.FEATURES]
+        }
+        with open(f"{model_dir}/features.json", "w") as f:
+            json.dump(model_info, f, indent=2)
+        # 保存缩放器文件
+        scaler = self._ticker[TICKER.SCALER]
+        scaler_file = f"{model_dir}/scaler.joblib"
+        json.dump(scaler, scaler_file)
+        # 保存模型文件
+        model = self._ticker[TICKER.MODEL]
+        model.save(f"{model_dir}/model.h5")
+
     def evaluate_model(self):        
         # 评估模型
         print("!! Evaluate Model !!")
@@ -344,7 +390,7 @@ if __name__ == "__main__":
     ss.disable_feature(FEATURE.PE)
     ss.disable_feature(FEATURE.RSI)
     ss.evaluation_output = True
-    if ss.load_historical_data(ticker, start_date, end_date) is None:
+    if ss.download_ticker_data(ticker, start_date, end_date) is None:
         print("Failed to load historical data.")
         sys.exit(1)
     ss.process_train_data(evaluation=True)

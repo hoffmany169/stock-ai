@@ -27,7 +27,7 @@ class StockPredictionGUI:
         self.root.title("Stock Prediction GUI")
         self.root.geometry("1200x800")
         # 初始化股票列表
-        self.stocks = []  # 存储股票代码的列表        
+        self._add_stocks = []  # 存储股票代码的列表        
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -35,6 +35,7 @@ class StockPredictionGUI:
         # 初始化管理器
         self.manager = TickerManager()
         self.current_model = None
+        self._reload_data = True
         
         # 创建标签页
         self.create_training_tab()
@@ -45,9 +46,13 @@ class StockPredictionGUI:
         self.load_saved_models()
         self.set_default_years()
 
+    @property
+    def reload_data(self):
+        return self._reload_data
+
     def get_stored_stocks(self):
         """获取所有选中的股票"""
-        return self.stocks.copy()
+        return self._add_stocks.copy()
 
     def set_default_years(self):
         """设置默认年份"""
@@ -85,7 +90,7 @@ class StockPredictionGUI:
             year = int(input_text)
             if year < 1000 or year > 9999:
                 return False
-        
+        self._reload_data = True
         return True
 
     def validate_year_range(self):
@@ -163,7 +168,7 @@ class StockPredictionGUI:
         self.stock_combo['values'] = ('AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
                                      'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
                                      'BABA', 'JD', 'PDD', 'BIDU', 'NTES')
-        combobox_var.trace('w', lambda *_: self.set_reload_data())
+        combobox_var.trace('w', lambda *_: self._reload_data)
         
         # 添加按钮
         add_btn = tk.Button(input_frame, text="Add", 
@@ -308,11 +313,6 @@ class StockPredictionGUI:
         self.training_frame.grid_rowconfigure(0, weight=1)
         self.training_frame.grid_rowconfigure(2, weight=1)  # 日志区域可扩展
 
-    def set_reload_data(self):
-        """设置重新加载数据标志"""
-        if self.manager:
-            self.manager.reload_data = True
-
     def create_prediction_tab(self):
         """创建预测标签页"""
         self.prediction_frame = ttk.Frame(self.notebook)
@@ -430,7 +430,34 @@ class StockPredictionGUI:
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-    
+
+    def validate_stock_symbol(self, symbol):
+        """验证股票代码格式（增强版）"""
+        if not symbol or len(symbol) == 0:
+            return False
+        
+        # 基本验证：只包含字母、数字和点号，长度1-10个字符
+        import re
+        if not re.match(r'^[A-Z0-9.]{1,10}$', symbol):
+            return False
+        
+        # 常见股票代码后缀验证（可选）
+        # 例如：AAPL, GOOGL, BRK.B, BTC-USD 等格式
+        
+        return True
+
+    def validate_and_fix_stock_symbol(self, symbol):
+        """验证并修复股票代码格式"""
+        symbol = symbol.strip().upper()
+        
+        # 常见修复：添加交易所后缀
+        if '.' not in symbol and '-' not in symbol:
+            # 对于没有后缀的股票，通常需要添加交易所信息
+            # 但yfinance通常可以处理大部分常见股票代码
+            pass
+        
+        return symbol
+
     def add_stock(self):
         """添加股票代码"""
         stock = self.stock_combo.get().strip().upper()
@@ -438,18 +465,25 @@ class StockPredictionGUI:
             messagebox.showwarning("Warning", "Please enter a stock code")
             return
         
-        # 检查股票代码格式（简单验证）
-        if len(stock) < 1 or len(stock) > 5:
-            if not messagebox.askyesno("Confirmation", f"Stock '{stock}' length is uncommon, do you want to add it?"):
-                return
-        
-        # 检查是否已存在
-        if stock in self.stocks:
-            messagebox.showinfo("Hint", f"Stock '{stock}' already exists")
+        # 验证股票代码格式
+        if not self.validate_stock_symbol(stock):
+            messagebox.showwarning("Warning", f"Format of Stock is wrong: {stock}\nThey must be capital and number, for example: AAPL, GOOGL")
             return
         
+        # 检查是否已存在
+        if stock in self._add_stocks:
+            messagebox.showinfo("Hint", f"{stock} exists already!")
+            return
+        
+        # 可选：快速验证股票代码是否存在
+        if not self.quick_check_stock_exists(stock):
+            response = messagebox.askyesno("Confirmation", 
+                f"Stock Symbol {stock} may not exist or invalid\nAdd it?")
+            if not response:
+                return
+        
         # 添加到内部列表
-        self.stocks.append(stock)
+        self._add_stocks.append(stock)
         
         # 更新Listbox显示
         self.update_stock_listbox()
@@ -458,11 +492,35 @@ class StockPredictionGUI:
         self.stock_combo.set("")
         
         # 记录日志
-        self.log_message(f"Add Stock: {stock}")
+        self.log_message(f"Add Stock: [{stock}]")
         
         # 焦点回到输入框
         self.stock_combo.focus_set()
-    
+        # 添加到下拉框的历史记录
+        # self.add_to_combo_history(stock)
+        self._reload_data = True
+
+    def quick_check_stock_exists(self, symbol):
+        """快速检查股票代码是否存在"""
+        try:
+            # 使用简单的API调用检查
+            import yfinance as yf
+            stock = yf.Ticker(symbol)
+            # 尝试获取基本信息
+            info = stock.info
+            # 如果有基本的公司信息，则认为有效
+            if info and len(info) > 0:
+                company_name = info.get('longName', info.get('shortName', symbol))
+                self.log_message(f"{symbol}: {company_name}")
+                return True
+            return False
+        except Exception as e:
+            # 如果出现404错误，说明股票代码无效
+            if "404" in str(e):
+                return False
+            # 其他错误可能只是网络问题，暂时返回True让用户决定
+            return True    
+
     def remove_stock(self):
         """从列表中删除选中的股票"""
         # 获取选中的项目
@@ -474,34 +532,36 @@ class StockPredictionGUI:
         
         # 获取选中的股票代码
         index = selection[0]
-        stock = self.stocks[index]
+        stock = self._add_stocks[index]
         
         # 确认删除
         if messagebox.askyesno("Confirmation", f"Are you sure you want to delete stock '{stock}'?"):
             # 从内部列表删除
-            self.stocks.pop(index)
+            self._add_stocks.pop(index)
             
             # 更新Listbox显示
             self.update_stock_listbox()
             
             # 记录日志
             self.log_message(f"Deleted stock: {stock}")
+            self._reload_data = True
     
     def clear_all_stocks(self):
         """清空所有股票"""
-        if not self.stocks:
+        if not self._add_stocks:
             messagebox.showinfo("Info", "List of stocks is already empty")
             return
         
-        if messagebox.askyesno("Confirmation", f"Are you sure you want to clear all {len(self.stocks)} stocks?"):
+        if messagebox.askyesno("Confirmation", f"Are you sure you want to clear all {len(self._add_stocks)} stocks?"):
             # 清空内部列表
-            self.stocks.clear()
+            self._add_stocks.clear()
             
             # 更新Listbox显示
             self.update_stock_listbox()
             
             # 记录日志
             self.log_message("Cleared all stocks already in the list")
+            self._reload_data = True
 
     def update_stock_listbox(self):
         """更新Listbox显示"""
@@ -509,8 +569,8 @@ class StockPredictionGUI:
         self.stock_listbox.delete(0, tk.END)
         
         # 添加所有股票
-        for i, stock in enumerate(self.stocks, 1):
-            self.stock_listbox.insert(tk.END, f"{i}. {stock}")
+        for i, stock in enumerate(self._add_stocks, 1):
+            self.stock_listbox.insert(tk.END, f"{i}. [{stock}]")
         
         # 更新状态显示
         self.update_status()
@@ -528,11 +588,12 @@ class StockPredictionGUI:
         else:
             LSTM_Select_Stock.disable_feature(feature)
             self.log_message(f"Disabled feature: {LSTM_Select_Stock.get_feature_name(feature)}")
+        self._reload_data = True
 
     def start_training(self):
         """开始训练模型"""
-        stocks = list(self.stock_listbox.get(0, tk.END))
-        if not stocks:
+        # stocks = [s[s.find('[')+1: s.find(']')] for s in list(self.stock_listbox.get(0, tk.END))]
+        if not self._add_stocks:
             messagebox.showwarning("Warning", "Please add stocks first")
             return
         
@@ -551,7 +612,7 @@ class StockPredictionGUI:
             return
         
         # 在新线程中运行训练，避免GUI冻结
-        thread = threading.Thread(target=self.run_training, args=(stocks, lookback))
+        thread = threading.Thread(target=self.run_training, args=(self._add_stocks, lookback))
         thread.daemon = True
         thread.start()    
 
@@ -586,9 +647,48 @@ class StockPredictionGUI:
             
             # 加载数据
             self.log_message("Loading stock data...")
-            self.manager.load_ticker_data()
+            # 在单独的线程中运行数据加载
+            def load_data_thread():
+                try:
+                    # 直接调用修复后的方法
+                    no_data = self.manager.load_ticker_data()
+                    
+                    # 检查数据是否加载成功
+                    data_loaded = False
+                    for ticker in stocks:
+                        if (ticker in self.manager.tickers and 
+                            self.manager.tickers[ticker][TICKER.DATA] is not None and
+                            not self.manager.tickers[ticker][TICKER.DATA].empty):
+                            data_loaded = True
+                            break
+                    
+                    if not data_loaded:
+                        raise Exception("All stocks are failure to be loaded!!")
+                    
+                    # 数据加载成功后继续处理
+                    self.root.after(0, self.continue_training, stocks, lookback, start_date, end_date)
+                    
+                except Exception as e:
+                    error_msg = f"Failure to load data: {str(e)}"
+                    self.root.after(0, self.handle_training_error, error_msg)            
+                return no_data
             
+            # 启动数据加载线程
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor() as executor:
+                # Schedule the function to run
+                future = executor.submit(load_data_thread)
+                # result() blocks until the thread finishes and returns the value
+                result = future.result()
+                if len(result) > 0:
+                    print(f'Failure downloaded stocks: {result}') 
+        except Exception as e:
+            self.log_message(f"Error during training: {str(e)}")
+            messagebox.showerror("Error", f"Error during training: {str(e)}")
+
+    def continue_training(self, stocks, lookback, start_date, end_date):
             # 处理数据并训练
+        try:
             self.log_message("Processing data and training model...")
             self.manager.process_select_stocks()
             
@@ -597,11 +697,15 @@ class StockPredictionGUI:
             
             self.log_message("Training completed!")
             messagebox.showinfo("Success", "Model training completed!")
-            
         except Exception as e:
             self.log_message(f"Error during training: {str(e)}")
             messagebox.showerror("Error", f"Error during training: {str(e)}")
-    
+            
+    def handle_training_error(self, error_msg):
+        """处理训练错误"""
+        self.log_message(error_msg)
+        messagebox.showerror("Error", error_msg)    
+
     def evaluate_model(self):
         """评估模型"""
         if not self.manager:
@@ -631,12 +735,14 @@ class StockPredictionGUI:
             return
         
         try:
-            stocks = self.stock_listbox.get(0, tk.END)
+            # stocks = self.stock_listbox.get(0, tk.END)
             start_date = self.start_date_train.get_date().strftime("%Y-%m-%d")
             end_date = self.end_date_train.get_date().strftime("%Y-%m-%d")
             lookback = int(self.lookback_train.get())
             
-            self.save_model_info(stocks, start_date, end_date, lookback)
+            # self.save_model_info(stocks, start_date, end_date, lookback)
+            for ticker in self._add_stocks:
+                self.manager.selector.save_model(ticker, start_date, end_date, lookback)
             messagebox.showinfo("Success", "Model saved successfully!")
             
         except Exception as e:
