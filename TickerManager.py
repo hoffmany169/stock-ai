@@ -89,6 +89,7 @@ class TickerManager:
                     if ticker in all_data:
                         data_num = len(all_data[ticker])
                         if data_num > 1:
+                            self.add_ticker(ticker)
                             self.tickers[ticker][TICKER.DATA] = all_data[ticker]
                             print(f"{ticker}: 成功加载 {len(all_data[ticker])} 条数据")
                             continue
@@ -121,6 +122,7 @@ class TickerManager:
                     )
                     
                     if not ticker_data.empty:
+                        self.add_ticker(ticker)
                         self.tickers[ticker][TICKER.DATA] = ticker_data
                         print(f"{ticker}: 成功下载 {len(ticker_data)} 条数据")
                     else:

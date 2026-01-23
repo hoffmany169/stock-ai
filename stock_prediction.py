@@ -20,6 +20,7 @@ import pandas as pd
 from select_stock import LSTM_Select_Stock, FEATURE
 from stock import TICKER
 from TickerManager import TickerManager
+from Common.DropdownButton import DropdownButton
 
 class StockPredictionGUI:
     def __init__(self, root):
@@ -592,7 +593,6 @@ class StockPredictionGUI:
 
     def start_training(self):
         """开始训练模型"""
-        # stocks = [s[s.find('[')+1: s.find(']')] for s in list(self.stock_listbox.get(0, tk.END))]
         if not self._add_stocks:
             messagebox.showwarning("Warning", "Please add stocks first")
             return
@@ -665,6 +665,9 @@ class StockPredictionGUI:
                     if not data_loaded:
                         raise Exception("All stocks are failure to be loaded!!")
                     
+                    # create folder structure for saving data and save loaded data
+                    self.manager.selector.save_ticker_data(r'./model')
+
                     # 数据加载成功后继续处理
                     self.root.after(0, self.continue_training, stocks, lookback, start_date, end_date)
                     
@@ -693,7 +696,7 @@ class StockPredictionGUI:
             self.manager.process_select_stocks()
             
             # 保存模型信息
-            self.save_model_info(stocks, start_date, end_date, lookback)
+            # self.save_model_info(stocks, start_date, end_date, lookback)
             
             self.log_message("Training completed!")
             messagebox.showinfo("Success", "Model training completed!")
