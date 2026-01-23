@@ -219,14 +219,16 @@ class LSTM_Select_Stock(MachineLearningFramework):
         return train_test_data
 
     def train_model(self, model, x_train, y_train):
-        self.create_train_test_data()
+        train_test_data = self.create_train_test_data()
         # 模型构建
-        self.build_model((x_train.shape[1], x_train.shape[2]))
+        model = self.build_model((x_train.shape[1], x_train.shape[2]))
         
         # 早停法
         early_stop = EarlyStopping(monitor='val_loss', patience=5)
         
         # 训练模型
+        x_train = train_test_data['X Tain']
+        y_train = train_test_data['Y Tain']
         hist = model.fit(x_train, y_train,
                         epochs=50,
                         batch_size=32,
@@ -234,6 +236,7 @@ class LSTM_Select_Stock(MachineLearningFramework):
                         callbacks=[early_stop],
                         verbose=1)
         print("!! Complete Model Training !!")
+        return (model, hist)
 
     def create_ticker_folder(self, ticker_name, cur_path='.'):
         try:
