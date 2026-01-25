@@ -12,13 +12,6 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python Debugger: Setup Fonts",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "setup_fonts.py",
-            "console": "integratedTerminal"
-        },
-        {
             "name": "Python-Debugger: stock prediction (GUI)",
             "type": "debugpy",
             "request": "launch",
@@ -30,7 +23,9 @@
             "type": "debugpy",
             "request": "launch",
             "program": "PlotAnalyser.py",
-            "args": ["0"],
+            "args": [
+                "0"
+            ],
             "console": "integratedTerminal"
         },
         {
