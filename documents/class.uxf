@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>100</x>
+      <y>50</y>
+      <w>210</w>
+      <h>180</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;GUI&gt;&gt;
+Package::StockPredictionGUI
+--
+-_added_stocks:list
+_-ClassAttribute: Long_
+--
+#create_training_tab:None
+#create_prediction_tab:None
+#create_visualization_tab:None
+--
+Responsibilities
+-- Resp1
+-- Resp2</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>100</x>
+      <y>260</y>
+      <w>210</w>
+      <h>180</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;model&gt;&gt;
+Package::TikerManager
+--
+-tickers:dict{ticker:Model}
+-lookback
+--
+-features
+--
+Responsibilities
+-- Resp1
+-- Resp2</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>60</x>
+      <y>540</y>
+      <w>250</w>
+      <h>460</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;algorithm&gt;&gt;
+Package::SelectStockLTSM
+--
+-stock_model:StockModel
+-percent_train_test_split:float
+-evaluation_output:bool
+-ticker_processed_data:DataFrame
+-x_train:DataFrame
+-y_train:DataFrame
+-x_test:DataFrame
+-y_test:DataFrame
+-lookback:int
+-future_days:int
+-threshold:float
+-features:list
+--
++load_history_data():None
++download_ticker_data():None
++preprocess_train_data():None
+-_create_scaler_data():None
+-_build_model():None
+-_split_train_test_data():None
++train_model():None
++evaluate_model():None
++save_ticker_model_data():None
++predict():None
+--
+Responsibilities
+-- train model
+-- evaluate model</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>410</x>
+      <y>260</y>
+      <w>210</w>
+      <h>280</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;class&gt;&gt;
+Package::StocvkModel
+--
+-ticker_symbol:str
+-start_date:str
+-end_date:str
+-lookback:int
+-train_test_split_percentage:float
+-model:object
+-features:dict
+-loaded_data: DataFrame
+-train_test_data:DataFrame
+--
+#Operation(i: int): int
+/+AbstractOperation()/
+--
+Responsibilities
+-- Resp1
+-- Resp2</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>300</x>
+      <y>330</y>
+      <w>130</w>
+      <h>40</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-
+m1=0..n</panel_attributes>
+    <additional_attributes>110.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>200</x>
+      <y>360</y>
+      <w>230</w>
+      <h>200</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;180.0;10.0;100.0;150.0;100.0;150.0;10.0;210.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>360</x>
+      <y>560</y>
+      <w>260</w>
+      <h>240</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;class&gt;&gt;
+Package::StockFeature
+--
+-_FEATURE_STATE_LIST:dict {FEATURE:bool}
+--
+-_create_feature_list():dict
++get_features():list
++get_feature_count():int
++get_feature_name(feature:FEATURE):str
++is_feature_used(feature:FEATURE):bool
++enable_feature(feature:FEATURE):None
++disable_feature(feature:FEATURE):None
+--
+Responsibilities
+-- Resp1
+-- Resp2</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>370</x>
+      <y>380</y>
+      <w>60</w>
+      <h>200</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;180.0;10.0;10.0;40.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>300</x>
+      <y>310</y>
+      <w>130</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;10.0;110.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>30</x>
+      <y>120</y>
+      <w>90</w>
+      <h>220</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>70.0;200.0;10.0;200.0;10.0;10.0;70.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>710</x>
+      <y>580</y>
+      <w>210</w>
+      <h>190</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;class&gt;&gt;
+Package::ModelSaverLoader
+--
+-id: Long {composite}
+_-ClassAttribute: Long_
+--
+#Operation(i: int): int
+/+AbstractOperation()/
+--
+Responsibilities
+-- Resp1
+-- Resp2</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>610</x>
+      <y>650</y>
+      <w>120</w>
+      <h>30</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;10.0;100.0;10.0</additional_attributes>
+  </element>
+</diagram>
