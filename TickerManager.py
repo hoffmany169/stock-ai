@@ -3,18 +3,15 @@ import select_stock
 import yfinance as yf
 import numpy as np
 import pandas as pd
-from stock import FEATURE, TICKER
+from stockDefine import FEATURE, TICKER, StockFeature
+from StockModel import StockModel
 
 class TickerManager:
     def __init__(self, start_date = None, end_date = None, lookback=60):
         self.tickers = {}
         self._start_date = start_date
         self._end_date = end_date
-        self._selector = select_stock.LSTM_Select_Stock(lookback)
-
-    @property
-    def selector(self):
-        return self._selector
+        self._tm_stock_feature = StockFeature()
 
     @property
     def start_date(self):
@@ -30,19 +27,11 @@ class TickerManager:
     def end_date(self, value):
         self._end_date = value
 
-    @property
-    def lookback(self):
-        return self.selector.lookback
-    @lookback.setter
-    def lookback(self, value):
-        self.selector.lookback = value
-
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
         print(f'Adding Stock: [{ticker_symbol}]')
-        self.tickers[ticker_symbol] = dict(zip([t for t in TICKER], [None]*len(TICKER) ))
-        self.tickers[ticker_symbol][TICKER.ID] = ticker_symbol
-        self.tickers[ticker_symbol][TICKER.SELECTED] = False
+        self.tickers[ticker_symbol] = StockModel(ticker_symbol)
+        return self.tickers[ticker_symbol]
 
     def remove_ticker(self, ticker):
         """Remove a ticker from the manager."""
@@ -89,8 +78,11 @@ class TickerManager:
                     if ticker in all_data:
                         data_num = len(all_data[ticker])
                         if data_num > 1:
-                            self.add_ticker(ticker)
-                            self.tickers[ticker][TICKER.DATA] = all_data[ticker]
+                            model_obj = self.add_ticker(ticker)
+                            model_obj.loaded_data = all_data[ticker]
+                            model_obj.start_date = start_str
+                            model_obj.end_date = end_str
+                            model_obj.features = self._tm_stock_feature.get_features()
                             print(f"{ticker}: 成功加载 {len(all_data[ticker])} 条数据")
                             continue
                     # 尝试单独下载
@@ -122,8 +114,9 @@ class TickerManager:
                     )
                     
                     if not ticker_data.empty:
-                        self.add_ticker(ticker)
-                        self.tickers[ticker][TICKER.DATA] = ticker_data
+                        model_obj = self.add_ticker(ticker)
+                        model_obj.load_historical_data(start_str, end_str)
+                        model_obj.features = self._tm_stock_feature.get_features()
                         print(f"{ticker}: 成功下载 {len(ticker_data)} 条数据")
                     else:
                         print(f"{ticker}: 无数据")
@@ -137,8 +130,9 @@ class TickerManager:
 
     def process_select_stocks(self):
         for ticker in self.get_all_tickers():
-            self.selector.ticker = self.tickers[ticker]
-            self.selector.process_train_data()
+            self.selector.preprocess_data(ticker, 
+                                          self.tickers[ticker][TICKER.DATA],
+                                          )
     
     def select_stocks(self, date_offset, lookback, prediction_threshold=0.7):
         print("!! selecting stocks !!")

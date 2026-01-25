@@ -18,9 +18,8 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 from select_stock import LSTM_Select_Stock, FEATURE
-from stock import TICKER
+from stockDefine import TICKER, FEATURE, StockFeature
 from TickerManager import TickerManager
-from Common.DropdownButton import DropdownButton
 
 class StockPredictionGUI:
     def __init__(self, root):
