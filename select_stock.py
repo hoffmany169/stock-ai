@@ -238,6 +238,12 @@ class LSTMSelectStock:
         }
         return self._train_params
 
+    def assign_parameters_from_loading(self, params):
+        self._lookback = params[LTSM_MODEL_PARAM.lookback.name]
+        self._future_days = params[LTSM_MODEL_PARAM.future_days.name]
+        self._threshold = params[LTSM_MODEL_PARAM.threshold.name]
+        self._features = params[LTSM_MODEL_PARAM.features]
+
     def get_model_summary(self):
         """获取模型架构信息"""
         import io

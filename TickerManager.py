@@ -8,11 +8,16 @@ from StockModel import StockModel
 from select_stock import LSTMSelectStock
 
 class TickerManager:
-    def __init__(self, start_date = None, end_date = None, lookback=60):
+    DefaultSaveDataDirectory = r'./models'
+    def __init__(self, start_date = None, end_date = None, features:list=[], lookback=60):
         self.tickers = {}
         self._start_date = start_date
         self._end_date = end_date
-        self._tm_stock_feature = StockFeature()
+        self._stock_features = features
+
+    @staticmethod
+    def set_save_data_directory(dir):
+        TickerManager.DefaultSaveDataDirectory = dir
 
     @property
     def start_date(self):
@@ -28,10 +33,18 @@ class TickerManager:
     def end_date(self, value):
         self._end_date = value
 
+    @property
+    def stock_features(self):
+        return self._stock_features
+    @stock_features.setter
+    def stock_features(self, feats):
+        self._stock_features = feats
+
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
         print(f'Adding Stock: [{ticker_symbol}]')
-        self.tickers[ticker_symbol] = StockModel(ticker_symbol)
+        sm = StockModel(ticker_symbol)
+        self.tickers[ticker_symbol] = [sm, LSTMSelectStock(sm, self._stock_features)]
         return self.tickers[ticker_symbol]
 
     def remove_ticker(self, ticker):
@@ -47,11 +60,24 @@ class TickerManager:
             # ticker symbol
             for ticker_symbol, m in self.tickers.items():
                 if ticker == ticker_symbol:
-                    return m
+                    return m[0]
         elif type(ticker) is int:
             for i, ticker_symbol in enumerate(self.get_all_tickers()):
                 if i == ticker:
-                    return self.tickers[ticker_symbol]
+                    return self.tickers[ticker_symbol][0]
+        else:
+            raise ValueError("Data type of ticker is not supported!")
+
+    def get_LSTM_Select_Stock(self, ticker):
+        if type(ticker) is str: 
+            # ticker symbol
+            for ticker_symbol, m in self.tickers.items():
+                if ticker == ticker_symbol:
+                    return m[1]
+        elif type(ticker) is int:
+            for i, ticker_symbol in enumerate(self.get_all_tickers()):
+                if i == ticker:
+                    return self.tickers[ticker_symbol][1]
         else:
             raise ValueError("Data type of ticker is not supported!")
 
@@ -123,9 +149,13 @@ class TickerManager:
                 try:
                     ticker_obj = yf.Ticker(ticker)
                     ticker_data = ticker_obj.history(
-                        start=self.start_date,
-                        end=self.end_date
+                        start=start_str,
+                        end=end_str
                     )
+                    sm = self.add_ticker(ticker)
+                    sm.loaded_data = ticker_data
+                    sm.start_date = start_str
+                    sm.end_date = end_str
                     
                     if not ticker_data.empty:
                         model_obj = self.add_ticker(ticker)
@@ -142,12 +172,51 @@ class TickerManager:
         print(f"\n下载完成: {len(tickers) - len(no_data)}/{len(tickers)} 个股票数据下载成功")
         return no_data
 
-    def process_select_stocks(self):
+    def process_train_model(self):
         for ticker in self.get_all_tickers():
-            self.selector.preprocess_data(ticker, 
-                                          self.tickers[ticker][TICKER.DATA],
-                                          )
+            ss = self.get_LSTM_Select_Stock(ticker)
+            ss.process_train_data()
     
+    def save_train_data(self, ticker_symbol):
+        from ModelIO import ModelSaverLoader
+        from stockDefine import MODEL_TRAIN_DATA
+        mio = ModelSaverLoader(TickerManager.DefaultSaveDataDirectory,
+                                ticker_symbol)
+        sm = self.get_stock_model(ticker_symbol)
+        ss = self.get_LSTM_Select_Stock(ticker_symbol)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data, sm.loaded_data)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.model, sm.model)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, ss.create_model_parameters())
+        mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
+        mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, ss.train_history)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.get_model_summary())
+        mio.save_train_data()
+
+    def process_save_train_data(self):
+        for ticker in self.get_all_tickers():
+            self.save_train_data(ticker)
+
+    def process_load_train_data(self, ticker_data_dir):
+        """
+        Docstring for process_load_train_data
+        
+        :param self: Description
+        :param ticker_data_dir: concrete path of ticker data, for example: TSLA_20260126_174853
+        """
+        from ModelIO import ModelSaverLoader
+        from stockDefine import MODEL_TRAIN_DATA
+        mio = ModelSaverLoader(TickerManager.DefaultSaveDataDirectory,
+                                save=False)
+        self.add_ticker(mio.ticker_symbol)
+        sm = self.get_stock_model(mio.ticker_symbol)
+        ss = self.get_LSTM_Select_Stock(mio.ticker_symbol)
+        mio.load_train_data()
+        sm.loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.stock_data)
+        sm.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
+        ss.scaler = mio.get_model_train_data(MODEL_TRAIN_DATA.scaler)
+        ss.assign_parameters_from_loading(mio.get_model_train_data(MODEL_TRAIN_DATA.parameters))
+        
     def select_stocks(self, date_offset, lookback, prediction_threshold=0.7):
         print("!! selecting stocks !!")
         start_date = pd.to_datetime(self.end_date) - pd.DateOffset(date_offset)

@@ -82,6 +82,11 @@ class ModelSaverLoader:
             else:
                 self._ticker_symbol = ticker_symbol
         self._init_model_functions()
+        self.readme_content = ''
+
+    @property
+    def ticker_symbol(self):
+        return self._ticker_symbol
 
     def _init_model_functions(self):
         # initialize functions
@@ -94,10 +99,10 @@ class ModelSaverLoader:
                 self._model_io_functions[data_type] = getattr(self, f'_load_{data_type.name}')
 
     def _save_stock_data(self):
-        if self._model_train_data[MODEL_TRAIN_DATA.stock_data]:
+        if len(self._model_train_data[MODEL_TRAIN_DATA.stock_data]) > 1:
             file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['stock_data'])
             data = self._model_train_data[MODEL_TRAIN_DATA.stock_data]
-            data.to_csv(data, compression='zip')
+            data.to_csv(file, compression='zip')
             print(f"✓ 原始数据已保存至: {file}")
 
     def _save_model(self):
@@ -256,7 +261,7 @@ class ModelSaverLoader:
         params = self._model_train_data[MODEL_TRAIN_DATA.parameters]
         if params is None:
             return ''
-        readme_content = f"""
+        self.readme_content = f"""
 # LSTM股票预测模型
 
 ## 模型信息
