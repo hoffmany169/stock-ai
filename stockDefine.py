@@ -80,15 +80,13 @@ class LTSM_MODEL_PARAM(AutoIndex):
     threshold = ()
     features = ()
     feature_count = ()
-    model_summary = ()
-    performance = ()
 
 class MODEL_TRAIN_DATA(AutoIndex):
     model = ()
     scaler = ()
     parameters = ()
-    train_history = ()
     readme = ()
+    train_history = ()
     performance = ()
     model_summary = ()
 

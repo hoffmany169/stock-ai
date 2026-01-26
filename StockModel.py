@@ -11,15 +11,11 @@ class StockModel:
         self._start_date = '2024-01-01'
         self._end_date = '2025-12-31'
         self._loaded_data = load_data
-        self._train_test_data = None
         self._model = None
+        # data for processing
+        self._train_test_data = None
         self._train_test_split_percentage = 0.2
         self._model_dir = None
-        self._scaler = None
-        self._lookback = 60
-        self._future_days = 5
-        self._threshold = 0.05  # 5%收益率阈值
-        self._trained_model_params = None
         self._readme_content = ''
 
 #region properties    
@@ -54,20 +50,6 @@ class StockModel:
     @model.setter
     def model(self, model):
         self._model = model
-
-    @property
-    def scaler(self):
-        return self._scaler
-    @scaler.setter
-    def scaler(self, scaler):
-        self._scaler = scaler
-
-    @property
-    def trained_model_params(self):
-        return self._train_test_data
-    @trained_model_params.setter
-    def trained_model_params(self, params):
-        self._train_test_data = params
 
     @property
     def readme_content(self):

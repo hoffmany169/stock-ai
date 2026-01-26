@@ -18,7 +18,9 @@ class LSTMSelectStock:
         self._stock_model = stock_model
         self._percent_train_test_split = 0.2
         self._evaluation_output = True
+        self._stock_train_data = None
         self._ticker_processed_data = None
+        self._scaler = None
         self.X_train = None
         self.y_train = None
         self.X_test = None
@@ -27,9 +29,18 @@ class LSTMSelectStock:
         self._future_days = 5
         self._threshold = 0.05
         self._features = features
-        self.performance = None
+        self._performance = None
+        self._train_params = {}
+        self._train_history = None
 
 #region properties
+    @property
+    def scaler(self):
+        return self._scaler
+    @scaler.setter
+    def scaler(self, scaler):
+        self._scaler = scaler
+
     @property
     def lookback(self):
         return self._lookback
@@ -75,13 +86,25 @@ class LSTMSelectStock:
     @evaluation_output.setter
     def evaluation_output(self, value):
         self._evaluation_output = value
+
+    @property
+    def performance(self):
+        return self._performance
+
+    @property
+    def train_parameters(self):
+        return self._train_params
+    
+    @property
+    def train_history(self):
+        return self._train_history
 #endregion
     
     def preprocess_data(self):
         """prepare features for model training"""
         df = self._stock_model.loaded_data
         model_features = self._features
-        # print(f"Processing ticker: {self._stock_model.ticker_symbol} with features: {[StockFeature.get_feature_name(f) for f in model_features]}")
+        print(f"Processing ticker: {self._stock_model.ticker_symbol} with features: {[StockFeature.get_feature_name(f) for f in model_features]}")
         for f in model_features:
             # 计算技术指标
             if FEATURE.Open_Close == f :
@@ -117,7 +140,7 @@ class LSTMSelectStock:
                 df[FEATURE.PB] = self.get_pb_ratio()
             else:
                 raise ValueError("Undefined feature")
-
+        self._stock_train_data = df
         scaled_data = self._create_scaled_data()
 
         X = []
@@ -129,15 +152,15 @@ class LSTMSelectStock:
             y.append(1 if (df['Close'].iloc[i+5]/df['Close'].iloc[i] -1) > threshold else 0)
 
         self._ticker_processed_data = pd.DataFrame({
-            'Ticker': [ticker]*len(X), # corresponding row number of X data, this is used for ticker identification
+            'Ticker': [self._stock_model.ticker_symbol]*len(X), # corresponding row number of X data, this is used for ticker identification
             'Features': X,
             'Label': y
         })
 
     def _create_scaled_data(self):
-        self._stock_model.scaler = StandardScaler()
-        model_data = self._stock_model.loaded_data
-        return self._stock_model.scaler.fit_transform(model_data[self.features])
+        self._scaler = StandardScaler()
+        model_data = self._stock_train_data
+        return self._scaler.fit_transform(model_data[self.features])
 
     def build_model(self, input_shape):
         '''
@@ -155,7 +178,6 @@ class LSTMSelectStock:
                     loss='binary_crossentropy',
                     metrics=['accuracy'])
         self._stock_model.model = model
-        return model
 
     def _create_train_test_data(self):
         # 数据集划分
@@ -172,32 +194,29 @@ class LSTMSelectStock:
         # 模型构建
         x_train = train_test_data['X Tain']
         y_train = train_test_data['Y Tain']
-        model = self.build_model((x_train.shape[1], x_train.shape[2]))
+        self.build_model((x_train.shape[1], x_train.shape[2]))
         
         # 早停法
         early_stop = EarlyStopping(monitor='val_loss', patience=5)
         
         # 训练模型
-        hist = model.fit(x_train, y_train,
-                        epochs=50,
-                        batch_size=32,
-                        validation_split=0.1,
-                        callbacks=[early_stop],
-                        verbose=1)
-        self._history = hist
-        self._stock_model.model = model
+        self._train_history = self._stock_model.model.fit(x_train, y_train,
+                                epochs=50,
+                                batch_size=32,
+                                validation_split=0.1,
+                                callbacks=[early_stop],
+                                verbose=1)
         print("!! Complete Model Training !!")
-        self.evaluate_model(model,
+        self.evaluate_model(self._stock_model.model,
                             train_test_data['X Test'], 
                             train_test_data['Y Test'])
-        return (model, hist)
 
     def evaluate_model(self, model, x_test, y_test):        
         # 评估模型
         print("!! Evaluate Model !!")
         y_pred = (model.predict(x_test)).astype(int)
-        self.performance = classification_report(y_test, y_pred, output_dict=self._evaluation_output, zero_division=0)
-        print(self.performance)
+        self._performance = classification_report(y_test, y_pred, output_dict=self._evaluation_output, zero_division=0)
+        print(self._performance)
 
     def predict(self, model, x_feature):
         """
@@ -208,54 +227,25 @@ class LSTMSelectStock:
         """
         return model.predict(x_feature)
 
-    def _create_readme(self, save_path, params):
-        """创建说明文件"""
-        readme_content = f"""
-# LSTM股票预测模型
-
-## 模型信息
-- 保存时间: {self.timestamp}
-- 时间步长: {params['lookback']}
-- 预测天数: {params['future_days']}
-- 阈值: {params['threshold']}
-- 特征数量: {params['feature_count']}
-
-## 使用方法
-```python
-from model_loader import ModelLoader
-loader = ModelSaverLoader('{save_path}')
-model, scaler, features = loader.load_all()
-文件说明
-model.h5: Keras模型文件
-
-scaler.pkl: 数据标准化器
-
-features.json: 特征列名
-
-params.json: 训练参数
-
-history.json: 训练历史记录
-"""
-        return readme_content
-
-    def _create_model_parameters(self):
-        self._stock_model.trained_model_params = {
+    def create_model_parameters(self):
+        self._train_params = {
             LTSM_MODEL_PARAM.timestamp.name: datetime.now().strftime('%Y%m%d_%H%M%S'),
             LTSM_MODEL_PARAM.lookback.name: self._lookback,
             LTSM_MODEL_PARAM.future_days.name: self._future_days,
             LTSM_MODEL_PARAM.threshold.name: self._threshold,
-            LTSM_MODEL_PARAM.features.name: self._features,
+            LTSM_MODEL_PARAM.features.name: [f.name for f in self._features],
             LTSM_MODEL_PARAM.feature_count.name: self.feature_count,
-            LTSM_MODEL_PARAM.model_summary.name: self._get_model_summary(),
-            LTSM_MODEL_PARAM.performance.name: self.performance
         }
+        return self._train_params
 
-    def _get_model_summary(self):
+    def get_model_summary(self):
         """获取模型架构信息"""
         import io
         string_buffer = io.StringIO()
         self._stock_model.model.summary(print_fn=lambda x: string_buffer.write(x + '\n'))
-        return string_buffer.getvalue()
+        summary_string = string_buffer.getvalue()
+        string_buffer.close()
+        return summary_string
     
     # compute rsi
     def _compute_rsi(self, data_sequence, period=14):
@@ -288,7 +278,7 @@ history.json: 训练历史记录
                 "priceToBook": stock.info.get('priceToBook')
             }
         except Exception as e:
-            print(f"Error getting P/E for {ticker}: {str(e)}")
+            print(f"Error getting P/E for {self._stock_model.ticker_symbol}: {str(e)}")
             return None
         
     # get price to book ratio 市净率
@@ -317,10 +307,10 @@ history.json: 训练历史记录
             except Exception as e:
                 if attempt < max_retries - 1:
                     wait_time = 2 ** attempt  # 指数退避
-                    print(f"Retry {attempt+1} for {ticker} in {wait_time} seconds...")
+                    print(f"Retry {attempt+1} for {self._stock_model.ticker_symbol} in {wait_time} seconds...")
                     time.sleep(wait_time)
                 else:
-                    print(f"Error getting P/B ratio for {ticker}: {str(e)}")
+                    print(f"Error getting P/B ratio for {self._stock_model.ticker_symbol}: {str(e)}")
                     return None
                 
     def process_train_data(self):

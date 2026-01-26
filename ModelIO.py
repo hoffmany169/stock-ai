@@ -2,34 +2,72 @@ import pickle
 import json, os
 import keras
 from datetime import datetime
-from stockDefine import MODEL_TRAIN_DATA
+from stockDefine import MODEL_TRAIN_DATA, LTSM_MODEL_PARAM
 
 class ModelSaverLoader:
     FILE_NAME_DEFINE = {'model': '_model.h5', 
                         'scaler': 'scaler.pkl', 
                         'features': 'features.json', 
                         'params': 'params.json',
-                        'history': 'history.json',
-                        'performance': 'performance.txt',
-                        'readme': 'README.md'}
-    def __init__(self, directory, ticker_symbol, save=True):
-        self._ticker_symbol = ticker_symbol
-        self._save_model = save
-        self._directory = directory
-        self.timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        'history': 'history.pkl',
+                        'performance': 'performance.json',
+                        'readme': 'README.md', 
+                        'model_summary': 'model_summary.txt'}
+    def __init__(self, directory, ticker_symbol=None, save=True):
+        self._save_model_mode = save
         self._model_train_data = dict(zip([t for t in MODEL_TRAIN_DATA], [None]*len(MODEL_TRAIN_DATA)))
         self._model_io_functions = dict(zip([t for t in MODEL_TRAIN_DATA], [None]*len(MODEL_TRAIN_DATA)))
+        self._init(directory, ticker_symbol)
+
+    @property
+    def save_model_mode(self):
+        return self._save_model_mode
+    @save_model_mode.setter
+    def save_model_mode(self, state):
+        if self._save_model_mode == state:
+            return
+        self._save_model_mode = state
+        self._init()
+
+    def _init(self, directory=None, ticker_symbol=None):
+        if directory is None and ticker_symbol is None:
+            self._init_model_functions()
+            return
+        if self._save_model_mode:
+            if ticker_symbol is None:
+                raise ValueError("Ticker symbol is None")
+            self._ticker_symbol = ticker_symbol
+            self.timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            self._directory = os.path.join(directory, f'{ticker_symbol}_{self.timestamp}')
+        else:
+            if ticker_symbol is None:
+                # parse ticker name
+                base_name = os.path.basename(self._directory)
+                parts = base_name.split('_')
+                self._ticker_symbol = parts[0]
+            else:
+                self._ticker_symbol = ticker_symbol
+        self._init_model_functions()
+
+    def _init_model_functions(self):
         # initialize functions
         for data_type in MODEL_TRAIN_DATA:
-            if self._save_model:
-                self._model_io_functions[MODEL_TRAIN_DATA.model] = getattr(self, f'_save_{data_type.name}')
+            if self._save_model_mode:
+                print(f'save function name: _save_{data_type.name}')
+                self._model_io_functions[data_type] = getattr(self, f'_save_{data_type.name}')
             else:
-                self._model_io_functions[MODEL_TRAIN_DATA.model] = getattr(self, f'_load_{data_type.name}')
+                print(f'load function name: _load_{data_type.name}')
+                self._model_io_functions[data_type] = getattr(self, f'_load_{data_type.name}')
 
-    
     def set_model_train_data(self, data_type:MODEL_TRAIN_DATA, data):
         if data_type in MODEL_TRAIN_DATA:
             self._model_train_data[data_type] = data
+
+    def get_model_train_data(self, data_type:MODEL_TRAIN_DATA):
+        if data_type in MODEL_TRAIN_DATA:
+            return self._model_train_data[data_type]
+        else:
+            raise ValueError(f"No data type [{data_type}] in MODEL_TRAIN_DATA")
 
     def _save_model(self):
         # 1. 保存Keras模型
@@ -62,16 +100,16 @@ class ModelSaverLoader:
         if self._model_train_data[MODEL_TRAIN_DATA.train_history]:
             history_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['history'])
             history = self._model_train_data[MODEL_TRAIN_DATA.train_history]
-            with open(history_path, 'w') as f:
-                json.dump(history, f, indent=2)
-            print(f"✓ 训练历史已保存至: {history_path}")
+            with open(history_path, 'wb') as f:
+                pickle.dump(history, f)
+            print(f"✓ 训练历史已完整保存至: {history_path}")
 
     def _save_performance(self):
         if self._model_train_data[MODEL_TRAIN_DATA.performance]:
             perf_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['performance'])
             performance = self._model_train_data[MODEL_TRAIN_DATA.performance]
             with open(perf_path, 'w') as f:
-                f.write(performance)
+                json.dump(performance, f, indent=2)
             print(f"✓ 评估表现已保存至: {perf_path}")
 
     # 6. 创建README文件
@@ -83,24 +121,30 @@ class ModelSaverLoader:
                 f.write(readme)
             print(f"✓ README已保存至: {readme_path}")
 
-    def save_all(self):
+    def _save_model_summary(self):
+        if self._model_train_data[MODEL_TRAIN_DATA.model_summary]:
+            summary_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['model_summary'])
+            summary = self._model_train_data[MODEL_TRAIN_DATA.model_summary]
+            with open(summary_path, 'w', encoding='utf-8') as f:
+                f.write(summary)
+            print(f"✓ 模型总览已保存至: {summary_path}")
+
+    def save_train_data(self, data_type:MODEL_TRAIN_DATA=None):
         """保存模型及相关组件"""
         import os
-        if self._save_model == False:
+        if self._save_model_mode == False:
             raise ValueError("This is not saving model MODE")
         os.makedirs(self._directory, exist_ok=True)
-                
-        for type, func in self._model_io_functions.items():
-            print(f"Saving data {type.name} ...")
-            func()
+        if data_type:
+            self._model_io_functions[data_type]()
+        else: # save all      
+            for type, func in self._model_io_functions.items():
+                print(f"Saving data {type.name} ...")
+                func()
     
     ## load model data from disk
     def _load_model(self):
         # 1. 加载模型
-        # parse ticker name
-        base_name = os.path.basename(self._directory)
-        parts = base_name.split('_')
-        self._ticker_symbol = parts[0]
         model_file_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE['model']}"
         model_file = os.path.join(self._directory, model_file_name)
         try:
@@ -150,14 +194,85 @@ class ModelSaverLoader:
         except Exception as e:            
             raise(f"Load scaler fails: {str(e)}")
 
+    def _load_train_history(self):
+        hist_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['history'])
+        try:
+            if os.path.exists(hist_file):
+                with open(hist_file, 'rb') as f:
+                    self._model_train_data[MODEL_TRAIN_DATA.train_history] = pickle.load(f)
+                print(f"✓ 训练历史已加载: {hist_file}")
+            else:
+                raise ValueError(f"[{hist_file}] doesn't exist !")
+        except Exception as e:            
+            raise(f"Load scaler fails: {str(e)}")
 
-    def load_all(self):
+    def _load_performance(self):
+        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['performance'])
+        try:
+            if os.path.exists(file):
+                with open(file, 'r') as f:
+                    self._model_train_data[MODEL_TRAIN_DATA.performance] = json.load(f)
+                print(f"✓ 参数已加载")
+            else:
+                raise ValueError(f"[{file}] doesn't exist !")
+        except Exception as e:            
+            raise(f"Load scaler fails: {str(e)}")
+
+    def _load_model_summary(self):
+        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['model_summary'])
+        try:
+            if os.path.exists(file):
+                with open(file, 'r', encoding='utf-8') as f:
+                    self._model_train_data[MODEL_TRAIN_DATA.parameters] = f.read()
+                print(f"✓ README已加载")
+            else:
+                raise ValueError(f"[{file}] doesn't exist !")
+        except Exception as e:            
+            raise(f"Load scaler fails: {str(e)}")
+
+    def load_train_data(self, data_type:MODEL_TRAIN_DATA=None):
         """加载所有组件"""
         from tensorflow import keras
-        if self._save_model:
+        if self._save_model_mode:
             raise ValueError("This is not a loading model MODE")
-        for type, func in self._model_io_functions.items():
-            if type == MODEL_TRAIN_DATA.readme:
-                break
-            print(f"Saving data {type.name} ...")
-            func()
+        if data_type:
+            self._model_io_functions[data_type]()
+        else: ## load all data
+            for type, func in self._model_io_functions.items():
+                if type == MODEL_TRAIN_DATA.readme:
+                    break
+                print(f"Saving data {type.name} ...")
+                func()
+
+    def create_readme(self):
+        """创建说明文件"""
+        params = self._model_train_data[MODEL_TRAIN_DATA.parameters]
+        if params is None:
+            return ''
+        readme_content = f"""
+# LSTM股票预测模型
+
+## 模型信息
+- 保存时间: {params[LTSM_MODEL_PARAM.timestamp.name]}
+- 时间步长: {params[LTSM_MODEL_PARAM.lookback.name]}
+- 预测天数: {params[LTSM_MODEL_PARAM.future_days.name]}
+- 阈值: {params[LTSM_MODEL_PARAM.threshold.name]}
+- 特征数量: {params[LTSM_MODEL_PARAM.feature_count.name]}
+
+## 使用方法
+```python
+from model_loader import ModelLoader
+loader = ModelSaverLoader('{self._directory}')
+model, scaler, features = loader.load_all()
+文件说明
+model.h5: Keras模型文件
+
+scaler.pkl: 数据标准化器
+
+features.json: 特征列名
+
+params.json: 训练参数
+
+history.json: 训练历史记录
+"""
+        return readme_content

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from stockDefine import FEATURE, TICKER, StockFeature
 from StockModel import StockModel
+from select_stock import LSTMSelectStock
 
 class TickerManager:
     def __init__(self, start_date = None, end_date = None, lookback=60):
@@ -78,11 +79,11 @@ class TickerManager:
                     if ticker in all_data:
                         data_num = len(all_data[ticker])
                         if data_num > 1:
-                            model_obj = self.add_ticker(ticker)
-                            model_obj.loaded_data = all_data[ticker]
-                            model_obj.start_date = start_str
-                            model_obj.end_date = end_str
-                            model_obj.features = self._tm_stock_feature.get_features()
+                            # create stock model object if download is successful
+                            sm = self.add_ticker(ticker)
+                            sm.loaded_data = all_data[ticker]
+                            sm.start_date = start_str
+                            sm.end_date = end_str
                             print(f"{ticker}: 成功加载 {len(all_data[ticker])} 条数据")
                             continue
                     # 尝试单独下载
