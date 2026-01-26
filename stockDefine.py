@@ -82,6 +82,7 @@ class LTSM_MODEL_PARAM(AutoIndex):
     feature_count = ()
 
 class MODEL_TRAIN_DATA(AutoIndex):
+    stock_data = ()
     model = ()
     scaler = ()
     parameters = ()

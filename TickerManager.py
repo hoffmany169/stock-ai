@@ -42,6 +42,19 @@ class TickerManager:
         """Return a list of all tickers managed."""
         return list(self.tickers.keys())
 
+    def get_stock_model(self, ticker):
+        if type(ticker) is str: 
+            # ticker symbol
+            for ticker_symbol, m in self.tickers.items():
+                if ticker == ticker_symbol:
+                    return m
+        elif type(ticker) is int:
+            for i, ticker_symbol in enumerate(self.get_all_tickers()):
+                if i == ticker:
+                    return self.tickers[ticker_symbol]
+        else:
+            raise ValueError("Data type of ticker is not supported!")
+
     def load_ticker_data(self):
         tickers = self.get_all_tickers()
         no_data = []

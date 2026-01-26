@@ -1,7 +1,3 @@
-from datetime import datetime
-import json
-import os
-from stockDefine import StockFeature
 from tkinter import messagebox
 import yfinance as yf
 
@@ -102,43 +98,4 @@ class StockModel:
             messagebox.showerror("Data Download Error",
                                  f"Error downloading data for {self.ticker_symbolticker}: {e}")
             return None
-
-    def load_data_from_disk(self, path):
-        pass
-
-    def create_ticker_folder(self, path):
-        try:
-            folder_name = f"{self._ticker_symbol}@{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            self._model_dir = os.path.join(path, folder_name)
-            if not os.path.exists(self._model_dir):
-                os.makedirs(self._model_dir)
-        except Exception as e:
-            print(f"Error to create ticker folder for {self._ticker_symbol}: {str(e)}")
-
-    def save_ticker_data(self, data, path='.'):
-        self.create_ticker_folder(path)
-        if not self._model_dir:
-            return False
-        data_file = os.path.join(self._model_dir, 'data')
-        data.to_pickle(data_file)
-        self._save_model_data()
-        return True
-
-    def _save_model_data(self, scaler, lookback):
-        # 保存特征列表
-        model_info = {
-            "start_date": self.start_date,
-            "end_date": self.end_date,
-            "lookback": lookback,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "features": self.features
-        }
-        with open(f"{self._model_dir}/model_info.json", "w") as f:
-            json.dump(model_info, f, indent=2)
-        # 保存缩放器文件
-        scaler_file = f"{self._model_dir}/scaler.joblib"
-        json.dump(scaler, scaler_file)
-        # 保存模型文件
-        self.model.save(f"{self._model_dir}/model.h5")
-        return True
 

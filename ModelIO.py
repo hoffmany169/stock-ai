@@ -1,3 +1,28 @@
+"""
+Docstring for ModelIO
+handle with saving or loading model training parameters and model data.
+for example:
+
+sm = StockModel('NVDA') # stock model
+sm.start_date = '2023-1-1'
+sm.end_date = '2023-12-31'
+sm.load_historical_data()
+
+sf = StockFeature() # features
+ss = LSTMSelectStock(sm, sf.get_features()) #select stock
+ss.process_train_data()
+
+mio = ModelSaverLoader('models', ticker_symbol)
+mio.set_model_train_data(MODEL_TRAIN_DATA.model, sm.model)
+mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
+mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, ss.create_model_parameters())
+readme = mio.create_readme()
+mio.set_model_train_data(MODEL_TRAIN_DATA.readme, readme)
+mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, ss.train_history)
+mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.performance)
+mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, ss.get_model_summary())
+"""
+
 import pickle
 import json, os
 import keras
@@ -5,7 +30,8 @@ from datetime import datetime
 from stockDefine import MODEL_TRAIN_DATA, LTSM_MODEL_PARAM
 
 class ModelSaverLoader:
-    FILE_NAME_DEFINE = {'model': '_model.h5', 
+    FILE_NAME_DEFINE = {'stock_data': 'stock_data.csv',
+                        'model': '_model.h5', 
                         'scaler': 'scaler.pkl', 
                         'features': 'features.json', 
                         'params': 'params.json',
@@ -14,6 +40,14 @@ class ModelSaverLoader:
                         'readme': 'README.md', 
                         'model_summary': 'model_summary.txt'}
     def __init__(self, directory, ticker_symbol=None, save=True):
+        """
+        Docstring for __init__
+        
+        :param self: Description
+        :param directory: super directory, in which all data will be saved
+        :param ticker_symbol: str
+        :param save: save mode or load mode
+        """
         self._save_model_mode = save
         self._model_train_data = dict(zip([t for t in MODEL_TRAIN_DATA], [None]*len(MODEL_TRAIN_DATA)))
         self._model_io_functions = dict(zip([t for t in MODEL_TRAIN_DATA], [None]*len(MODEL_TRAIN_DATA)))
@@ -59,15 +93,12 @@ class ModelSaverLoader:
                 print(f'load function name: _load_{data_type.name}')
                 self._model_io_functions[data_type] = getattr(self, f'_load_{data_type.name}')
 
-    def set_model_train_data(self, data_type:MODEL_TRAIN_DATA, data):
-        if data_type in MODEL_TRAIN_DATA:
-            self._model_train_data[data_type] = data
-
-    def get_model_train_data(self, data_type:MODEL_TRAIN_DATA):
-        if data_type in MODEL_TRAIN_DATA:
-            return self._model_train_data[data_type]
-        else:
-            raise ValueError(f"No data type [{data_type}] in MODEL_TRAIN_DATA")
+    def _save_stock_data(self):
+        if self._model_train_data[MODEL_TRAIN_DATA.stock_data]:
+            file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['stock_data'])
+            data = self._model_train_data[MODEL_TRAIN_DATA.stock_data]
+            data.to_csv(data, compression='zip')
+            print(f"✓ 原始数据已保存至: {file}")
 
     def _save_model(self):
         # 1. 保存Keras模型
@@ -129,20 +160,10 @@ class ModelSaverLoader:
                 f.write(summary)
             print(f"✓ 模型总览已保存至: {summary_path}")
 
-    def save_train_data(self, data_type:MODEL_TRAIN_DATA=None):
-        """保存模型及相关组件"""
-        import os
-        if self._save_model_mode == False:
-            raise ValueError("This is not saving model MODE")
-        os.makedirs(self._directory, exist_ok=True)
-        if data_type:
-            self._model_io_functions[data_type]()
-        else: # save all      
-            for type, func in self._model_io_functions.items():
-                print(f"Saving data {type.name} ...")
-                func()
-    
     ## load model data from disk
+    def _load_stock_data(self):
+        pass
+
     def _load_model(self):
         # 1. 加载模型
         model_file_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE['model']}"
@@ -230,20 +251,6 @@ class ModelSaverLoader:
         except Exception as e:            
             raise(f"Load scaler fails: {str(e)}")
 
-    def load_train_data(self, data_type:MODEL_TRAIN_DATA=None):
-        """加载所有组件"""
-        from tensorflow import keras
-        if self._save_model_mode:
-            raise ValueError("This is not a loading model MODE")
-        if data_type:
-            self._model_io_functions[data_type]()
-        else: ## load all data
-            for type, func in self._model_io_functions.items():
-                if type == MODEL_TRAIN_DATA.readme:
-                    break
-                print(f"Saving data {type.name} ...")
-                func()
-
     def create_readme(self):
         """创建说明文件"""
         params = self._model_train_data[MODEL_TRAIN_DATA.parameters]
@@ -276,3 +283,41 @@ params.json: 训练参数
 history.json: 训练历史记录
 """
         return readme_content
+
+    def set_model_train_data(self, data_type:MODEL_TRAIN_DATA, data):
+        if data_type in MODEL_TRAIN_DATA:
+            self._model_train_data[data_type] = data
+
+    def get_model_train_data(self, data_type:MODEL_TRAIN_DATA):
+        if data_type in MODEL_TRAIN_DATA:
+            return self._model_train_data[data_type]
+        else:
+            raise ValueError(f"No data type [{data_type}] in MODEL_TRAIN_DATA")
+
+    def save_train_data(self, data_type:MODEL_TRAIN_DATA=None):
+        """保存模型及相关组件"""
+        import os
+        if self._save_model_mode == False:
+            raise ValueError("This is not saving model MODE")
+        os.makedirs(self._directory, exist_ok=True)
+        if data_type:
+            self._model_io_functions[data_type]()
+        else: # save all      
+            for type, func in self._model_io_functions.items():
+                print(f"Saving data {type.name} ...")
+                func()
+    
+    def load_train_data(self, data_type:MODEL_TRAIN_DATA=None):
+        """加载所有组件"""
+        from tensorflow import keras
+        if self._save_model_mode:
+            raise ValueError("This is not a loading model MODE")
+        if data_type:
+            self._model_io_functions[data_type]()
+        else: ## load all data
+            for type, func in self._model_io_functions.items():
+                if type == MODEL_TRAIN_DATA.readme:
+                    break
+                print(f"Saving data {type.name} ...")
+                func()
+

@@ -1,6 +1,4 @@
 import matplotlib.pyplot as plt
-import json
-import pickle
 import pandas as pd
 
 class TrainHistoryAnalyser:

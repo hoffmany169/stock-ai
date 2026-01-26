@@ -322,8 +322,6 @@ class LSTMSelectStock:
         # 训练模型
         self.train_model()
 
-        self._stock_model.save_ticker_data()
-
 
 # 主程序
 if __name__ == "__main__":
