@@ -1,11 +1,11 @@
 from tkinter import messagebox
-import select_stock
+import ModelTrainLSTM
 import yfinance as yf
 import numpy as np
 import pandas as pd
-from stockDefine import FEATURE, TICKER, StockFeature
+from StockDefine import FEATURE, TICKER, StockFeature
 from StockModel import StockModel
-from select_stock import LSTMSelectStock
+from ModelTrainLSTM import LSTMModelTrain
 
 class TickerManager:
     DefaultSaveDataDirectory = r'./models'
@@ -44,8 +44,7 @@ class TickerManager:
         """Add a ticker to the manager."""
         print(f'Adding Stock: [{ticker_symbol}]')
         sm = StockModel(ticker_symbol)
-        self.tickers[ticker_symbol] = [sm, LSTMSelectStock(sm, self._stock_features)]
-        return self.tickers[ticker_symbol]
+        self.tickers[ticker_symbol] = LSTMModelTrain(sm, self._stock_features)
 
     def remove_ticker(self, ticker):
         """Remove a ticker from the manager."""
@@ -60,24 +59,24 @@ class TickerManager:
             # ticker symbol
             for ticker_symbol, m in self.tickers.items():
                 if ticker == ticker_symbol:
-                    return m[0]
+                    return m.stock_model
         elif type(ticker) is int:
             for i, ticker_symbol in enumerate(self.get_all_tickers()):
                 if i == ticker:
-                    return self.tickers[ticker_symbol][0]
+                    return self.tickers[ticker_symbol].stock_model
         else:
             raise ValueError("Data type of ticker is not supported!")
 
-    def get_LSTM_Select_Stock(self, ticker):
+    def get_LSTM_model_train(self, ticker):
         if type(ticker) is str: 
             # ticker symbol
             for ticker_symbol, m in self.tickers.items():
                 if ticker == ticker_symbol:
-                    return m[1]
+                    return m
         elif type(ticker) is int:
             for i, ticker_symbol in enumerate(self.get_all_tickers()):
                 if i == ticker:
-                    return self.tickers[ticker_symbol][1]
+                    return self.tickers[ticker_symbol]
         else:
             raise ValueError("Data type of ticker is not supported!")
 
@@ -119,7 +118,8 @@ class TickerManager:
                         data_num = len(all_data[ticker])
                         if data_num > 1:
                             # create stock model object if download is successful
-                            sm = self.add_ticker(ticker)
+                            self.add_ticker(ticker)
+                            sm = self.get_stock_model(ticker)
                             sm.loaded_data = all_data[ticker]
                             sm.start_date = start_str
                             sm.end_date = end_str
@@ -174,16 +174,21 @@ class TickerManager:
 
     def process_train_model(self):
         for ticker in self.get_all_tickers():
-            ss = self.get_LSTM_Select_Stock(ticker)
+            ss = self.get_LSTM_model_train(ticker)
+            if ss.features is None or len(ss.features) == 0:
+                if len(self._stock_features) == 0:
+                    raise ValueError("features are not defined, yet!")
+                else:
+                    ss.features = self._stock_features
             ss.process_train_data()
     
     def save_train_data(self, ticker_symbol):
         from ModelIO import ModelSaverLoader
-        from stockDefine import MODEL_TRAIN_DATA
+        from StockDefine import MODEL_TRAIN_DATA
         mio = ModelSaverLoader(TickerManager.DefaultSaveDataDirectory,
                                 ticker_symbol)
         sm = self.get_stock_model(ticker_symbol)
-        ss = self.get_LSTM_Select_Stock(ticker_symbol)
+        ss = self.get_LSTM_model_train(ticker_symbol)
         mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data, sm.loaded_data)
         mio.set_model_train_data(MODEL_TRAIN_DATA.model, sm.model)
         mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
@@ -205,17 +210,21 @@ class TickerManager:
         :param ticker_data_dir: concrete path of ticker data, for example: TSLA_20260126_174853
         """
         from ModelIO import ModelSaverLoader
-        from stockDefine import MODEL_TRAIN_DATA
-        mio = ModelSaverLoader(TickerManager.DefaultSaveDataDirectory,
+        from StockDefine import MODEL_TRAIN_DATA
+        mio = ModelSaverLoader(ticker_data_dir,
                                 save=False)
         self.add_ticker(mio.ticker_symbol)
         sm = self.get_stock_model(mio.ticker_symbol)
-        ss = self.get_LSTM_Select_Stock(mio.ticker_symbol)
-        mio.load_train_data()
-        sm.loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.stock_data)
-        sm.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
-        ss.scaler = mio.get_model_train_data(MODEL_TRAIN_DATA.scaler)
-        ss.assign_parameters_from_loading(mio.get_model_train_data(MODEL_TRAIN_DATA.parameters))
+        ss = self.get_LSTM_model_train(mio.ticker_symbol)
+        result = mio.load_train_data()
+        if result[MODEL_TRAIN_DATA.stock_data]:
+            sm.loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.stock_data)
+        if result[MODEL_TRAIN_DATA.model]:
+            sm.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
+        if result[MODEL_TRAIN_DATA.scaler]:
+            ss.scaler = mio.get_model_train_data(MODEL_TRAIN_DATA.scaler)
+        if result[MODEL_TRAIN_DATA.parameters]:
+            ss.assign_parameters_from_loading(mio.get_model_train_data(MODEL_TRAIN_DATA.parameters))
         
     def select_stocks(self, date_offset, lookback, prediction_threshold=0.7):
         print("!! selecting stocks !!")
@@ -224,7 +233,7 @@ class TickerManager:
 
         current_data = yf.download(self.get_all_tickers(), start=start_date, end=end_date, group_by='ticker')
         for ticker in self.get_all_tickers():
-            local_selector = select_stock.LSTM_Select_Stock(lookback)
+            local_selector = ModelTrainLSTM.LSTM_Select_Stock(lookback)
             ticker_data = current_data[ticker]
             
             if len(ticker_data) < lookback:

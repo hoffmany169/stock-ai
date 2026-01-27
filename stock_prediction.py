@@ -17,8 +17,8 @@ from datetime import datetime
 import yfinance as yf
 import numpy as np
 import pandas as pd
-from select_stock import LSTM_Select_Stock, FEATURE
-from stockDefine import TICKER, FEATURE, StockFeature
+from ModelTrainLSTM import LSTM_Select_Stock, FEATURE
+from StockDefine import TICKER, FEATURE, StockFeature
 from TickerManager import TickerManager
 
 class StockPredictionGUI:

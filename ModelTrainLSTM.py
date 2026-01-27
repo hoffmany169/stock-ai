@@ -10,10 +10,10 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
 from keras.callbacks import EarlyStopping
 from sklearn.metrics import classification_report
-from stockDefine import LTSM_MODEL_PARAM, FEATURE, StockFeature
+from StockDefine import LTSM_MODEL_PARAM, FEATURE, StockFeature
 from StockModel import StockModel
 
-class LSTMSelectStock:
+class LSTMModelTrain:
     def __init__(self, stock_model:StockModel, features:list=None, lookback=60):
         self._stock_model = stock_model
         self._percent_train_test_split = 0.2
@@ -34,6 +34,10 @@ class LSTMSelectStock:
         self._train_history = None
 
 #region properties
+    @property
+    def stock_model(self):
+        return self._stock_model
+    
     @property
     def scaler(self):
         return self._scaler
@@ -342,7 +346,7 @@ if __name__ == "__main__":
 
     stock_feature = StockFeature()
 
-    ss = LSTMSelectStock(stock_model, lookback=lookback)
+    ss = LSTMModelTrain(stock_model, lookback=lookback)
     ss.features = stock_feature.get_features()
     ss.evaluation_output = True
     ss.process_train_data()
