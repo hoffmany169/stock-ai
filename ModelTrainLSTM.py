@@ -1,5 +1,4 @@
-from datetime import date, datetime, time, timedelta
-from tkinter import messagebox
+from datetime import datetime, time
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -104,7 +103,7 @@ class LSTMModelTrain:
         return self._train_history
 #endregion
     
-    def preprocess_data(self):
+    def preprocess_data(self, scaler=None):
         """prepare features for model training"""
         df = self._stock_model.loaded_data
         model_features = self._features
@@ -112,13 +111,13 @@ class LSTMModelTrain:
         for f in model_features:
             # 计算技术指标
             if FEATURE.Open_Close == f :
-                df[FEATURE.Open_Close] = df['Close'] - df['Open'] 
+                df[FEATURE.Open_Close] = np.where(df['Open'] == 0, 1, df['Close'] / df['Open']) 
             elif FEATURE.High_Low == f:
-                df[FEATURE.High_Low] = df['High'] - df['Low']
+                df[FEATURE.High_Low] = np.where(df['Low'] == 0, 1, df['High'] / df['Low'])
             elif FEATURE.Close_Low == f:
-                df[FEATURE.Close_Low] = df['Close'] - df['Low']
+                df[FEATURE.Close_Low] = np.where(df['Low'] == 0, 1, df['Close'] / df['Low'])
             elif FEATURE.Close_High == f:
-                df[FEATURE.Close_High] = df['Close'] - df['High'] 
+                df[FEATURE.Close_High] = np.where(df['High'] == 0, 1, df['Close'] / df['High']) 
             elif FEATURE.Avg_Price == f:
                 df[FEATURE.Avg_Price] = (df['Open'] + df['Close']) / 2
             elif FEATURE.Volume_Change == f:
@@ -134,7 +133,7 @@ class LSTMModelTrain:
             elif FEATURE.Volume_MA_5 == f:
                 df[FEATURE.Volume_MA_5] = df['Volume'].rolling(5).mean() 
             elif FEATURE.Price_Volume_Ratio == f:
-                df[FEATURE.Price_Volume_Ratio] = df['Close'] / df[FEATURE.Volume_MA_5] 
+                df[FEATURE.Price_Volume_Ratio] = np.where(df[FEATURE.Volume_MA_5] == 0, 1, df['Close'] / df[FEATURE.Volume_MA_5])
             elif FEATURE.Volume == f:
                 df[FEATURE.Volume] = df['Volume']
             # 获取基本面指标
@@ -145,8 +144,7 @@ class LSTMModelTrain:
             else:
                 raise ValueError("Undefined feature")
         self._stock_train_data = df
-        scaled_data = self._create_scaled_data()
-
+        scaled_data = self._create_scaled_data(scaler)
         X = []
         y = []
         lookback = self.lookback
@@ -161,8 +159,11 @@ class LSTMModelTrain:
             'Label': y
         })
 
-    def _create_scaled_data(self):
-        self._scaler = StandardScaler()
+    def _create_scaled_data(self, scaler):
+        if scaler is None:
+            self._scaler = StandardScaler()
+        else:
+            self._scaler = scaler
         model_data = self._stock_train_data
         return self._scaler.fit_transform(model_data[self.features])
 
@@ -218,18 +219,44 @@ class LSTMModelTrain:
     def evaluate_model(self, model, x_test, y_test):        
         # 评估模型
         print("!! Evaluate Model !!")
+        print(f"Shape of x_test: {x_test.shape}")
         y_pred = (model.predict(x_test)).astype(int)
         self._performance = classification_report(y_test, y_pred, output_dict=self._evaluation_output, zero_division=0)
         print(self._performance)
 
-    def predict(self, model, x_feature):
+    def prepare_input(self, window_data, expected_shape):
+        """准备LSTM输入数据"""
+        # 确保是numpy数组
+        if not isinstance(window_data, np.ndarray):
+            window_data = np.array(window_data)
+        
+        # 检查维度
+        if len(window_data.shape) == 2:
+            # 已经是 (timesteps, features)
+            if window_data.shape[0] != expected_shape[0]:
+                # 调整时间步长
+                if window_data.shape[0] > expected_shape[0]:
+                    window_data = window_data[-expected_shape[0]:, :]
+                else:
+                    padding = expected_shape[0] - window_data.shape[0]
+                    window_data = np.pad(window_data, ((padding, 0), (0, 0)), mode='constant')
+            
+            # 添加batch维度
+            window_data = window_data[np.newaxis, ...]
+        
+        return window_data
+    
+    def predict(self):
         """
         Docstring for predict
         predict with trained model on new data
         :param self: Description
         :param data: Description
         """
-        return model.predict(x_feature)
+        model = self._stock_model.model
+        expected_shape = model.input_shape[1:]
+        prepared_data = self.prepare_input(self._ticker_processed_data['Features'], expected_shape)
+        return model.predict(prepared_data, verbose=0)[0][0]
 
     def create_model_parameters(self):
         self._train_params = {
@@ -332,6 +359,9 @@ class LSTMModelTrain:
         # 训练模型
         self.train_model()
 
+    def process_prediction(self, scaler):
+        self.preprocess_data(scaler)
+        return self.predict()
 
 # 主程序
 if __name__ == "__main__":

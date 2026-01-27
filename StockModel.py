@@ -8,11 +8,6 @@ class StockModel:
         self._end_date = '2025-12-31'
         self._loaded_data = load_data
         self._model = None
-        # data for processing
-        self._train_test_data = None
-        self._train_test_split_percentage = 0.2
-        self._model_dir = None
-        self._readme_content = ''
 
 #region properties    
     @property
@@ -47,12 +42,6 @@ class StockModel:
     def model(self, model):
         self._model = model
 
-    @property
-    def readme_content(self):
-        return self._readme_content
-    @readme_content.setter
-    def readme_content(self, val):
-        self._readme_content = val
 #endregion properties
 
     def load_historical_data(self, start_date:str=None, end_date:str=None):

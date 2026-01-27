@@ -226,30 +226,25 @@ class TickerManager:
         if result[MODEL_TRAIN_DATA.parameters]:
             ss.assign_parameters_from_loading(mio.get_model_train_data(MODEL_TRAIN_DATA.parameters))
         
-    def select_stocks(self, date_offset, lookback, prediction_threshold=0.7):
+    def select_stocks(self, start_date, end_date, lookback=60, prediction_threshold=0.7):
+        """
+        period : str
+        Valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
+        Either Use period parameter or use start and end
+        interval : str
+        Valid intervals: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
+        Intraday data cannot extend last 60 days
+        """
         print("!! selecting stocks !!")
-        start_date = pd.to_datetime(self.end_date) - pd.DateOffset(date_offset)
-        end_date = pd.to_datetime(self.end_date)
-
         current_data = yf.download(self.get_all_tickers(), start=start_date, end=end_date, group_by='ticker')
         for ticker in self.get_all_tickers():
-            local_selector = ModelTrainLSTM.LSTM_Select_Stock(lookback)
             ticker_data = current_data[ticker]
-            
-            if len(ticker_data) < lookback:
-                continue
-            local_selector.ticker[TICKER.ID] = ticker,
-            local_selector.ticker[TICKER.DATA] = current_data[ticker]
-            local_selector.ticker[TICKER.FEATURES] = self.tickers[ticker][TICKER.FEATURES]
-            local_selector.ticker[TICKER.MODEL] = self.tickers[ticker][TICKER.MODEL]
-            local_selector.ticker[TICKER.SCALER] = self.tickers[ticker][TICKER.SCALER]
-
-            local_selector.preprocess_data()            
-            # 获取最近lookback天的数据
-            latest_window = np.stack(local_selector.ticker[TICKER.TRAIN_DATA]['Features'].iloc[-lookback:])
-            # latest_window_3d = latest_window[np.newaxis, ...] # 转换为3D数组,以适应LSTM输入要求,但模型已经适应3D输入,不需要再转换
-            # 预测
-            prediction = local_selector.ticker[TICKER.MODEL].predict(latest_window)[0][0]
+            local_ss = StockModel(ticker, ticker_data)
+            # get trained model
+            local_ss.model = self.get_stock_model(ticker).model
+            local_lstm = LSTMModelTrain(local_ss, self._stock_features, lookback)
+            ss = self.get_LSTM_model_train(ticker)
+            prediction = local_lstm.process_prediction(ss.scaler)
             print(f'prediction: [{prediction}] <--> {prediction_threshold}')
             if prediction > prediction_threshold:  # 设置较高阈值
                 self.tickers[ticker][TICKER.SELECTED] = True
