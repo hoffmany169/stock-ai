@@ -236,6 +236,7 @@ class TickerManager:
         Intraday data cannot extend last 60 days
         """
         print("!! selecting stocks !!")
+        selected_stocks = []
         current_data = yf.download(self.get_all_tickers(), start=start_date, end=end_date, group_by='ticker')
         for ticker in self.get_all_tickers():
             ticker_data = current_data[ticker]
@@ -247,15 +248,12 @@ class TickerManager:
             prediction = local_lstm.process_prediction(ss.scaler)
             print(f'prediction: [{prediction}] <--> {prediction_threshold}')
             if prediction > prediction_threshold:  # 设置较高阈值
-                self.tickers[ticker][TICKER.SELECTED] = True
-
-    def get_selected_stocks(self):
-        selected_stocks = []
-        for ticker in self.get_all_tickers():
-            if self.tickers[ticker][TICKER.SELECTED]:
-                print(f"Selected stock: {ticker}")
                 selected_stocks.append(ticker)
-        return selected_stocks
+        if (len(selected_stocks) > 0):
+            print(selected_stocks)
+        else:
+            print("No ticker are selected")
+
 
 if __name__ == "__main__":
     manager = TickerManager(start_date="2024-01-01", end_date="2025-01-01", lookback=60)

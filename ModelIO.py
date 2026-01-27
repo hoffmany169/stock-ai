@@ -139,7 +139,7 @@ class ModelSaverLoader:
     def _save_parameters(self):
         # 4. 保存参数
         params = self._model_train_data[MODEL_TRAIN_DATA.parameters]
-        if len(params) == len(MODEL_TRAIN_DATA):
+        if len(params) == len(LTSM_MODEL_PARAM):
             params_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['params'])
             with open(params_path, 'w') as f:
                 json.dump(params, f, indent=2)
@@ -372,12 +372,12 @@ history.json: 训练历史记录
             else:
                 raise ValueError(f"No saving function for [{data_type}]")
         else: # save all      
-            for data_type, func in self._model_io_functions.items():
+            for data_type in self._model_io_functions.keys():
                 if data_type == MODEL_TRAIN_DATA.readme:
                     break
                 print(f"Saving data {data_type.name} ...")
-                if callable(func):
-                    func()
+                if callable(self._model_io_functions[data_type]):
+                    self._model_io_functions[data_type]()
                 else:
                     raise ValueError(f"No saving function for [{data_type}]")
     
@@ -393,12 +393,12 @@ history.json: 训练历史记录
                 raise ValueError(f"No loading function for [{data_type}]")
         else: ## load all data
             result = dict(zip([m for m in MODEL_TRAIN_DATA], [False]*len(MODEL_TRAIN_DATA)))
-            for data_type, func in self._model_io_functions.items():
+            for data_type in self._model_io_functions.keys():
                 if data_type == MODEL_TRAIN_DATA.readme:
                     break
                 print(f"Loading data {data_type.name} ...")
-                if callable(func):
-                    result[data_type] = func()
+                if callable(self._model_io_functions[data_type]):
+                    result[data_type] = self._model_io_functions[data_type]()
                 else:
                     raise ValueError(f"No loading function for [{data_type}]")
             return result

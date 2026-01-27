@@ -145,19 +145,7 @@ class LSTMModelTrain:
                 raise ValueError("Undefined feature")
         self._stock_train_data = df
         scaled_data = self._create_scaled_data(scaler)
-        X = []
-        y = []
-        lookback = self.lookback
-        threshold = self.threshold
-        for i in range(lookback, len(scaled_data)-5):
-            X.append(scaled_data[i-lookback:i, :])
-            y.append(1 if (df['Close'].iloc[i+5]/df['Close'].iloc[i] -1) > threshold else 0)
-
-        self._ticker_processed_data = pd.DataFrame({
-            'Ticker': [self._stock_model.ticker_symbol]*len(X), # corresponding row number of X data, this is used for ticker identification
-            'Features': X,
-            'Label': y
-        })
+        return (df, scaled_data)
 
     def _create_scaled_data(self, scaler):
         if scaler is None:
@@ -166,6 +154,23 @@ class LSTMModelTrain:
             self._scaler = scaler
         model_data = self._stock_train_data
         return self._scaler.fit_transform(model_data[self.features])
+
+    def prepare_data_for_build_model(self, df, scaled_data):
+        X = []
+        y = []
+        lookback = self.lookback
+        threshold = self.threshold
+        for i in range(lookback, len(scaled_data)-5):
+            # 每个样本是过去60天的窗口
+            sample = scaled_data[i-lookback:i, :]  # 形状: (60, n_features)
+            X.append(sample)
+            y.append(1 if (df['Close'].iloc[i+5]/df['Close'].iloc[i] -1) > threshold else 0)
+
+        self._ticker_processed_data = pd.DataFrame({
+            'Ticker': [self._stock_model.ticker_symbol]*len(X), # corresponding row number of X data, this is used for ticker identification
+            'Features': X, # 现在已经是3D (n_samples, lookback, n_features)
+            'Label': y
+        })
 
     def build_model(self, input_shape):
         '''
@@ -185,7 +190,7 @@ class LSTMModelTrain:
         self._stock_model.model = model
 
     def _create_train_test_data(self):
-        # 数据集划分
+        # 数据集划分，并且转换为numpy数组
         split_idx = int(len(self._ticker_processed_data)*(1-self._percent_train_test_split))
         train_test_data = {}
         train_test_data['X Tain'] =  np.stack(self._ticker_processed_data['Features'].iloc[:split_idx])
@@ -194,7 +199,8 @@ class LSTMModelTrain:
         train_test_data['Y Test'] = self._ticker_processed_data['Label'].iloc[split_idx:]
         return train_test_data
 
-    def train_model(self):
+    def train_model(self, df, scaled_data):
+        self.prepare_data_for_build_model(df, scaled_data)
         train_test_data = self._create_train_test_data()
         # 模型构建
         x_train = train_test_data['X Tain']
@@ -223,30 +229,8 @@ class LSTMModelTrain:
         y_pred = (model.predict(x_test)).astype(int)
         self._performance = classification_report(y_test, y_pred, output_dict=self._evaluation_output, zero_division=0)
         print(self._performance)
-
-    def prepare_input(self, window_data, expected_shape):
-        """准备LSTM输入数据"""
-        # 确保是numpy数组
-        if not isinstance(window_data, np.ndarray):
-            window_data = np.array(window_data)
-        
-        # 检查维度
-        if len(window_data.shape) == 2:
-            # 已经是 (timesteps, features)
-            if window_data.shape[0] != expected_shape[0]:
-                # 调整时间步长
-                if window_data.shape[0] > expected_shape[0]:
-                    window_data = window_data[-expected_shape[0]:, :]
-                else:
-                    padding = expected_shape[0] - window_data.shape[0]
-                    window_data = np.pad(window_data, ((padding, 0), (0, 0)), mode='constant')
-            
-            # 添加batch维度
-            window_data = window_data[np.newaxis, ...]
-        
-        return window_data
     
-    def predict(self):
+    def predict(self, scaled_data):
         """
         Docstring for predict
         predict with trained model on new data
@@ -254,9 +238,12 @@ class LSTMModelTrain:
         :param data: Description
         """
         model = self._stock_model.model
-        expected_shape = model.input_shape[1:]
-        prepared_data = self.prepare_input(self._ticker_processed_data['Features'], expected_shape)
-        return model.predict(prepared_data, verbose=0)[0][0]
+        # expected_shape = model.input_shape[1:]
+        # 获取最新的60天数据
+        input_data = scaled_data[-self._lookback:,:]
+        # 增加批次维度
+        prediction_input = input_data[np.newaxis, ...]  # 形状: (1, 60, n_features)
+        return model.predict(prediction_input, verbose=0)[0][0]
 
     def create_model_parameters(self):
         self._train_params = {
@@ -273,7 +260,7 @@ class LSTMModelTrain:
         self._lookback = params[LTSM_MODEL_PARAM.lookback.name]
         self._future_days = params[LTSM_MODEL_PARAM.future_days.name]
         self._threshold = params[LTSM_MODEL_PARAM.threshold.name]
-        self._features = params[LTSM_MODEL_PARAM.features]
+        self._features = params[LTSM_MODEL_PARAM.features.name]
 
     def get_model_summary(self):
         """获取模型架构信息"""
@@ -354,14 +341,14 @@ class LSTMModelTrain:
         """
         ### 加载并预处理数据
         """
-        self.preprocess_data()
+        df, scaled_data = self.preprocess_data()
 
         # 训练模型
-        self.train_model()
+        self.train_model(df, scaled_data)
 
     def process_prediction(self, scaler):
-        self.preprocess_data(scaler)
-        return self.predict()
+        df, scaled_data = self.preprocess_data(scaler)
+        return self.predict(scaled_data)
 
 # 主程序
 if __name__ == "__main__":
