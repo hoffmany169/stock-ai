@@ -125,7 +125,7 @@ class ModelSaverLoader:
             return False
         model_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE['model']}"
         model_save_path = os.path.join(self._directory, model_name)
-        keras.saving.save_model(model_save_path)
+        keras.saving.save_model(model, model_save_path)
         print(f"✓ 模型已保存至: {model_save_path}")
         return True
 

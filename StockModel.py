@@ -65,11 +65,12 @@ class StockModel:
         try:
             self._loaded_data = yf.Ticker(self._ticker_symbol).history(start=self._start_date, end=self._end_date)
             print(f"Loaded history data of ticker [{self._ticker_symbol}]")
+            return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbol}: {e}")
             messagebox.showerror("Data Download Error", 
                                  f"Error downloading data for {self.ticker_symbol}: {e}")
-            return None
+            return False
 
     def download_ticker_data(self, start_date, end_date):
         if self._start_date is None and start_date is None:
@@ -89,9 +90,10 @@ class StockModel:
                                 timeout=60     # 延长超时时间
                                 # threads=True    # 使用多线程
                                 )
+            return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbolicker}: {e}")
             messagebox.showerror("Data Download Error",
                                  f"Error downloading data for {self.ticker_symbolticker}: {e}")
-            return None
+            return False
 

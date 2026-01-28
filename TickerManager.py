@@ -42,12 +42,17 @@ class TickerManager:
 
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
+        if ticker_symbol in self.tickers:
+            print(f"Ticker [{ticker_symbol}] is added already.")
+            return
         print(f'Adding Stock: [{ticker_symbol}]')
         sm = StockModel(ticker_symbol)
         self.tickers[ticker_symbol] = LSTMModelTrain(sm, self._stock_features)
 
     def remove_ticker(self, ticker):
         """Remove a ticker from the manager."""
+        if ticker not in self.tickers:
+            return
         self.tickers.pop(ticker, None)
 
     def get_all_tickers(self):
@@ -127,15 +132,8 @@ class TickerManager:
                             continue
                     # 尝试单独下载
                     print(f"{ticker}: 批量下载失败，尝试单独下载...")
-                    ticker_obj = yf.Ticker(ticker)
-                    ticker_data = ticker_obj.history(start=start_str, end=end_str)
-                    if not ticker_data.empty:
-                        self.tickers[ticker][TICKER.DATA] = ticker_data
-                        print(f"{ticker}: 单独下载成功，{len(ticker_data)} 条数据")
-                    else:
-                        print(f"{ticker}: 无数据可用")
+                    if not self.single_load_ticker_data(ticker, start_str, end_str):
                         no_data.append(ticker)
-                            
                 except Exception as e:
                     print(f"{ticker}: 处理失败 - {str(e)}")
                     no_data.append(ticker)
@@ -146,46 +144,47 @@ class TickerManager:
             
             # 方法2: 逐个下载
             for ticker in tickers:
-                try:
-                    ticker_obj = yf.Ticker(ticker)
-                    ticker_data = ticker_obj.history(
-                        start=start_str,
-                        end=end_str
-                    )
-                    sm = self.add_ticker(ticker)
-                    sm.loaded_data = ticker_data
-                    sm.start_date = start_str
-                    sm.end_date = end_str
-                    
-                    if not ticker_data.empty:
-                        model_obj = self.add_ticker(ticker)
-                        model_obj.load_historical_data(start_str, end_str)
-                        model_obj.features = self._tm_stock_feature.get_features()
-                        print(f"{ticker}: 成功下载 {len(ticker_data)} 条数据")
-                    else:
-                        print(f"{ticker}: 无数据")
-                        no_data.append(ticker)
-                        
-                except Exception as e:
-                    print(f"{ticker}: 下载失败 - {str(e)}")
+                if not self.single_load_ticker_data(ticker, start_str, end_str):
                     no_data.append(ticker)
         print(f"\n下载完成: {len(tickers) - len(no_data)}/{len(tickers)} 个股票数据下载成功")
         return no_data
 
-    def process_train_model(self):
+    def single_load_ticker_data(self, ticker, start_date, end_date):
+        try:
+            self.add_ticker(ticker)
+            sm = self.get_stock_model(ticker)
+            ret = sm.load_historical_data(start_date, end_date)
+            
+            if ret:
+                print(f"{ticker}: 成功单独下载 {len(sm.loaded_data)} 条数据")
+                return True
+            else:
+                print(f"{ticker}: 无数据")
+                self.remove_ticker(ticker)
+                return False
+        except Exception as e:
+            print(f"{ticker}: 下载失败 - {str(e)}")
+            return False
+
+    def process_train_model(self, lookback=60):
         for ticker in self.get_all_tickers():
-            ss = self.get_LSTM_model_train(ticker)
-            if ss.features is None or len(ss.features) == 0:
+            mt = self.get_LSTM_model_train(ticker)
+            mt.lookback = lookback
+            if mt.features is None or len(mt.features) == 0:
                 if len(self._stock_features) == 0:
                     raise ValueError("features are not defined, yet!")
                 else:
-                    ss.features = self._stock_features
-            ss.process_train_data()
+                    mt.features = self._stock_features
+            mt.process_train_data()
     
-    def save_train_data(self, ticker_symbol):
+    def save_train_data(self, ticker_symbol, path):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
-        mio = ModelSaverLoader(TickerManager.DefaultSaveDataDirectory,
+        import os
+        save_path = path
+        if path is None:
+            save_path = TickerManager.DefaultSaveDataDirectory
+        mio = ModelSaverLoader(path,
                                 ticker_symbol)
         sm = self.get_stock_model(ticker_symbol)
         ss = self.get_LSTM_model_train(ticker_symbol)
@@ -198,9 +197,9 @@ class TickerManager:
         mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.get_model_summary())
         mio.save_train_data()
 
-    def process_save_train_data(self):
+    def process_save_train_data(self, path):
         for ticker in self.get_all_tickers():
-            self.save_train_data(ticker)
+            self.save_train_data(ticker, path)
 
     def process_load_train_data(self, ticker_data_dir):
         """

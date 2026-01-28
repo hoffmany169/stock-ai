@@ -53,7 +53,7 @@ class StockPredictionGUI:
         self.create_visualization_tab()
         
         # 加载已保存的模型列表
-        self.load_saved_models()
+        # self.load_saved_models()
 
 #region properties
     @property
@@ -343,7 +343,7 @@ class StockPredictionGUI:
         elif selected.endswith('Disk'):
             # loading data from disk
             self.open_select_directory()
-            self.manager.process_load_train_data(self._cur_config[ConfigEntry.model_save_path])
+            self.manager.process_load_train_data(self._cur_config[ConfigEntry.model_save_path.name])
 
     def add_stock(self):
         """添加股票代码"""
@@ -479,13 +479,14 @@ class StockPredictionGUI:
 
     def start_loading_data(self):
         # 在新线程中运行训练，避免GUI冻结
-    #     thread = threading.Thread(target=self.run_loading, args=(self._processing_stocks))
-    #     thread.daemon = True
-    #     thread.start()    
+        features = self._stock_features.get_features()
+        thread = threading.Thread(target=self.run_loading, args=(self._processing_stocks, features))
+        thread.daemon = True
+        thread.start()    
 
-    # def run_loading(self, stocks):
-        self.log_message(f"Start training: {len(self._processing_stocks)}")
-        self.log_message(f"Stock list: {', '.join(self._processing_stocks)}")
+    def run_loading(self, stocks, features):
+        self.log_message(f"Start loading: {len(stocks)} stocks")
+        self.log_message(f"Stock list: {', '.join(stocks)}")
         try:
             # 获取年份并转换为日期
             start_date, end_date = self.train_date_picker.get()
@@ -495,10 +496,9 @@ class StockPredictionGUI:
             # 初始化管理器
             self.manager.start_date = start_date
             self.manager.end_date = end_date
-            self.manager.stock_features = self._stock_features
             
             # 添加股票
-            for stock in self._processing_stocks:
+            for stock in stocks:
                 self.manager.add_ticker(stock)
             
             # 加载数据
@@ -514,14 +514,21 @@ class StockPredictionGUI:
                     # 检查数据是否加载成功
                     for ticker in stocks:
                         if ticker in self.manager.tickers:
+                            mt = self.manager.get_LSTM_model_train(ticker)
+                            mt.features = features
                             # create folder structure for saving data and save loaded data
                             save_path = self._cur_config[ConfigEntry.model_save_path.name]
                             mio = ModelSaverLoader(save_path, ticker)
-                            mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data)
+                            ticker_data = self.manager.get_stock_model(ticker).loaded_data
+                            mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data, ticker_data)
                             mio.save_train_data(MODEL_TRAIN_DATA.stock_data)
+                            mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, mt.create_model_parameters())
+                            mio.save_train_data(MODEL_TRAIN_DATA.parameters)
                             # keep directory into stock model
                             self.manager.get_stock_model(ticker).ticker_directory = mio.directory
-                    
+                    self.log_message("Loading Ticker Data is successful.")
+                    messagebox.showinfo("Load Ticker Data",
+                                            f"Loading Ticker Data is successful. All data are saved in directory [{save_path}]")
                 except Exception as e:
                     error_msg = f"Failure to load data: {str(e)}"
                     self.root.after(0, self.handle_loading_error, error_msg)            
@@ -530,7 +537,7 @@ class StockPredictionGUI:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor() as executor:
                 # Schedule the function to run
-                future = executor.submit(load_data_thread, self._processing_stocks)
+                future = executor.submit(load_data_thread, stocks)
                 # result() blocks until the thread finishes and returns the value
                 result = future.result()
                 if len(result) > 0:
@@ -552,6 +559,7 @@ class StockPredictionGUI:
             return
                 
         try:
+            features = self._stock_features.get_features()
             lookback = int(self.lookback_train.get())
             if lookback <= 0:
                 raise ValueError
@@ -560,83 +568,24 @@ class StockPredictionGUI:
             return
         
         # 在新线程中运行训练，避免GUI冻结
-        thread = threading.Thread(target=self.run_training, args=(self._processing_stocks, lookback))
+        thread = threading.Thread(target=self.run_training, args=(self._processing_stocks, features, lookback))
         thread.daemon = True
         thread.start()    
 
-    def run_training(self, stocks, lookback):
+    def run_training(self, stocks, features, lookback):
         """运行训练过程"""
         self.log_message(f"Start training: {len(stocks)}")
         self.log_message(f"Stock list: {', '.join(stocks)}")
+        self.manager.stock_features = features
         
         try:
-            # 获取年份并转换为日期
-            start_date, end_date = self.train_date_picker.get()
-            
-            self.log_message(f"Training Period: {start_date} to {end_date}")
-
-            # 初始化管理器
-            self.manager.start_date = start_date
-            self.manager.end_date = end_date
-            self.manager.stock_features = self._stock_features
-            
-            # 添加股票
-            for stock in stocks:
-                self.manager.add_ticker(stock)
-            
-            # 加载数据
-            self.log_message("Loading stock data...")
-            # 在单独的线程中运行数据加载
-            def load_data_thread():
-                from ModelIO import ModelSaverLoader
-                from StockDefine import MODEL_TRAIN_DATA
-                try:
-                    # 直接调用修复后的方法
-                    no_data = self.manager.load_ticker_data()
-                    
-                    # 检查数据是否加载成功
-                    for ticker in stocks:
-                        if ticker in self.manager.tickers:
-                            # create folder structure for saving data and save loaded data
-                            save_path = self._cur_config[ConfigEntry.model_save_path.name]
-                            mio = ModelSaverLoader(save_path, ticker)
-                            mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data)
-                            mio.save_train_data(MODEL_TRAIN_DATA.stock_data)
-                            # keep directory into stock model
-                            self.manager.get_stock_model(ticker).ticker_directory = mio.directory
-
-                    # 数据加载成功后继续处理
-                    self.root.after(0, self.continue_training, stocks, lookback, start_date, end_date)
-                    
-                except Exception as e:
-                    error_msg = f"Failure to load data: {str(e)}"
-                    self.root.after(0, self.handle_training_error, error_msg)            
-                return no_data
-            
-            # 启动数据加载线程
-            from concurrent.futures import ThreadPoolExecutor
-            with ThreadPoolExecutor() as executor:
-                # Schedule the function to run
-                future = executor.submit(load_data_thread)
-                # result() blocks until the thread finishes and returns the value
-                result = future.result()
-                if len(result) > 0:
-                    print(f'Failure downloaded stocks: {result}') 
-        except Exception as e:
-            self.log_message(f"Error during training: {str(e)}")
-            messagebox.showerror("Error", f"Error during training: {str(e)}")
-
-    def continue_training(self, stocks, lookback, start_date, end_date):
-            # 处理数据并训练
-        try:
             self.log_message("Processing data and training model...")
-            self.manager.process_select_stocks()
-            
-            # 保存模型信息
-            # self.save_model_info(stocks, start_date, end_date, lookback)
-            
+            self.manager.process_train_model(lookback)            
             self.log_message("Training completed!")
-            messagebox.showinfo("Success", "Model training completed!")
+            # 保存模型信息
+            save_path = self._cur_config[ConfigEntry.model_save_path.name]
+            self.manager.process_save_train_data(save_path)
+            messagebox.showinfo("Success", f"Model training completed!\nAll training data are saved in directory [{save_path}]")
         except Exception as e:
             self.log_message(f"Error during training: {str(e)}")
             messagebox.showerror("Error", f"Error during training: {str(e)}")
