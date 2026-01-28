@@ -9,7 +9,7 @@ from ModelTrainLSTM import LSTMModelTrain
 
 class TickerManager:
     DefaultSaveDataDirectory = r'./models'
-    def __init__(self, start_date = None, end_date = None, features:list=[], lookback=60):
+    def __init__(self, start_date = None, end_date = None, features:list=[]):
         self.tickers = {}
         self._start_date = start_date
         self._end_date = end_date

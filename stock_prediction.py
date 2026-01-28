@@ -1,11 +1,9 @@
-import subprocess
-import sys, os
 
 # os.environ["LANG"] = "C.UTF-8"
 # os.environ["LC_ALL"] = "C.UTF-8"
+import sys, os
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext, font
-from tkcalendar import DateEntry
+from tkinter import ttk, messagebox, scrolledtext, filedialog
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import font_manager
@@ -14,20 +12,28 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 import json
 from datetime import datetime
-import yfinance as yf
-import numpy as np
-import pandas as pd
-from ModelTrainLSTM import LSTM_Select_Stock, FEATURE
+from ModelTrainLSTM import LSTMModelTrain, FEATURE
 from StockDefine import TICKER, FEATURE, StockFeature
 from TickerManager import TickerManager
+from DateRangePicker import DateRangePicker
+from Common.AutoNumber import AutoIndex
+
+class ConfigEntry(AutoIndex):
+    model_save_path = ()
+    ticker_list = ()
 
 class StockPredictionGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Stock Prediction GUI")
         self.root.geometry("1200x800")
+        self.Gui_Config_Data = {ConfigEntry.model_save_path.name: 'models',
+                                ConfigEntry.ticker_list.name:['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
+                                                'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
+                                                'BABA', 'JD', 'PDD', 'BIDU', 'NTES'],}
+        self._gui_config_file_name = 'gui.cfg' # json file
         # 初始化股票列表
-        self._add_stocks = []  # 存储股票代码的列表        
+        self._processing_stocks = []  # 存储股票代码的列表        
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -35,8 +41,12 @@ class StockPredictionGUI:
         # 初始化管理器
         self.manager = TickerManager()
         self.current_model = None
-        self._reload_data = True
-        
+        self._reload_data = True # decide if reloading data
+        self._cur_config = self.Gui_Config_Data
+        self.load_gui_config()
+        # 特征
+        self._stock_features = StockFeature()
+
         # 创建标签页
         self.create_training_tab()
         self.create_prediction_tab()
@@ -44,105 +54,28 @@ class StockPredictionGUI:
         
         # 加载已保存的模型列表
         self.load_saved_models()
-        self.set_default_years()
 
+#region properties
     @property
     def reload_data(self):
         return self._reload_data
 
-    def get_stored_stocks(self):
+    @property
+    def processing_stocks(self):
         """获取所有选中的股票"""
-        return self._add_stocks.copy()
+        return self._processing_stocks.copy()
+#endregion properties
 
-    def set_default_years(self):
-        """设置默认年份"""
-        current_year = datetime.now().year
-        last_year = current_year - 1
-        
-        # 设置训练标签页的默认年份
-        if hasattr(self, 'start_year_var'):
-            self.start_year_var.set(str(last_year - 3))  # 3年前
-        if hasattr(self, 'end_year_var'):
-            self.end_year_var.set(str(last_year))  # 去年
-        
-        # 设置预测标签页的默认年份
-        if hasattr(self, 'start_year_pred_var'):
-            self.start_year_pred_var.set(str(last_year))
-        if hasattr(self, 'end_year_pred_var'):
-            self.end_year_pred_var.set(str(current_year))
+    def load_gui_config(self):
+        if os.path.exists(self._gui_config_file_name):
+            with open(self._gui_config_file_name, 'r') as cfg:
+                self._cur_config = json.load(cfg)
+        else: # create config
+            self.save_gui_config()
 
-
-    def validate_year_input(self, input_text):
-        """验证年份输入，只允许输入数字，且长度为4位"""
-        if input_text == "":  # 允许清空
-            return True
-        
-        # 检查是否只包含数字
-        if not input_text.isdigit():
-            return False
-        
-        # 检查长度是否不超过4位
-        if len(input_text) > 4:
-            return False
-        
-        # 检查是否在合理范围内（1000-9999）
-        if len(input_text) == 4:
-            year = int(input_text)
-            if year < 1000 or year > 9999:
-                return False
-        self._reload_data = True
-        return True
-
-    def validate_year_range(self):
-        """验证年份范围是否合理"""
-        try:
-            start_year = self.start_year_var.get().strip()
-            end_year = self.end_year_var.get().strip()
-            
-            if not start_year or not end_year:
-                return False, "请填写开始年份和结束年份"
-            
-            start_year_int = int(start_year)
-            end_year_int = int(end_year)
-            
-            if start_year_int > end_year_int:
-                return False, "开始年份不能晚于结束年份"
-            
-            current_year = datetime.now().year
-            if start_year_int > current_year or end_year_int > current_year:
-                return False, "年份不能晚于当前年份"
-            
-            if start_year_int < 1900 or end_year_int < 1900:
-                return False, "年份不能早于1900年"
-            
-            return True, ""
-            
-        except ValueError:
-            return False, "年份格式不正确"
-        except Exception as e:
-            return False, f"验证错误: {str(e)}"
-
-    def get_start_date_from_year(self, year_str):
-        """从年份字符串获取开始日期（YYYY-01-01）"""
-        try:
-            year = int(year_str)
-            # 验证年份范围
-            if year < 1900 or year > datetime.now().year:
-                return None
-            return f"{year:04d}-01-01"
-        except:
-            return None
-
-    def get_end_date_from_year(self, year_str):
-        """从年份字符串获取结束日期（YYYY-12-31）"""
-        try:
-            year = int(year_str)
-            # 验证年份范围
-            if year < 1900 or year > datetime.now().year:
-                return None
-            return f"{year:04d}-12-31"
-        except:
-            return None    
+    def save_gui_config(self):
+        with open(self._gui_config_file_name, 'w+') as cfg:
+            json.dump(self._cur_config, cfg)
 
     def create_training_tab(self):
         """创建训练标签页"""
@@ -165,9 +98,7 @@ class StockPredictionGUI:
         self.stock_combo = ttk.Combobox(input_frame, width=15, textvariable=combobox_var)
         self.stock_combo.pack(side=tk.LEFT, padx=(0, 5))
         # 设置一些常见的股票代码作为提示
-        self.stock_combo['values'] = ('AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
-                                     'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
-                                     'BABA', 'JD', 'PDD', 'BIDU', 'NTES')
+        self.stock_combo['values'] = self.Gui_Config_Data['ticker_list']
         combobox_var.trace('w', lambda *_: self._reload_data)
         
         # 添加按钮
@@ -204,57 +135,10 @@ class StockPredictionGUI:
         self.stock_listbox.bind('<Delete>', lambda event: self.remove_stock())  # 按Delete删除
 
         # 日期选择框架
-        date_frame = ttk.Frame(left_frame)
-        date_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-        
-        # 开始年份
-        start_date_frame = ttk.Frame(date_frame)
-        start_date_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
-        
-        start_label = tk.Label(start_date_frame, text="Start Year:")
-        start_label.pack(anchor=tk.W)
-        
-        # 年份输入框 - 只接受年份输入
-        self.start_year_var = tk.StringVar()
-        self.start_year_entry = tk.Entry(
-            start_date_frame, 
-            width=10, 
-            textvariable=self.start_year_var,
-            validate="key",  # 按键时验证
-            validatecommand=(self.root.register(self.validate_year_input), '%P')
-        )
-        self.start_year_entry.pack(fill=tk.X, pady=(2, 0))
-        self.start_year_entry.insert(0, "2020")  # 默认开始年份
-        
-        # 添加年份输入提示
-        year_hint_label = tk.Label(start_date_frame, text="Format: YYYY", 
-                                font=("Arial", 9), fg="gray")
-        year_hint_label.pack(anchor=tk.W)
-        
-        # 结束年份
-        end_date_frame = ttk.Frame(date_frame)
-        end_date_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True)
-        
-        end_label = tk.Label(end_date_frame, text="End Year:")
-        end_label.pack(anchor=tk.W)
-        
-        # 年份输入框 - 只接受年份输入
-        self.end_year_var = tk.StringVar()
-        self.end_year_entry = tk.Entry(
-            end_date_frame, 
-            width=10, 
-            textvariable=self.end_year_var,
-            validate="key",  # 按键时验证
-            validatecommand=(self.root.register(self.validate_year_input), '%P')
-        )
-        self.end_year_entry.pack(fill=tk.X, pady=(2, 0))
-        self.end_year_entry.insert(0, "2023")  # 默认结束年份
-        
-        # 添加年份输入提示
-        year_hint_label2 = tk.Label(end_date_frame, text="Format: YYYY", 
-                                font=("Arial", 9), fg="gray")
-        year_hint_label2.pack(anchor=tk.W)
-                        
+        self.date_frame = ttk.Frame(left_frame)
+        self.date_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        self.train_date_picker = DateRangePicker(self.date_frame)
+        self.train_date_picker.pack(anchor=tk.W)
         # Lookback设置
         lookback_frame = ttk.Frame(left_frame)
         lookback_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(0, 15))
@@ -264,7 +148,17 @@ class StockPredictionGUI:
         
         self.lookback_train = tk.Entry(lookback_frame, width=10)
         self.lookback_train.pack(side=tk.LEFT, padx=(5, 0))
-        self.lookback_train.insert(0, f"{self.manager.lookback}")
+        self.lookback_train.insert(0, "60")
+
+        # path of saving models
+        # model_path_label = tk.Label(lookback_frame, text="Saving Moodels:")
+        # model_path_label.pack(side=tk.LEFT)
+        # self.model_path = tk.Entry(lookback_frame, width=30)
+        # self.model_path.pack(side=tk.LEFT, padx=(5, 0))
+        # self.model_path.insert(0, "models")
+        # self.path_button = tk.Button(lookback_frame, text='...',
+        #                              command=self.select_saving_path)
+        # self.path_button.pack(side=tk.LEFT, padx=2)
         
         # 右侧面板 - 特征选择
         right_frame = ttk.LabelFrame(self.training_frame, text="Feature Selection", padding=10)
@@ -277,16 +171,22 @@ class StockPredictionGUI:
             self.feature_vars[feature] = var
             
             # 获取特征名称
-            feature_name = LSTM_Select_Stock.get_feature_name(feature)
+            feature_name = self._stock_features.get_feature_name(feature)
             
             cb = tk.Checkbutton(right_frame, text=feature_name, variable=var,
                                 command=lambda f=feature, v=var: self.toggle_feature(f, v))
             cb.grid(row=idx, column=0, sticky=tk.W, pady=2)
         
-        # 训练按钮
         btn_frame2 = tk.Frame(self.training_frame)
         btn_frame2.grid(row=1, column=0, columnspan=2, pady=20)
+        # 加载数据
+        from Common.DropdownButton import DropdownButton
+        self.load_btn = DropdownButton(btn_frame2, 
+                                   ['Load from Markt', 'Load from Disk'], 
+                                    command=self.start_loading)
+        self.load_btn.pack(side=tk.LEFT, padx=10)
         
+        # 训练按钮
         train_btn = tk.Button(btn_frame2, text="Start Training", 
                             command=self.start_training)
         train_btn.pack(side=tk.LEFT, padx=10)
@@ -329,35 +229,8 @@ class StockPredictionGUI:
         params_frame = ttk.LabelFrame(self.prediction_frame, text="Prediction Parameters", padding=10)
         params_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=10, sticky="ew")
         
-        # 开始年份
-        start_label_pred = tk.Label(params_frame, text="Start Year:")
-        start_label_pred.grid(row=0, column=0, sticky=tk.W, pady=5)
-        
-        self.start_year_pred_var = tk.StringVar()
-        self.start_year_pred_entry = tk.Entry(
-            params_frame, 
-            width=10, 
-            textvariable=self.start_year_pred_var,
-            validate="key",
-            validatecommand=(self.root.register(self.validate_year_input), '%P')
-        )
-        self.start_year_pred_entry.grid(row=0, column=1, padx=5, pady=5)
-        self.start_year_pred_entry.insert(0, "2023")
-         
-        # 结束年份
-        end_label_pred = tk.Label(params_frame, text="End Year:")
-        end_label_pred.grid(row=0, column=2, sticky=tk.W, pady=5, padx=(20,0))
-        
-        self.end_year_pred_var = tk.StringVar()
-        self.end_year_pred_entry = tk.Entry(
-            params_frame, 
-            width=10, 
-            textvariable=self.end_year_pred_var,
-            validate="key",
-            validatecommand=(self.root.register(self.validate_year_input), '%P')
-        )
-        self.end_year_pred_entry.grid(row=0, column=3, padx=5, pady=5)
-        self.end_year_pred_entry.insert(0, "2024")
+        self.predict_date_picker = DateRangePicker(params_frame)
+        self.predict_date_picker.grid(row=0, column=0, sticky=tk.W, pady=5)
             
         # Lookback天数
         lookback_label_pred = tk.Label(params_frame, text="Lookback Days:")
@@ -416,7 +289,7 @@ class StockPredictionGUI:
         # 填充特征列表
         feature_names = []
         for feature in FEATURE:
-            feature_names.append(LSTM_Select_Stock.get_feature_name(feature))
+            feature_names.append(self._stock_features.get_feature_name(feature))
         self.feature_combo['values'] = feature_names
         if feature_names:
             self.feature_combo.current(0)
@@ -458,6 +331,20 @@ class StockPredictionGUI:
         
         return symbol
 
+    def open_select_directory(self):
+        chosen_path = filedialog.askdirectory(initialdir='.', title='Choose Directory for Saving Model Data:')
+        print("Open ", chosen_path)
+        self._cur_config[ConfigEntry.model_save_path.name] = chosen_path
+
+    def start_loading(self, selected:str):
+        if selected.endswith('Markt'):
+            # loading data from yfinance
+            self.start_loading_data()
+        elif selected.endswith('Disk'):
+            # loading data from disk
+            self.open_select_directory()
+            self.manager.process_load_train_data(self._cur_config[ConfigEntry.model_save_path])
+
     def add_stock(self):
         """添加股票代码"""
         stock = self.stock_combo.get().strip().upper()
@@ -471,7 +358,7 @@ class StockPredictionGUI:
             return
         
         # 检查是否已存在
-        if stock in self._add_stocks:
+        if stock in self._processing_stocks:
             messagebox.showinfo("Hint", f"{stock} exists already!")
             return
         
@@ -483,7 +370,7 @@ class StockPredictionGUI:
                 return
         
         # 添加到内部列表
-        self._add_stocks.append(stock)
+        self._processing_stocks.append(stock)
         
         # 更新Listbox显示
         self.update_stock_listbox()
@@ -532,12 +419,12 @@ class StockPredictionGUI:
         
         # 获取选中的股票代码
         index = selection[0]
-        stock = self._add_stocks[index]
+        stock = self._processing_stocks[index]
         
         # 确认删除
         if messagebox.askyesno("Confirmation", f"Are you sure you want to delete stock '{stock}'?"):
             # 从内部列表删除
-            self._add_stocks.pop(index)
+            self._processing_stocks.pop(index)
             
             # 更新Listbox显示
             self.update_stock_listbox()
@@ -548,13 +435,13 @@ class StockPredictionGUI:
     
     def clear_all_stocks(self):
         """清空所有股票"""
-        if not self._add_stocks:
+        if not self._processing_stocks:
             messagebox.showinfo("Info", "List of stocks is already empty")
             return
         
-        if messagebox.askyesno("Confirmation", f"Are you sure you want to clear all {len(self._add_stocks)} stocks?"):
+        if messagebox.askyesno("Confirmation", f"Are you sure you want to clear all {len(self._processing_stocks)} stocks?"):
             # 清空内部列表
-            self._add_stocks.clear()
+            self._processing_stocks.clear()
             
             # 更新Listbox显示
             self.update_stock_listbox()
@@ -569,7 +456,7 @@ class StockPredictionGUI:
         self.stock_listbox.delete(0, tk.END)
         
         # 添加所有股票
-        for i, stock in enumerate(self._add_stocks, 1):
+        for i, stock in enumerate(self._processing_stocks, 1):
             self.stock_listbox.insert(tk.END, f"{i}. [{stock}]")
         
         # 更新状态显示
@@ -583,25 +470,87 @@ class StockPredictionGUI:
     def toggle_feature(self, feature, var):
         """切换特征启用状态"""
         if var.get():
-            LSTM_Select_Stock.enable_feature(feature)
-            self.log_message(f"Enabled feature: {LSTM_Select_Stock.get_feature_name(feature)}")
+            self._stock_features.enable_feature(feature)
+            self.log_message(f"Enabled feature: {self._stock_features.get_feature_name(feature)}")
         else:
-            LSTM_Select_Stock.disable_feature(feature)
-            self.log_message(f"Disabled feature: {LSTM_Select_Stock.get_feature_name(feature)}")
+            self._stock_features.disable_feature(feature)
+            self.log_message(f"Disabled feature: {self._stock_features.get_feature_name(feature)}")
         self._reload_data = True
+
+    def start_loading_data(self):
+        # 在新线程中运行训练，避免GUI冻结
+    #     thread = threading.Thread(target=self.run_loading, args=(self._processing_stocks))
+    #     thread.daemon = True
+    #     thread.start()    
+
+    # def run_loading(self, stocks):
+        self.log_message(f"Start training: {len(self._processing_stocks)}")
+        self.log_message(f"Stock list: {', '.join(self._processing_stocks)}")
+        try:
+            # 获取年份并转换为日期
+            start_date, end_date = self.train_date_picker.get()
+            
+            self.log_message(f"Training Period: {start_date} to {end_date}")
+
+            # 初始化管理器
+            self.manager.start_date = start_date
+            self.manager.end_date = end_date
+            self.manager.stock_features = self._stock_features
+            
+            # 添加股票
+            for stock in self._processing_stocks:
+                self.manager.add_ticker(stock)
+            
+            # 加载数据
+            self.log_message("Loading stock data...")
+            # 在单独的线程中运行数据加载
+            def load_data_thread(stocks):
+                from ModelIO import ModelSaverLoader
+                from StockDefine import MODEL_TRAIN_DATA
+                try:
+                    # 直接调用修复后的方法
+                    no_data = self.manager.load_ticker_data()
+                    
+                    # 检查数据是否加载成功
+                    for ticker in stocks:
+                        if ticker in self.manager.tickers:
+                            # create folder structure for saving data and save loaded data
+                            save_path = self._cur_config[ConfigEntry.model_save_path.name]
+                            mio = ModelSaverLoader(save_path, ticker)
+                            mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data)
+                            mio.save_train_data(MODEL_TRAIN_DATA.stock_data)
+                            # keep directory into stock model
+                            self.manager.get_stock_model(ticker).ticker_directory = mio.directory
+                    
+                except Exception as e:
+                    error_msg = f"Failure to load data: {str(e)}"
+                    self.root.after(0, self.handle_loading_error, error_msg)            
+                return no_data
+            # 启动数据加载线程
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor() as executor:
+                # Schedule the function to run
+                future = executor.submit(load_data_thread, self._processing_stocks)
+                # result() blocks until the thread finishes and returns the value
+                result = future.result()
+                if len(result) > 0:
+                    print(f'Failure downloaded stocks: {result}') 
+        except Exception as e:
+            self.log_message(f"Error during training: {str(e)}")
+            messagebox.showerror("Error", f"Error during training: {str(e)}")
+
+    def handle_loading_error(self, error_msg):
+        """处理训练错误"""
+        self.log_message(error_msg)
+        messagebox.showerror("Error", error_msg)    
+
 
     def start_training(self):
         """开始训练模型"""
-        if not self._add_stocks:
+        if not self._processing_stocks:
             messagebox.showwarning("Warning", "Please add stocks first")
             return
-        
-        # 验证年份范围
-        is_valid, error_msg = self.validate_year_range()
-        if not is_valid:
-            messagebox.showwarning("Warning", error_msg)
-            return
-        
+                
         try:
             lookback = int(self.lookback_train.get())
             if lookback <= 0:
@@ -611,7 +560,7 @@ class StockPredictionGUI:
             return
         
         # 在新线程中运行训练，避免GUI冻结
-        thread = threading.Thread(target=self.run_training, args=(self._add_stocks, lookback))
+        thread = threading.Thread(target=self.run_training, args=(self._processing_stocks, lookback))
         thread.daemon = True
         thread.start()    
 
@@ -622,23 +571,14 @@ class StockPredictionGUI:
         
         try:
             # 获取年份并转换为日期
-            start_year = self.start_year_var.get().strip()
-            end_year = self.end_year_var.get().strip()
+            start_date, end_date = self.train_date_picker.get()
             
-            start_date = self.get_start_date_from_year(start_year)
-            end_date = self.get_end_date_from_year(end_year)
-            
-            if not start_date or not end_date:
-                self.log_message("Warning: Format of years is incorrect or out of range (1900-current year)")
-                messagebox.showerror("Warning", "Format of years is incorrect or out of range (1900-current year)")
-                return
-
             self.log_message(f"Training Period: {start_date} to {end_date}")
 
             # 初始化管理器
             self.manager.start_date = start_date
             self.manager.end_date = end_date
-            self.manager.lookback = lookback
+            self.manager.stock_features = self._stock_features
             
             # 添加股票
             for stock in stocks:
@@ -648,24 +588,22 @@ class StockPredictionGUI:
             self.log_message("Loading stock data...")
             # 在单独的线程中运行数据加载
             def load_data_thread():
+                from ModelIO import ModelSaverLoader
+                from StockDefine import MODEL_TRAIN_DATA
                 try:
                     # 直接调用修复后的方法
                     no_data = self.manager.load_ticker_data()
                     
                     # 检查数据是否加载成功
-                    data_loaded = False
                     for ticker in stocks:
-                        if (ticker in self.manager.tickers and 
-                            self.manager.tickers[ticker][TICKER.DATA] is not None and
-                            not self.manager.tickers[ticker][TICKER.DATA].empty):
-                            data_loaded = True
-                            break
-                    
-                    if not data_loaded:
-                        raise Exception("All stocks are failure to be loaded!!")
-                    
-                    # create folder structure for saving data and save loaded data
-                    self.manager.selector.save_ticker_data(r'./model')
+                        if ticker in self.manager.tickers:
+                            # create folder structure for saving data and save loaded data
+                            save_path = self._cur_config[ConfigEntry.model_save_path.name]
+                            mio = ModelSaverLoader(save_path, ticker)
+                            mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data)
+                            mio.save_train_data(MODEL_TRAIN_DATA.stock_data)
+                            # keep directory into stock model
+                            self.manager.get_stock_model(ticker).ticker_directory = mio.directory
 
                     # 数据加载成功后继续处理
                     self.root.after(0, self.continue_training, stocks, lookback, start_date, end_date)
@@ -743,7 +681,7 @@ class StockPredictionGUI:
             lookback = int(self.lookback_train.get())
             
             # self.save_model_info(stocks, start_date, end_date, lookback)
-            for ticker in self._add_stocks:
+            for ticker in self._processing_stocks:
                 self.manager.selector.save_model(ticker, start_date, end_date, lookback)
             messagebox.showinfo("Success", "Model saved successfully!")
             
@@ -763,26 +701,7 @@ class StockPredictionGUI:
     
     def start_prediction(self):
         """开始预测"""
-        if not self.current_model:
-            messagebox.showwarning("Warning", "Please load a model first")
-            return
-        
-        # 验证年份范围
-        try:
-            start_year = self.start_year_pred_var.get().strip()
-            end_year = self.end_year_pred_var.get().strip()
-            
-            if not start_year or not end_year:
-                messagebox.showwarning("Warning", "Please enter start year and end year")
-                return
-            
-            start_year_int = int(start_year)
-            end_year_int = int(end_year)
-            
-            if start_year_int > end_year_int:
-                messagebox.showwarning("Warning", "Start year cannot be later than end year")
-                return
-                
+        try:                            
             lookback = int(self.lookback_pred.get())
             threshold = float(self.pred_threshold.get())
             
@@ -796,20 +715,15 @@ class StockPredictionGUI:
         
         # 在新线程中运行预测
         thread = threading.Thread(target=self.run_prediction, 
-                                  args=(start_year_int, end_year_int, lookback, threshold))
+                                  args=(lookback, threshold))
         thread.daemon = True
         thread.start()
     
-    def run_prediction(self, start_year, end_year, lookback, threshold):
+    def run_prediction(self, lookback, threshold):
         """运行预测过程"""
         try:
-            # 将年份转换为日期
-            start_date = f"{start_year:04d}-01-01"
-            end_date = f"{end_year:04d}-12-31"
+            start_date, end_date = self.predict_date_picker.get()
             self.log_message(f"Prediction Period: {start_date} to {end_date}", target="result")
-
-            # 这里需要根据你的代码调整预测逻辑
-            date_offset = 180  # 假设的偏移天数
             
             # 假设TickerManager有预测方法
             if hasattr(self.manager, 'select_stocks'):
@@ -891,7 +805,7 @@ class StockPredictionGUI:
             # 查找对应的特征
             selected_feature = None
             for feature in FEATURE:
-                if LSTM_Select_Stock.get_feature_name(feature) == feature_name:
+                if self._stock_features.get_feature_name(feature) == feature_name:
                     selected_feature = feature
                     break
             
@@ -900,7 +814,7 @@ class StockPredictionGUI:
                 return
             
             # 计算特征值
-            selector = LSTM_Select_Stock()
+            selector = LSTMModelTrain()
             selector.ticker = self.manager.tickers[ticker]
             selector.preprocess_data()
             

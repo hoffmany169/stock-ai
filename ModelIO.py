@@ -31,7 +31,7 @@ from StockDefine import MODEL_TRAIN_DATA, LTSM_MODEL_PARAM
 
 class ModelSaverLoader:
     FILE_NAME_DEFINE = {'stock_data': 'stock_data.csv',
-                        'model': '_model.h5', 
+                        'model': '_model.keras', 
                         'scaler': 'scaler.pkl', 
                         'features': 'features.json', 
                         'params': 'params.json',
@@ -91,6 +91,10 @@ class ModelSaverLoader:
     @property
     def ticker_symbol(self):
         return self._ticker_symbol
+    
+    @property
+    def directory(self):
+        return self._directory
 
     def _init_model_functions(self):
         if self._directory is None:
@@ -121,7 +125,7 @@ class ModelSaverLoader:
             return False
         model_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE['model']}"
         model_save_path = os.path.join(self._directory, model_name)
-        model.save(model_save_path)
+        keras.saving.save_model(model_save_path)
         print(f"✓ 模型已保存至: {model_save_path}")
         return True
 
@@ -373,8 +377,6 @@ history.json: 训练历史记录
                 raise ValueError(f"No saving function for [{data_type}]")
         else: # save all      
             for data_type in self._model_io_functions.keys():
-                if data_type == MODEL_TRAIN_DATA.readme:
-                    break
                 print(f"Saving data {data_type.name} ...")
                 if callable(self._model_io_functions[data_type]):
                     self._model_io_functions[data_type]()

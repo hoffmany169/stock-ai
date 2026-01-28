@@ -8,6 +8,7 @@ class StockModel:
         self._end_date = '2025-12-31'
         self._loaded_data = load_data
         self._model = None
+        self._ticker_directory_on_disk = None
 
 #region properties    
     @property
@@ -42,6 +43,12 @@ class StockModel:
     def model(self, model):
         self._model = model
 
+    @property
+    def ticker_directory(self):
+        return self._ticker_directory_on_disk
+    @ticker_directory.setter
+    def ticker_directory(self, dir):
+        self._ticker_directory_on_disk = dir
 #endregion properties
 
     def load_historical_data(self, start_date:str=None, end_date:str=None):
