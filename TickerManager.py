@@ -187,7 +187,7 @@ class TickerManager:
         save_path = path
         if path is None:
             save_path = TickerManager.DefaultSaveDataDirectory
-        mio = ModelSaverLoader(path,
+        mio = ModelSaverLoader(save_path,
                                 ticker_symbol)
         sm = self.get_stock_model(ticker_symbol)
         ss = self.get_LSTM_model_train(ticker_symbol)
@@ -234,7 +234,7 @@ class TickerManager:
         if result[MODEL_TRAIN_DATA.parameters]:
             ss.assign_parameters_from_loading(mio.get_model_train_data(MODEL_TRAIN_DATA.parameters))
         
-    def select_stocks(self, start_date, end_date, lookback=60, prediction_threshold=0.7):
+    def select_stocks(self, start_date, end_date, lookback=60, selction_threshold=0.7):
         """
         period : str
         Valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
@@ -254,13 +254,15 @@ class TickerManager:
             local_lstm = LSTMModelTrain(local_ss, self._stock_features, lookback)
             ss = self.get_LSTM_model_train(ticker)
             prediction = local_lstm.process_prediction(ss.scaler)
-            print(f'prediction: [{prediction}] <--> {prediction_threshold}')
-            if prediction > prediction_threshold:  # 设置较高阈值
+            print(f'prediction: [{prediction}] <--> {selction_threshold}')
+            if prediction > selction_threshold:  # 设置较高阈值
                 selected_stocks.append(ticker)
         if (len(selected_stocks) > 0):
             print(selected_stocks)
+            messagebox.showinfo("Select Stocks", f"Selected Stocks: {selected_stocks}")
         else:
             print("No ticker are selected")
+            messagebox.showinfo("Select Stocks", "No stocks is selectable.")
 
 
 if __name__ == "__main__":

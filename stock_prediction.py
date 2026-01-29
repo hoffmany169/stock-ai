@@ -37,7 +37,7 @@ class StockPredictionGUI:
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
+        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_change)
         # 初始化管理器
         self.manager = TickerManager()
         self.current_model = None
@@ -49,7 +49,7 @@ class StockPredictionGUI:
 
         # 创建标签页
         self.create_training_tab()
-        self.create_prediction_tab()
+        self.create_selection_tab()
         self.create_visualization_tab()
         
         # 加载已保存的模型列表
@@ -65,6 +65,23 @@ class StockPredictionGUI:
         """获取所有选中的股票"""
         return self._processing_stocks.copy()
 #endregion properties
+
+    def on_tab_change(self, event):
+        # 'event.widget' ist das Notebook selbst
+        notebook = event.widget
+        
+        # Ermittle den aktuell ausgewählten Tab
+        current_tab = notebook.select()
+        
+        # Erhalte den Text des ausgewählten Tabs
+        tab_text = notebook.tab(current_tab, "text")
+        index = notebook.index("current")
+        print(f"Tab gewechselt zu: {tab_text}")
+        print(f"Index of current tab: {index}")
+        if index == 1: # selecting tab
+            self.model_combo["values"] = self._processing_stocks
+            self.model_combo.update
+
 
     def load_gui_config(self):
         if os.path.exists(self._gui_config_file_name):
@@ -149,16 +166,6 @@ class StockPredictionGUI:
         self.lookback_train = tk.Entry(lookback_frame, width=10)
         self.lookback_train.pack(side=tk.LEFT, padx=(5, 0))
         self.lookback_train.insert(0, "60")
-
-        # path of saving models
-        # model_path_label = tk.Label(lookback_frame, text="Saving Moodels:")
-        # model_path_label.pack(side=tk.LEFT)
-        # self.model_path = tk.Entry(lookback_frame, width=30)
-        # self.model_path.pack(side=tk.LEFT, padx=(5, 0))
-        # self.model_path.insert(0, "models")
-        # self.path_button = tk.Button(lookback_frame, text='...',
-        #                              command=self.select_saving_path)
-        # self.path_button.pack(side=tk.LEFT, padx=2)
         
         # 右侧面板 - 特征选择
         right_frame = ttk.LabelFrame(self.training_frame, text="Feature Selection", padding=10)
@@ -191,10 +198,6 @@ class StockPredictionGUI:
                             command=self.start_training)
         train_btn.pack(side=tk.LEFT, padx=10)
         
-        eval_btn = tk.Button(btn_frame2, text="Evaluate Model",
-                            command=self.evaluate_model)
-        eval_btn.pack(side=tk.LEFT, padx=10)
-        
         # 日志显示
         log_frame = ttk.Frame(self.training_frame)
         log_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(10, 0))
@@ -213,20 +216,19 @@ class StockPredictionGUI:
         self.training_frame.grid_rowconfigure(0, weight=1)
         self.training_frame.grid_rowconfigure(2, weight=1)  # 日志区域可扩展
 
-    def create_prediction_tab(self):
+    def create_selection_tab(self):
         """创建预测标签页"""
         self.prediction_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.prediction_frame, text="Stock Prediction")
+        self.notebook.add(self.prediction_frame, text="Stock Selection")
         
         # 模型选择
-        ttk.Label(self.prediction_frame, text="Select Trained Model:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self.prediction_frame, text="Select Model:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.model_combo = ttk.Combobox(self.prediction_frame, width=30)
         self.model_combo.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
-        
-        ttk.Button(self.prediction_frame, text="Load Model", command=self.load_model).grid(row=0, column=2, padx=5, pady=5)
-        
+        self.model_combo['values'] = self._processing_stocks
+                
         # 预测参数
-        params_frame = ttk.LabelFrame(self.prediction_frame, text="Prediction Parameters", padding=10)
+        params_frame = ttk.LabelFrame(self.prediction_frame, text="Selection Parameters", padding=10)
         params_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=10, sticky="ew")
         
         self.predict_date_picker = DateRangePicker(params_frame)
@@ -241,7 +243,7 @@ class StockPredictionGUI:
         self.lookback_pred.insert(0, "60")
         
         # 预测阈值
-        threshold_label = tk.Label(params_frame, text="Prediction Threshold:")
+        threshold_label = tk.Label(params_frame, text="Selecting Threshold:")
         threshold_label.grid(row=1, column=2, sticky=tk.W, pady=5, padx=(20,0))
         
         self.pred_threshold = tk.Entry(params_frame, width=10)
@@ -257,8 +259,8 @@ class StockPredictionGUI:
         btn_frame = ttk.Frame(self.prediction_frame)
         btn_frame.grid(row=2, column=0, columnspan=3, pady=20)
         
-        ttk.Button(btn_frame, text="Start Prediction", command=self.start_prediction).pack(side=tk.LEFT, padx=10)
-        ttk.Button(btn_frame, text="Show Results", command=self.show_prediction_results).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame, text="Start selecting stock", command=self.start_select_stock).pack(side=tk.LEFT, padx=10)
+        ttk.Button(btn_frame, text="Show Results", command=self.show_selection_results).pack(side=tk.LEFT, padx=10)
         
         # 预测结果显示
         ttk.Label(self.prediction_frame, text="Prediction Results:").grid(row=3, column=0, sticky=tk.W, padx=5)
@@ -354,6 +356,10 @@ class StockPredictionGUI:
             messagebox.showwarning("Warning", "Please enter a stock code")
             return
         
+        if stock in self._processing_stocks:
+            messagebox.showinfo("Duplicate Stock", f"Stock [{stock}] exists in the processing list already.")
+            return
+
         # 验证股票代码格式
         if not self.validate_stock_symbol(stock):
             messagebox.showwarning("Warning", f"Format of Stock is wrong: {stock}\nThey must be capital and number, for example: AAPL, GOOGL")
@@ -388,6 +394,9 @@ class StockPredictionGUI:
         # 添加到下拉框的历史记录
         # self.add_to_combo_history(stock)
         self._reload_data = True
+        if stock not in self._cur_config[ConfigEntry.ticker_list.name]:
+            self._cur_config[ConfigEntry.ticker_list.name].append(stock)
+            self.save_gui_config() # update gui.cfg on disk
 
     def quick_check_stock_exists(self, symbol):
         """快速检查股票代码是否存在"""
@@ -603,60 +612,7 @@ class StockPredictionGUI:
         self.log_message(error_msg)
         messagebox.showerror("Error", error_msg)    
 
-    def evaluate_model(self):
-        """评估模型"""
-        if not self.manager:
-            messagebox.showwarning("Warning", "Please train the model first")
-            return
-
-        self.log_message("Start evaluation...")
-        
-        try:
-            # 这里需要根据你的代码调整评估逻辑
-            # 假设TickerManager有评估方法
-            # 在新线程中运行训练，避免GUI冻结
-            def start_eval_func(ticker):
-                self.manager.stock_selector.evaluate_model(model=self.manager.tickers[ticker][TICKER.MODEL])
-            thread = threading.Thread(target=lambda: [start_eval_func(ticker) for ticker in self.manager.get_all_tickers()])
-            thread.daemon = True
-            thread.start()
-            self.log_message("Evaluation completed!")
-            
-        except Exception as e:
-            self.log_message(f"Error in evaluation: {str(e)}")
-
-    def save_model(self):
-        """保存当前模型"""
-        if not self.manager:
-            messagebox.showwarning("Warning", "Please train the model first")
-            return
-        
-        try:
-            # stocks = self.stock_listbox.get(0, tk.END)
-            start_date = self.start_date_train.get_date().strftime("%Y-%m-%d")
-            end_date = self.end_date_train.get_date().strftime("%Y-%m-%d")
-            lookback = int(self.lookback_train.get())
-            
-            # self.save_model_info(stocks, start_date, end_date, lookback)
-            for ticker in self._processing_stocks:
-                self.manager.selector.save_model(ticker, start_date, end_date, lookback)
-            messagebox.showinfo("Success", "Model saved successfully!")
-            
-        except Exception as e:
-            self.log_message(f"Error saving model: {str(e)}")
-            messagebox.showerror("Error", f"Error saving model: {str(e)}")  
-
-    def load_model(self):
-        """加载已保存的模型"""
-        model_name = self.model_combo.get()
-        if not model_name:
-            messagebox.showwarning("Warning", "Please select a model to load")
-            return
-        
-        # 这里需要实现具体的模型加载逻辑
-        self.log_message(f"Loading model: {model_name}")
-    
-    def start_prediction(self):
+    def start_select_stock(self):
         """开始预测"""
         try:                            
             lookback = int(self.lookback_pred.get())
@@ -671,12 +627,12 @@ class StockPredictionGUI:
         self.log_message("Start prediction...", target="result")
         
         # 在新线程中运行预测
-        thread = threading.Thread(target=self.run_prediction, 
+        thread = threading.Thread(target=self.run_selecting, 
                                   args=(lookback, threshold))
         thread.daemon = True
         thread.start()
     
-    def run_prediction(self, lookback, threshold):
+    def run_selecting(self, lookback, threshold):
         """运行预测过程"""
         try:
             start_date, end_date = self.predict_date_picker.get()
@@ -684,26 +640,14 @@ class StockPredictionGUI:
             
             # 假设TickerManager有预测方法
             if hasattr(self.manager, 'select_stocks'):
-                self.manager.select_stocks(date_offset, lookback, threshold)
-                selected_stocks = self.manager.get_selected_stocks()
-                
-                self.result_text.delete(1.0, tk.END)
-                self.result_text.insert(tk.END, f"Prediction Period: {start_year} to {end_year}\n")
-                self.result_text.insert(tk.END, "Prediction Result:\n")
-                self.result_text.insert(tk.END, "="*50 + "\n")
-                
-                for stock in selected_stocks:
-                    self.result_text.insert(tk.END, f"Suggested Stock: {stock}\n")
-                
-                if not selected_stocks:
-                    self.result_text.insert(tk.END, "No stocks meet the criteria\n")
+                self.manager.select_stocks(start_date, end_date, lookback=lookback, selction_threshold=threshold)                
             
-            self.log_message("Prediction completed!", target="result")
+            self.log_message("processing selecting stocks completed!", target="result")
             
         except Exception as e:
             self.log_message(f"Error in prediction: {str(e)}", target="result")
     
-    def show_prediction_results(self):
+    def show_selection_results(self):
         """显示预测结果"""
         # 结果已经在result_text中显示了
         pass
@@ -795,58 +739,7 @@ class StockPredictionGUI:
             
         except Exception as e:
             messagebox.showerror("Error", f"Error displaying feature curve: {str(e)}")
-    
-    def save_model_info(self, stocks, start_date, end_date, lookback):
-        """保存模型信息"""
-        model_info = {
-            "stocks": list(stocks),
-            "start_date": start_date,
-            "end_date": end_date,
-            "lookback": lookback,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
         
-        model_name = f"model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        # 保存到文件
-        if not os.path.exists("models"):
-            os.makedirs("models")
-        
-        with open(f"models/{model_name}.json", "w") as f:
-            json.dump(model_info, f, indent=2)
-        
-        # 保存每个股票的模型文件，为每个股票建立单独的目录
-        for ticker in stocks:
-            model = self.manager.tickers[ticker][TICKER.MODEL]
-            model_dir = f"models/{ticker}"
-            if not os.path.exists(model_dir):
-                os.makedirs(model_dir)
-            # 保存特征列表
-            features = self.manager.tickers[ticker][TICKER.FEATURES]
-            features_file = f"{model_dir}/{model_name}_features.joblib"
-            json.dump(features, features_file)
-
-            # 保存缩放器文件
-            scaler = self.manager.tickers[ticker][TICKER.SCALER]
-            scaler_file = f"{model_dir}/{model_name}_scaler.joblib"
-            json.dump(scaler, scaler_file)
-
-            # 保存模型文件
-            model.save(f"{model_dir}/{model_name}.h5")
-
-        # 更新模型列表
-        self.load_saved_models()
-    
-    def load_saved_models(self):
-        """加载已保存的模型列表"""
-        if not os.path.exists("models"):
-            return
-        
-        model_files = [f for f in os.listdir("models") if f.endswith(".json")]
-        model_names = [f.replace(".json", "") for f in model_files]
-        # list in prediction tab
-        self.model_combo['values'] = model_names
-    
     def log_message(self, message, target="training"):
         """记录日志消息"""
         timestamp = datetime.now().strftime("%H:%M:%S")

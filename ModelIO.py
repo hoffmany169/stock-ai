@@ -70,26 +70,25 @@ class ModelSaverLoader:
             self._init_model_functions()
             return
         if self._save_model_mode:
+            # in this case, directory is a parent directory, in which ticker data will be saved
             if ticker_symbol is None:
                 raise ValueError("Ticker symbol is not set in saving mode.")
             self._ticker_symbol = ticker_symbol
             self.timestamp = datetime.now().strftime('%Y%m%d_%H')
             self._directory = os.path.join(directory, f'{ticker_symbol}_{self.timestamp}')
-        else:
+        else: # in this case, directory is where ticker data are saved
             if ticker_symbol is None:
                 # parse ticker name
                 base_name = os.path.basename(directory)
                 parts = base_name.split('_')
                 print(parts)
                 self._ticker_symbol = parts[0]
-                self._parse_parent_directory(directory)
+                self._directory = directory
             else:
+                if ticker_symbol not in directory:
+                    raise ValueError("No ticker symbol is found in directory.")
                 self._ticker_symbol = ticker_symbol
-                if self._ticker_symbol in directory: # this is a ticker directory
-                    #parse parent directory
-                    self._parse_parent_directory(directory)
-                else:
-                    self._directory = directory
+                self._directory = directory
         self._init_model_functions()
         self.readme_content = ''
 
