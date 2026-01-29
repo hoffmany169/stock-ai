@@ -24,21 +24,21 @@ mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, ss.get_model_summary())
 """
 
 import pickle
-import json, os
+import json, os, sys
 import keras
 from datetime import datetime
-from StockDefine import MODEL_TRAIN_DATA, LTSM_MODEL_PARAM
+from StockDefine import MODEL_TRAIN_DATA, LTSM_MODEL_PARAM, TICKER_DATA_PARAM
 
 class ModelSaverLoader:
-    FILE_NAME_DEFINE = {'stock_data': 'stock_data.csv',
-                        'model': '_model.keras', 
-                        'scaler': 'scaler.pkl', 
-                        'features': 'features.json', 
-                        'params': 'params.json',
-                        'history': 'history.pkl',
-                        'performance': 'performance.json',
-                        'readme': 'README.md', 
-                        'model_summary': 'model_summary.txt'}
+    FILE_NAME_DEFINE = {MODEL_TRAIN_DATA.ticker_data.name: 'ticker_data.csv',
+                        MODEL_TRAIN_DATA.ticker_data_params.name: 'ticker_data_params.json', 
+                        MODEL_TRAIN_DATA.model.name: '_model.keras', 
+                        MODEL_TRAIN_DATA.scaler.name: 'scaler.pkl', 
+                        MODEL_TRAIN_DATA.parameters.name: 'params.json',
+                        MODEL_TRAIN_DATA.train_history.name: 'history.pkl',
+                        MODEL_TRAIN_DATA.performance.name: 'performance.json',
+                        MODEL_TRAIN_DATA.readme.name: 'README.md', 
+                        MODEL_TRAIN_DATA.model_summary.name: 'model_summary.txt'}
     def __init__(self, directory, ticker_symbol=None, save=True):
         """
         Docstring for __init__
@@ -76,15 +76,20 @@ class ModelSaverLoader:
             self.timestamp = datetime.now().strftime('%Y%m%d_%H')
             self._directory = os.path.join(directory, f'{ticker_symbol}_{self.timestamp}')
         else:
-            self._directory = directory
             if ticker_symbol is None:
                 # parse ticker name
-                base_name = os.path.basename(self._directory)
+                base_name = os.path.basename(directory)
                 parts = base_name.split('_')
                 print(parts)
                 self._ticker_symbol = parts[0]
+                self._parse_parent_directory(directory)
             else:
                 self._ticker_symbol = ticker_symbol
+                if self._ticker_symbol in directory: # this is a ticker directory
+                    #parse parent directory
+                    self._parse_parent_directory(directory)
+                else:
+                    self._directory = directory
         self._init_model_functions()
         self.readme_content = ''
 
@@ -95,6 +100,12 @@ class ModelSaverLoader:
     @property
     def directory(self):
         return self._directory
+
+    def _parse_parent_directory(self, directory):
+        # parse parent directory
+        parts = directory.split(os.sep)
+        self._directory = os.sep.join(parts[:-1])
+        print(f"MIO Directory: {self._directory}")
 
     def _init_model_functions(self):
         if self._directory is None:
@@ -108,12 +119,23 @@ class ModelSaverLoader:
                 print(f'load function name: _load_{data_type.name}')
                 self._model_io_functions[data_type] = getattr(self, f'_load_{data_type.name}')
 #region save data functions
-    def _save_stock_data(self):
-        if len(self._model_train_data[MODEL_TRAIN_DATA.stock_data]) > 1:
-            file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['stock_data'])
-            data = self._model_train_data[MODEL_TRAIN_DATA.stock_data]
+    def _save_ticker_data(self):
+        if len(self._model_train_data[MODEL_TRAIN_DATA.ticker_data]) > 1:
+            file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.ticker_data.name])
+            data = self._model_train_data[MODEL_TRAIN_DATA.ticker_data]
             data.to_csv(file, compression='zip')
             print(f"✓ 原始数据已保存至: {file}")
+            return True
+        return False
+
+    def _save_ticker_data_params(self):
+        # 2. 保存数据下载参数
+        params = self._model_train_data[MODEL_TRAIN_DATA.ticker_data_params]
+        if len(params) == len(TICKER_DATA_PARAM):
+            params_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.ticker_data_params.name])
+            with open(params_path, 'w') as f:
+                json.dump(params, f, indent=2)
+            print(f"✓ 数据下载参数已保存至: {params_path}")
             return True
         return False
 
@@ -123,7 +145,7 @@ class ModelSaverLoader:
         if model is None:
             print("Model object is invalid.")
             return False
-        model_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE['model']}"
+        model_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.model.name]}"
         model_save_path = os.path.join(self._directory, model_name)
         keras.saving.save_model(model, model_save_path)
         print(f"✓ 模型已保存至: {model_save_path}")
@@ -132,7 +154,7 @@ class ModelSaverLoader:
     def _save_scaler(self):
         # 2. 保存Scaler
         if self._model_train_data[MODEL_TRAIN_DATA.scaler]:
-            scaler_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['scaler'])
+            scaler_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.scaler.name])
             scaler = self._model_train_data[MODEL_TRAIN_DATA.scaler]
             with open(scaler_path, 'wb') as f:
                 pickle.dump(scaler, f)
@@ -144,7 +166,7 @@ class ModelSaverLoader:
         # 4. 保存参数
         params = self._model_train_data[MODEL_TRAIN_DATA.parameters]
         if len(params) == len(LTSM_MODEL_PARAM):
-            params_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['params'])
+            params_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.parameters.name])
             with open(params_path, 'w') as f:
                 json.dump(params, f, indent=2)
             print(f"✓ 参数已保存至: {params_path}")
@@ -155,7 +177,7 @@ class ModelSaverLoader:
         # 5. 保存训练历史（如果有）
         # if hasattr(self.model, 'history') and self.model.history:
         if self._model_train_data[MODEL_TRAIN_DATA.train_history]:
-            history_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['history'])
+            history_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.train_history.name])
             history = self._model_train_data[MODEL_TRAIN_DATA.train_history]
             with open(history_path, 'wb') as f:
                 pickle.dump(history, f)
@@ -165,7 +187,7 @@ class ModelSaverLoader:
 
     def _save_performance(self):
         if self._model_train_data[MODEL_TRAIN_DATA.performance]:
-            perf_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['performance'])
+            perf_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.performance.name])
             performance = self._model_train_data[MODEL_TRAIN_DATA.performance]
             with open(perf_path, 'w') as f:
                 json.dump(performance, f, indent=2)
@@ -176,7 +198,7 @@ class ModelSaverLoader:
     # 6. 创建README文件
     def _save_readme(self):
         if self._model_train_data[MODEL_TRAIN_DATA.readme]:
-            readme_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['readme'])
+            readme_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.readme.name])
             readme = self._model_train_data[MODEL_TRAIN_DATA.readme]
             with open(readme_path, 'w', encoding='utf-8') as f:
                 f.write(readme)
@@ -186,7 +208,7 @@ class ModelSaverLoader:
 
     def _save_model_summary(self):
         if self._model_train_data[MODEL_TRAIN_DATA.model_summary]:
-            summary_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['model_summary'])
+            summary_path = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.model_summary.name])
             summary = self._model_train_data[MODEL_TRAIN_DATA.model_summary]
             with open(summary_path, 'w', encoding='utf-8') as f:
                 f.write(summary)
@@ -197,24 +219,40 @@ class ModelSaverLoader:
 
 #region load data functions
     ## load model data from disk
-    def _load_stock_data(self):
+    def _load_ticker_data(self):
         import pandas as pd
-        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['stock_data'])
+        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.ticker_data.name])
         try:
             if os.path.exists(file):
-                self._model_train_data[MODEL_TRAIN_DATA.stock_data] = pd.read_csv(file, compression='zip')
+                self._model_train_data[MODEL_TRAIN_DATA.ticker_data] = pd.read_csv(file, compression='zip')
                 print(f"✓ 股票数据已加载")
                 return True
             else:
-                self._model_train_data[MODEL_TRAIN_DATA.stock_data] = None
+                self._model_train_data[MODEL_TRAIN_DATA.ticker_data] = None
                 print(f"[{file}] doesn't exist !")
         except Exception as e:            
-            raise(f"Load stock data fails: {str(e)}")
+            raise(f"股票数据已加载失败: {str(e)}")
+        return False
+
+    def _load_ticker_data_params(self):
+        # 3. 加载数据下载参数
+        params_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.ticker_data_params.name])
+        try:
+            if os.path.exists(params_file):
+                with open(params_file, 'r') as f:
+                    self._model_train_data[MODEL_TRAIN_DATA.ticker_data_params] = json.load(f)
+                print(f"✓ 数据下载参数已加载")
+                return True
+            else:
+                self._model_train_data[MODEL_TRAIN_DATA.parameters] = None
+                print(f"[{params_file}] doesn't exist !")
+        except Exception as e:            
+            raise(f"加载数据下载参数失败: {str(e)}")
         return False
 
     def _load_model(self):
         # 1. 加载模型
-        model_file_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE['model']}"
+        model_file_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.model.name]}"
         model_file = os.path.join(self._directory, model_file_name)
         try:
             if os.path.exists(model_file):
@@ -225,12 +263,12 @@ class ModelSaverLoader:
                 self._model_train_data[MODEL_TRAIN_DATA.model] = None
                 print(f"[{model_file}] doesn't exist !")
         except Exception as e:
-            print(f"Load model fails: {str(e)}")
+            print(f"模型已加载失败: {str(e)}")
         return False
 
     def _load_scaler(self):
         # 2. 加载Scaler
-        scaler_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['scaler'])
+        scaler_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.scaler.name])
         try:
             if os.path.exists(scaler_file):
                 with open(scaler_file, 'rb') as f:
@@ -246,7 +284,7 @@ class ModelSaverLoader:
 
     def _load_parameters(self):
         # 3. 加载参数
-        params_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['params'])
+        params_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.parameters.name])
         try:
             if os.path.exists(params_file):
                 with open(params_file, 'r') as f:
@@ -261,7 +299,7 @@ class ModelSaverLoader:
         return False
 
     def _load_readme(self):
-        readme_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['readme'])
+        readme_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.readme.name])
         try:
             if os.path.exists(readme_file):
                 with open(readme_file, 'r', encoding='utf-8') as f:
@@ -276,7 +314,7 @@ class ModelSaverLoader:
         return False
 
     def _load_train_history(self):
-        hist_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['history'])
+        hist_file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.train_history.name])
         try:
             if os.path.exists(hist_file):
                 with open(hist_file, 'rb') as f:
@@ -291,7 +329,7 @@ class ModelSaverLoader:
         return False
 
     def _load_performance(self):
-        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['performance'])
+        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.performance.name])
         try:
             if os.path.exists(file):
                 with open(file, 'r') as f:
@@ -306,7 +344,7 @@ class ModelSaverLoader:
         return False
 
     def _load_model_summary(self):
-        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE['model_summary'])
+        file = os.path.join(self._directory, ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.model_summary.name])
         try:
             if os.path.exists(file):
                 with open(file, 'r', encoding='utf-8') as f:

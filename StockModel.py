@@ -1,5 +1,6 @@
 from tkinter import messagebox
 import yfinance as yf
+from StockDefine import TICKER_DATA_PARAM
 
 class StockModel:
     def __init__(self, ticker_symbol, load_data=None):
@@ -8,6 +9,7 @@ class StockModel:
         self._end_date = '2025-12-31'
         self._loaded_data = load_data
         self._model = None
+        self._interval = '1d'
         self._ticker_directory_on_disk = None
 
 #region properties    
@@ -28,7 +30,14 @@ class StockModel:
     @end_date.setter
     def end_date(self, date:str):
         self._end_date = date
-            
+
+    @property
+    def interval(self):
+        return self._interval
+    @interval.setter
+    def interval(self, intv):
+        self._interval = intv
+
     @property
     def loaded_data(self):
         return self._loaded_data.copy()
@@ -97,3 +106,14 @@ class StockModel:
                                  f"Error downloading data for {self.ticker_symbolticker}: {e}")
             return False
 
+    def create_ticker_parameters(self):
+        return {TICKER_DATA_PARAM.ticker_symbol.name: self._ticker_symbol,
+                TICKER_DATA_PARAM.start_date.name: self._start_date,
+                TICKER_DATA_PARAM.end_date.name: self._end_date,
+                TICKER_DATA_PARAM.interval.name: self._interval}
+    
+    def assign_ticker_params_from_loading(self, ticker_data:dict):
+        self._start_date = ticker_data[TICKER_DATA_PARAM.start_date.name]
+        self._end_date = ticker_data[TICKER_DATA_PARAM.end_date.name]
+        self._interval = ticker_data[TICKER_DATA_PARAM.interval.name]
+        print(f"Loaded parameters: start date [{self._start_date}], end date [{self._end_date}], interval [{self._interval}]")

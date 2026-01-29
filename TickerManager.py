@@ -40,6 +40,9 @@ class TickerManager:
     def stock_features(self, feats):
         self._stock_features = feats
 
+    def get_ticker_list(self):
+        return list(self.tickers.keys())
+
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
         if ticker_symbol in self.tickers:
@@ -188,36 +191,42 @@ class TickerManager:
                                 ticker_symbol)
         sm = self.get_stock_model(ticker_symbol)
         ss = self.get_LSTM_model_train(ticker_symbol)
-        mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data, sm.loaded_data)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, sm.loaded_data)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, sm.create_ticker_parameters())
         mio.set_model_train_data(MODEL_TRAIN_DATA.model, sm.model)
         mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
         mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, ss.create_model_parameters())
         mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
         mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, ss.train_history)
-        mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.get_model_summary())
+        mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.performance)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, ss.get_model_summary())
         mio.save_train_data()
 
     def process_save_train_data(self, path):
         for ticker in self.get_all_tickers():
             self.save_train_data(ticker, path)
 
-    def process_load_train_data(self, ticker_data_dir):
+    def process_load_train_data(self, data_dir):
         """
         Docstring for process_load_train_data
         
         :param self: Description
-        :param ticker_data_dir: concrete path of ticker data, for example: TSLA_20260126_174853
+        :param data_dir: concrete path of ticker data, for example: TSLA_20260126_174853 if ticker is True, otherwise, it is parent directory of ticker data
+        :param ticker: bool, False - data_dir is a parent directory; True - it is a concrete directory of ticker data
         """
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
-        mio = ModelSaverLoader(ticker_data_dir,
+        mio = ModelSaverLoader(data_dir,
                                 save=False)
         self.add_ticker(mio.ticker_symbol)
         sm = self.get_stock_model(mio.ticker_symbol)
         ss = self.get_LSTM_model_train(mio.ticker_symbol)
         result = mio.load_train_data()
-        if result[MODEL_TRAIN_DATA.stock_data]:
-            sm.loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.stock_data)
+        if result[MODEL_TRAIN_DATA.ticker_data]:
+            sm.loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data)
+        if result[MODEL_TRAIN_DATA.ticker_data_params]:
+            data_params = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data_params)
+            sm.assign_ticker_params_from_loading(data_params)
         if result[MODEL_TRAIN_DATA.model]:
             sm.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
         if result[MODEL_TRAIN_DATA.scaler]:

@@ -73,6 +73,12 @@ class StockFeature:
     def disable_feature(self, feature):
         self._FEATURE_STATE_LIST[feature] = False
 
+class TICKER_DATA_PARAM(AutoIndex):
+    ticker_symbol = ()
+    start_date = ()
+    end_date = ()
+    interval = ()
+
 class LTSM_MODEL_PARAM(AutoIndex):
     timestamp = ()
     lookback = ()
@@ -82,7 +88,8 @@ class LTSM_MODEL_PARAM(AutoIndex):
     feature_count = ()
 
 class MODEL_TRAIN_DATA(AutoIndex):
-    stock_data = ()
+    ticker_data = ()
+    ticker_data_params = ()
     model = ()
     scaler = ()
     parameters = ()

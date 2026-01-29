@@ -183,7 +183,7 @@ class StockPredictionGUI:
         from Common.DropdownButton import DropdownButton
         self.load_btn = DropdownButton(btn_frame2, 
                                    ['Load from Markt', 'Load from Disk'], 
-                                    command=self.start_loading)
+                                    command=self.start_loading_ticker_data)
         self.load_btn.pack(side=tk.LEFT, padx=10)
         
         # 训练按钮
@@ -336,14 +336,16 @@ class StockPredictionGUI:
         print("Open ", chosen_path)
         self._cur_config[ConfigEntry.model_save_path.name] = chosen_path
 
-    def start_loading(self, selected:str):
+    def start_loading_ticker_data(self, selected:str):
         if selected.endswith('Markt'):
             # loading data from yfinance
-            self.start_loading_data()
+            self.start_loading_ticker_data_from_markt()
         elif selected.endswith('Disk'):
             # loading data from disk
             self.open_select_directory()
             self.manager.process_load_train_data(self._cur_config[ConfigEntry.model_save_path.name])
+            self._processing_stocks = list(set(self._processing_stocks + self.manager.get_ticker_list()))
+            self.update_stock_listbox(from_disk=True)
 
     def add_stock(self):
         """添加股票代码"""
@@ -450,14 +452,18 @@ class StockPredictionGUI:
             self.log_message("Cleared all stocks already in the list")
             self._reload_data = True
 
-    def update_stock_listbox(self):
+    def update_stock_listbox(self, from_disk=False):
         """更新Listbox显示"""
         # 清空Listbox
         self.stock_listbox.delete(0, tk.END)
         
         # 添加所有股票
         for i, stock in enumerate(self._processing_stocks, 1):
-            self.stock_listbox.insert(tk.END, f"{i}. [{stock}]")
+            if from_disk: # add start_date and end_date
+                sm = self.manager.get_stock_model(stock)
+                self.stock_listbox.insert(tk.END, f"{i}. [{stock}]: {sm.start_date} - {sm.end_date}")
+            else:
+                self.stock_listbox.insert(tk.END, f"{i}. [{stock}]")
         
         # 更新状态显示
         self.update_status()
@@ -477,14 +483,14 @@ class StockPredictionGUI:
             self.log_message(f"Disabled feature: {self._stock_features.get_feature_name(feature)}")
         self._reload_data = True
 
-    def start_loading_data(self):
+    def start_loading_ticker_data_from_markt(self):
         # 在新线程中运行训练，避免GUI冻结
         features = self._stock_features.get_features()
-        thread = threading.Thread(target=self.run_loading, args=(self._processing_stocks, features))
+        thread = threading.Thread(target=self.run_loading_ticker_data, args=(self._processing_stocks, features))
         thread.daemon = True
         thread.start()    
 
-    def run_loading(self, stocks, features):
+    def run_loading_ticker_data(self, stocks, features):
         self.log_message(f"Start loading: {len(stocks)} stocks")
         self.log_message(f"Stock list: {', '.join(stocks)}")
         try:
@@ -515,15 +521,17 @@ class StockPredictionGUI:
                     for ticker in stocks:
                         if ticker in self.manager.tickers:
                             mt = self.manager.get_LSTM_model_train(ticker)
+                            # set features for the model
                             mt.features = features
+                            sm = self.manager.get_stock_model(ticker)
                             # create folder structure for saving data and save loaded data
                             save_path = self._cur_config[ConfigEntry.model_save_path.name]
                             mio = ModelSaverLoader(save_path, ticker)
                             ticker_data = self.manager.get_stock_model(ticker).loaded_data
-                            mio.set_model_train_data(MODEL_TRAIN_DATA.stock_data, ticker_data)
-                            mio.save_train_data(MODEL_TRAIN_DATA.stock_data)
-                            mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, mt.create_model_parameters())
-                            mio.save_train_data(MODEL_TRAIN_DATA.parameters)
+                            mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, ticker_data)
+                            mio.save_train_data(MODEL_TRAIN_DATA.ticker_data)
+                            mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, sm.create_ticker_parameters())
+                            mio.save_train_data(MODEL_TRAIN_DATA.ticker_data_params)
                             # keep directory into stock model
                             self.manager.get_stock_model(ticker).ticker_directory = mio.directory
                     self.log_message("Loading Ticker Data is successful.")
