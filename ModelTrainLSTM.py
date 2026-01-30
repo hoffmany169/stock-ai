@@ -260,7 +260,16 @@ class LSTMModelTrain:
         self._lookback = params[LTSM_MODEL_PARAM.lookback.name]
         self._future_days = params[LTSM_MODEL_PARAM.future_days.name]
         self._threshold = params[LTSM_MODEL_PARAM.threshold.name]
-        self._features = params[LTSM_MODEL_PARAM.features.name]
+        feature_names = params[LTSM_MODEL_PARAM.features.name]
+        self._features = []
+        for name in feature_names:
+            self._features.append(StockFeature.get_feature_by_name(name))
+
+        print(f"Loaded model parameters:")
+        print(f": lookback[{self._lookback}]")
+        print(f": future days[{self._future_days}]")
+        print(f": threshold[{self._threshold}]")
+        print(f": feature[{self._features}]")
 
     def get_model_summary(self):
         """获取模型架构信息"""
@@ -346,7 +355,7 @@ class LSTMModelTrain:
         # 训练模型
         self.train_model(df, scaled_data)
 
-    def process_prediction(self, scaler):
+    def process_selection(self, scaler):
         df, scaled_data = self.preprocess_data(scaler)
         return self.predict(scaled_data)
 

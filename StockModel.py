@@ -3,10 +3,10 @@ import yfinance as yf
 from StockDefine import TICKER_DATA_PARAM
 
 class StockModel:
-    def __init__(self, ticker_symbol, load_data=None):
+    def __init__(self, ticker_symbol, load_data=None, start_date=None, end_date=None):
         self._ticker_symbol = ticker_symbol
-        self._start_date = '2024-01-01'
-        self._end_date = '2025-12-31'
+        self._start_date = '2024-01-01' if start_date is None else start_date
+        self._end_date = '2025-12-31' if end_date is None else end_date
         self._loaded_data = load_data
         self._model = None
         self._interval = '1d'
@@ -116,4 +116,4 @@ class StockModel:
         self._start_date = ticker_data[TICKER_DATA_PARAM.start_date.name]
         self._end_date = ticker_data[TICKER_DATA_PARAM.end_date.name]
         self._interval = ticker_data[TICKER_DATA_PARAM.interval.name]
-        print(f"Loaded parameters: start date [{self._start_date}], end date [{self._end_date}], interval [{self._interval}]")
+        print(f"Loaded ticker parameters: start date [{self._start_date}], end date [{self._end_date}], interval [{self._interval}]")

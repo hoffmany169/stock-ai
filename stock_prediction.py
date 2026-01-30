@@ -624,7 +624,7 @@ class StockPredictionGUI:
             messagebox.showwarning("Warning", "Please enter valid parameters")
             return
             
-        self.log_message("Start prediction...", target="result")
+        self.log_message("Start selecting stocks...", target="result")
         
         # 在新线程中运行预测
         thread = threading.Thread(target=self.run_selecting, 

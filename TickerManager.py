@@ -251,9 +251,9 @@ class TickerManager:
             local_ss = StockModel(ticker, ticker_data)
             # get trained model
             local_ss.model = self.get_stock_model(ticker).model
-            local_lstm = LSTMModelTrain(local_ss, self._stock_features, lookback)
+            local_lstm = LSTMModelTrain(local_ss, self.get_LSTM_model_train(ticker).features, lookback)
             ss = self.get_LSTM_model_train(ticker)
-            prediction = local_lstm.process_prediction(ss.scaler)
+            prediction = local_lstm.process_selection(ss.scaler)
             print(f'prediction: [{prediction}] <--> {selction_threshold}')
             if prediction > selction_threshold:  # 设置较高阈值
                 selected_stocks.append(ticker)

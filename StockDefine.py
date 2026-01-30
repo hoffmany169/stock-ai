@@ -63,6 +63,16 @@ class StockFeature:
                 else:
                     name = ' '.join(f.name.split('_'))
         return name
+    
+    @staticmethod
+    def get_feature_by_name(name_str):
+        try:
+            for f in FEATURE:
+                if f.name == name_str:
+                    return f
+            raise ValueError("No feature is found.")
+        except Exception as e:
+            print (str(e))
 
     def is_feature_used(self, feature)->bool:
         return self._FEATURE_STATE_LIST[feature]
