@@ -58,6 +58,9 @@ class TickerManager:
             return
         self.tickers.pop(ticker, None)
 
+    def clear_all(self):
+        self.tickers.clear()
+
     def get_all_tickers(self):
         """Return a list of all tickers managed."""
         return list(self.tickers.keys())

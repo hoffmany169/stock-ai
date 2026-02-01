@@ -100,12 +100,6 @@ class ModelSaverLoader:
     def directory(self):
         return self._directory
 
-    def _parse_parent_directory(self, directory):
-        # parse parent directory
-        parts = directory.split(os.sep)
-        self._directory = os.sep.join(parts[:-1])
-        print(f"MIO Directory: {self._directory}")
-
     def _init_model_functions(self):
         if self._directory is None:
             raise ValueError("Directory is not initialized!")

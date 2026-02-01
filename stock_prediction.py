@@ -3,7 +3,7 @@
 # os.environ["LC_ALL"] = "C.UTF-8"
 import sys, os
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext, filedialog
+from tkinter import StringVar, ttk, messagebox, scrolledtext, filedialog
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import font_manager
@@ -27,7 +27,7 @@ class StockPredictionGUI:
         self.root = root
         self.root.title("Stock Prediction GUI")
         self.root.geometry("1200x800")
-        self.Gui_Config_Data = {ConfigEntry.model_save_path.name: 'models',
+        self.Gui_Config_Data = {ConfigEntry.model_save_path.name: ['models'],
                                 ConfigEntry.ticker_list.name:['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
                                                 'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
                                                 'BABA', 'JD', 'PDD', 'BIDU', 'NTES'],}
@@ -76,11 +76,14 @@ class StockPredictionGUI:
         # Erhalte den Text des ausgewählten Tabs
         tab_text = notebook.tab(current_tab, "text")
         index = notebook.index("current")
-        print(f"Tab gewechselt zu: {tab_text}")
-        print(f"Index of current tab: {index}")
-        if index == 1: # selecting tab
-            self.model_combo["values"] = self._processing_stocks
-            self.model_combo.update
+        # print(f"Tab gewechselt zu: {tab_text}")
+        # print(f"Index of current tab: {index}")
+        self.select_listbox.delete(0, tk.END)
+        for i, select in enumerate(self._processing_stocks):
+            self.select_listbox.inset(tk.END, f"{i}.[{select}]") 
+        if index == 2: # visual tab
+            self.visual_model_combo["values"] = self._processing_stocks
+            self.visual_model_combo.update
 
 
     def load_gui_config(self):
@@ -223,10 +226,21 @@ class StockPredictionGUI:
         
         # 模型选择
         ttk.Label(self.prediction_frame, text="Select Model:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.model_combo = ttk.Combobox(self.prediction_frame, width=30)
-        self.model_combo.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
-        self.model_combo['values'] = self._processing_stocks
-                
+        # self.model_combo = ttk.Combobox(self.prediction_frame, width=30)
+        # self.model_combo.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+        # self.model_combo['values'] = self._processing_stocks
+
+        # 股票列表框
+        self.select_listbox = tk.Listbox(self.prediction_frame, height=5, width=20)
+        self.select_listbox.grid(row=0, column=1, padx=5, pady=5)
+        # pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # 滚动条
+        scrollbar = tk.Scrollbar(self.prediction_frame, orient=tk.VERTICAL, command=self.stock_listbox.yview)
+        scrollbar.grid(row=0, column=1, padx=5, pady=5, sticky=tk.E)
+        # pack(side=tk.RIGHT, fill=tk.Y)
+        self.select_listbox.config(yscrollcommand=scrollbar.set)
+
         # 预测参数
         params_frame = ttk.LabelFrame(self.prediction_frame, text="Selection Parameters", padding=10)
         params_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=10, sticky="ew")
@@ -275,29 +289,36 @@ class StockPredictionGUI:
         """创建可视化标签页"""
         self.visualization_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.visualization_frame, text="Data Visualization")
-        
+#region original stock curve        
         # 控制面板
         control_frame = ttk.Frame(self.visualization_frame)
         control_frame.pack(fill=tk.X, padx=5, pady=5)
         
+        ttk.Label(control_frame, text="Select Model:").pack(side=tk.LEFT, padx=(20,5))
+        self.visual_model_combo = ttk.Combobox(control_frame, width=25)
+        self.visual_model_combo.pack(side=tk.LEFT, padx=5)
+        self.visual_model_combo['values'] = self._processing_stocks
+
         ttk.Button(control_frame, text="Show Raw Data", command=self.show_raw_data).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Label(control_frame, text="Select Feature:").pack(side=tk.LEFT, padx=(20,5))
-        
+#endregion
+#region feature curve
+        control_frame_2 = ttk.Frame(self.visualization_frame)
+        control_frame_2.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(control_frame_2, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
         # 特征选择下拉框
-        self.feature_combo = ttk.Combobox(control_frame, width=25)
-        self.feature_combo.pack(side=tk.LEFT, padx=5)
-        
-        # 填充特征列表
-        feature_names = []
-        for feature in FEATURE:
-            feature_names.append(self._stock_features.get_feature_name(feature))
-        self.feature_combo['values'] = feature_names
-        if feature_names:
-            self.feature_combo.current(0)
+        self.shown_feature = {'feature 1': StringVar(control_frame_2, 'Open'), 'operator': StringVar(control_frame_2, '--'), 'feature 2': StringVar(control_frame_2, '--')}
+        self.feature1_combo = ttk.Combobox(control_frame_2, textvariable=self.shown_feature['feature 1'], width=25)
+        self.feature1_combo.pack(side=tk.LEFT, padx=5)
+
+        self.feature_operator = ttk.Combobox(control_frame_2, values=['--', '+', '-', '/', 'x'], textvariable=self.shown_feature['operator'], width=25)
+        self.feature_operator.pack(side=tk.LEFT, padx=5)
+
+        self.feature2_combo = ttk.Combobox(control_frame_2, textvariable=self.shown_feature['feature 2'], width=25)
+        self.feature2_combo.pack(side=tk.LEFT, padx=5)
         
         ttk.Button(control_frame, text="Show Feature Curve", command=self.show_feature_curve).pack(side=tk.LEFT, padx=5)
-        
+#endregion        
         # 图表显示区域
         self.figure_frame = ttk.Frame(self.visualization_frame)
         self.figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -305,6 +326,21 @@ class StockPredictionGUI:
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    def _upate_feature_combos(self, ticker):
+        # 填充特征列表
+        sm = self.manager.get_stock_model(ticker)
+        if not sm:
+            return
+        
+        feature_names = []
+        for feature in sm.stock_features:
+            feature_names.append(self._stock_features.get_feature_name(feature))
+        self.feature1_combo['values'] = feature_names
+        self.feature2_combo['values'] = ['--'].extend(feature_names)
+        if feature_names:
+            self.feature1_combo.current(0)
+            self.feature2_combo.current(0)
 
     def validate_stock_symbol(self, symbol):
         """验证股票代码格式（增强版）"""
@@ -333,10 +369,17 @@ class StockPredictionGUI:
         
         return symbol
 
-    def open_select_directory(self):
+    def _open_select_directory(self):
         chosen_path = filedialog.askdirectory(initialdir='.', title='Choose Directory for Saving Model Data:')
         print("Open ", chosen_path)
-        self._cur_config[ConfigEntry.model_save_path.name] = chosen_path
+        return chosen_path
+
+    def _parse_models_directory(self, directory):
+        # parse parent directory
+        parts = directory.split(os.sep)
+        models_directory = os.sep.join(parts[:-1])
+        print(f"MIO Directory: {models_directory}")
+        return models_directory
 
     def start_loading_ticker_data(self, selected:str):
         if selected.endswith('Markt'):
@@ -344,7 +387,10 @@ class StockPredictionGUI:
             self.start_loading_ticker_data_from_markt()
         elif selected.endswith('Disk'):
             # loading data from disk
-            self.open_select_directory()
+            chosen_path = self._open_select_directory()
+            models_dir = self._parse_models_directory(chosen_path)
+            if models_dir not in self._cur_config[ConfigEntry.model_save_path]:
+                self._cur_config[ConfigEntry.model_save_path].append(models_dir)
             self.manager.process_load_train_data(self._cur_config[ConfigEntry.model_save_path.name])
             self._processing_stocks = list(set(self._processing_stocks + self.manager.get_ticker_list()))
             self.update_stock_listbox(from_disk=True)
@@ -436,7 +482,9 @@ class StockPredictionGUI:
         if messagebox.askyesno("Confirmation", f"Are you sure you want to delete stock '{stock}'?"):
             # 从内部列表删除
             self._processing_stocks.pop(index)
-            
+            if stock in self.manager.tickers:
+                # remove it also from stock manager
+                self.manager.remove_ticker(stock)
             # 更新Listbox显示
             self.update_stock_listbox()
             
@@ -452,6 +500,7 @@ class StockPredictionGUI:
         
         if messagebox.askyesno("Confirmation", f"Are you sure you want to clear all {len(self._processing_stocks)} stocks?"):
             # 清空内部列表
+            self.manager.clear_all()
             self._processing_stocks.clear()
             
             # 更新Listbox显示
@@ -467,13 +516,12 @@ class StockPredictionGUI:
         self.stock_listbox.delete(0, tk.END)
         
         # 添加所有股票
-        for i, stock in enumerate(self._processing_stocks, 1):
+        for i, stock in enumerate(self._processing_stocks):
             if from_disk: # add start_date and end_date
                 sm = self.manager.get_stock_model(stock)
                 self.stock_listbox.insert(tk.END, f"{i}. [{stock}]: {sm.start_date} - {sm.end_date}")
             else:
                 self.stock_listbox.insert(tk.END, f"{i}. [{stock}]")
-        
         # 更新状态显示
         self.update_status()
 
@@ -683,7 +731,9 @@ class StockPredictionGUI:
             messagebox.showerror("Error", f"Error displaying data: {str(e)}")
     
     def show_feature_curve(self):
-        """显示特征曲线"""
+        """显示特征曲线
+        draw feature curve. if another curve is already there, added into the same figure.
+        """
         if not self.manager:
             messagebox.showwarning("Warning", "Please train the model first")
             return
