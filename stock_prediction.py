@@ -17,6 +17,7 @@ from StockDefine import TICKER, FEATURE, StockFeature
 from TickerManager import TickerManager
 from DateRangePicker import DateRangePicker
 from Common.AutoNumber import AutoIndex
+from StockModel import StockModel
 
 class ConfigEntry(AutoIndex):
     model_save_path = ()
@@ -78,11 +79,9 @@ class StockPredictionGUI:
         index = notebook.index("current")
         # print(f"Tab gewechselt zu: {tab_text}")
         # print(f"Index of current tab: {index}")
-        self.select_listbox.delete(0, tk.END)
-        for i, select in enumerate(self._processing_stocks):
-            self.select_listbox.inset(tk.END, f"{i}.[{select}]") 
         if index == 2: # visual tab
             self.visual_model_combo["values"] = self._processing_stocks
+            self.visual_model_combo.current(0)
             self.visual_model_combo.update
 
 
@@ -158,7 +157,12 @@ class StockPredictionGUI:
         self.date_frame = ttk.Frame(left_frame)
         self.date_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 10))
         self.train_date_picker = DateRangePicker(self.date_frame)
-        self.train_date_picker.pack(anchor=tk.W)
+        self.train_date_picker.pack(side=tk.LEFT)
+        tk.Label(self.date_frame, text="Interval").pack(side=tk.LEFT, padx=10)
+        self.interval_var = StringVar(self.date_frame, '1d')
+        self.interval = ttk.Combobox(self.date_frame, width=10, textvariable=self.interval_var)
+        self.interval.pack(side=tk.LEFT)
+        self.interval['values'] = StockModel.Interval
         # Lookback设置
         lookback_frame = ttk.Frame(left_frame)
         lookback_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(0, 15))
@@ -224,23 +228,6 @@ class StockPredictionGUI:
         self.prediction_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.prediction_frame, text="Stock Selection")
         
-        # 模型选择
-        ttk.Label(self.prediction_frame, text="Select Model:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        # self.model_combo = ttk.Combobox(self.prediction_frame, width=30)
-        # self.model_combo.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
-        # self.model_combo['values'] = self._processing_stocks
-
-        # 股票列表框
-        self.select_listbox = tk.Listbox(self.prediction_frame, height=5, width=20)
-        self.select_listbox.grid(row=0, column=1, padx=5, pady=5)
-        # pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        # 滚动条
-        scrollbar = tk.Scrollbar(self.prediction_frame, orient=tk.VERTICAL, command=self.stock_listbox.yview)
-        scrollbar.grid(row=0, column=1, padx=5, pady=5, sticky=tk.E)
-        # pack(side=tk.RIGHT, fill=tk.Y)
-        self.select_listbox.config(yscrollcommand=scrollbar.set)
-
         # 预测参数
         params_frame = ttk.LabelFrame(self.prediction_frame, text="Selection Parameters", padding=10)
         params_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=10, sticky="ew")

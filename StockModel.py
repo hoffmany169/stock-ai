@@ -1,15 +1,32 @@
 from tkinter import messagebox
 import yfinance as yf
 from StockDefine import TICKER_DATA_PARAM
+from Common.AutoNumber import AutoIndex
+
 
 class StockModel:
+    class INTERVAL(AutoIndex):
+        ONE_MINUT = ()
+        TWO_MINUTS = ()
+        FIVE_MINUTS = ()
+        FIFTEEN_MINUTS = ()
+        THIRTY_MINUTS = ()
+        SIXTY_MINUTS = ()
+        NINETY_MINUTS = ()
+        ONE_HOUR = ()
+        ONE_DAY = ()
+        FIVE_DAYS = ()
+        ONE_WEEK = ()
+        ONE_MONTH = ()
+        THREE_MONTHS = ()
+    Interval = ['1m','2m','5m','15m','30m','60m','90m','1h','1d','5d','1wk','1mo','3mo']
     def __init__(self, ticker_symbol, load_data=None, start_date=None, end_date=None):
         self._ticker_symbol = ticker_symbol
         self._start_date = '2024-01-01' if start_date is None else start_date
         self._end_date = '2025-12-31' if end_date is None else end_date
         self._loaded_data = load_data
         self._model = None
-        self._interval = '1d'
+        self._intervals = dict(zip([itv for itv in StockModel.INTERVAL], StockModel.Interval))
         self._ticker_directory_on_disk = None
 
 #region properties    
