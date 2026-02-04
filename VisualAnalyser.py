@@ -64,9 +64,42 @@ class PROPERTY_2_POINTS(AutoIndex):
     percentage_of_value_change = ()
     tangent_of_line = ()
 
+                    
 class VisualAnalyser:
+    class HoverAnnotation:
+        def __init__(self, dates, prices, line):
+            self.dates = dates
+            self.prices = prices
+            self.line = line
+            self.annot = self.ax.annotate("", xy=(0,0), xytext=(20,20),
+                                    textcoords="offset points",
+                                    bbox=dict(boxstyle="round", fc="w", alpha=0.9),
+                                    arrowprops=dict(arrowstyle="->"))
+            self.annot.set_visible(False)
+            
+        def update_annot(self, ind):
+            x, y = self.line.get_data()
+            date_val = mdates.num2date(x[ind["ind"][0]]).strftime('%Y-%m-%d')
+            price_val = y[ind["ind"][0]]
+            self.annot.xy = (x[ind["ind"][0]], y[ind["ind"][0]])
+            text = f"日期: {date_val}\n股价: {price_val:.2f}"
+            self.annot.set_text(text)
+
+        def hover(self, event):
+            vis = self.annot.get_visible()
+            if event.inaxes == self.ax:
+                cont, ind = self.line.contains(event)
+                if cont:
+                    self.update_annot(ind)
+                    self.annot.set_visible(True)
+                    self.fig.canvas.draw_idle()
+                else:
+                    if vis:
+                        self.annot.set_visible(False)
+                        self.fig.canvas.draw_idle()
+
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, fig=None, ax=None, data=None, plot_label='Data', figsize=(10,6)):
+    def __init__(self, fig=None, ax=None, plot_label='Data', figsize=(10,6)):
         """
         Docstring for __init__
         two scenarios:
@@ -74,11 +107,8 @@ class VisualAnalyser:
         :param fig: figure object in plotting
         :param ax: axis object in plotting
         2. create fig and ax inside
-        :param data: data to plot
         :param figsize: figure size
         """
-        if data is None:
-            raise ValueError("Data must be provided when fig and ax are not given.")
         self._plot_file_name = None
         self.last_click_coords = None
         self.menu_items = {} # map function name (string) -> command index

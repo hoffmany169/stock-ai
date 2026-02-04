@@ -185,7 +185,54 @@ class ChainData:
             elements.append(str(current.data))
             current = current.next
         return " -> ".join(elements) if elements else "Empty Chain"
+
+    def __repr__(self) -> str:
+        """Detailed representation of the chain"""
+        return f"chain_data(length={self._length}, type={self._data_type.__name__ if self._data_type else 'None'})"
     
+    @property
+    def data_type(self) -> type|None:
+        """Get the data type of the chain"""
+        return self._data_type
+    
+    def contains(self, data: any) -> bool:
+        """
+        Check if chain contains specific data
+        
+        Args:
+            data: Data to search for
+            
+        Returns:
+            True if data is found, False otherwise
+        """
+        current = self.head
+        while current:
+            if current.data == data:
+                return True
+            current = current.next
+        return False
+    
+    def index_of(self, data: any) -> int:
+        """
+        Get index of specific data
+        
+        Args:
+            data: Data to find
+            
+        Returns:
+            Index of data if found, -1 otherwise
+        """
+        current = self.head
+        index = 0
+        while current:
+            if current.data == data:
+                return index
+            current = current.next
+            index += 1
+        return -1
+
+
+
 if __name__ == "__main__":
     # Create a chain
     chain = ChainData()
@@ -208,3 +255,14 @@ if __name__ == "__main__":
 
     # Clear all
     chain.clear()        
+
+    # Create a string chain
+    str_chain = ChainData()
+    str_chain.add("hello")
+    str_chain.add("world")
+    print(f"\nString chain: {str_chain}")
+    print(f"\nString chain: {repr(str_chain)}")
+    print(f"Contains 'world': {str_chain.contains('world')}")
+    print(f"Index of 'world': {str_chain.index_of('world')}")
+    # This would raise TypeError:
+    str_chain.add(123)  # Can't add integer to string chain
