@@ -41,7 +41,6 @@ class StockPredictionGUI:
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_change)
         # 初始化管理器
         self.manager = TickerManager()
-        self.current_model = None
         self._reload_data = True # decide if reloading data
         self._cur_config = self.Gui_Config_Data
         self.load_gui_config()

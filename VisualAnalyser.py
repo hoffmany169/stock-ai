@@ -64,7 +64,7 @@ class PROPERTY_2_POINTS(AutoIndex):
     percentage_of_value_change = ()
     tangent_of_line = ()
 
-class PlotAnalyser:
+class VisualAnalyser:
     CONTEXT_MENU_TEXT = ['label', 'command']
     def __init__(self, fig=None, ax=None, data=None, plot_label='Data', figsize=(10,6)):
         """
