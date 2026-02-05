@@ -312,13 +312,13 @@ class StockChartPlotter:
             extra_info = ""
             if 'Open' in self.stock_data.columns:
                 open_price = self.stock_data['Open'].iloc[idx]
-                extra_info += f"开盘: ¥{open_price:.2f}\n"
+                extra_info += f"Open: €{open_price:.2f}\n"
             if 'High' in self.stock_data.columns:
                 high_price = self.stock_data['High'].iloc[idx]
-                extra_info += f"最高: ¥{high_price:.2f}\n"
+                extra_info += f"High: €{high_price:.2f}\n"
             if 'Low' in self.stock_data.columns:
                 low_price = self.stock_data['Low'].iloc[idx]
-                extra_info += f"最低: ¥{low_price:.2f}\n"
+                extra_info += f"Low: €{low_price:.2f}\n"
             
             # 计算涨跌幅
             if idx > 0:
@@ -326,13 +326,13 @@ class StockChartPlotter:
                 change = close_price - prev_close
                 change_pct = (change / prev_close) * 100
                 change_symbol = "+" if change >= 0 else ""
-                change_str = f"涨跌: {change_symbol}{change:.2f} ({change_symbol}{change_pct:.2f}%)"
+                change_str = f"Up/Down: {change_symbol}{change:.2f} ({change_symbol}{change_pct:.2f}%)"
             else:
-                change_str = "涨跌: N/A"
+                change_str = "Up/Down: N/A"
             
             # 更新股价注释框
-            price_text = f"日期: {date_str}\n" \
-                        f"收盘: ¥{close_price:.2f}\n" \
+            price_text = f"Date: {date_str}\n" \
+                        f"Close: €{close_price:.2f}\n" \
                         f"{change_str}"
             
             if extra_info:
@@ -343,8 +343,8 @@ class StockChartPlotter:
             self.price_annotation.set_visible(True)
             
             # 更新交易量注释框
-            volume_text = f"日期: {date_str}\n" \
-                         f"交易量: {volume:,.0f}"
+            volume_text = f"Date: {date_str}\n" \
+                         f"Volume: {volume:,.0f}"
             self.volume_annotation.set_text(volume_text)
             self.volume_annotation.xy = (self.dates_mpl[idx], volume)
             self.volume_annotation.set_visible(True)
