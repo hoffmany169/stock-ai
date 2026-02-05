@@ -121,7 +121,6 @@ class VisualAnalyser:
         else:
             self.fig, self.ax = plt.subplots(figsize=figsize)
 
-        self.x, self.y = data
         line, = self.ax.plot(self.x, self.y, 'b-', label=plot_label, linewidth=2)
         self.ax.grid(True, alpha=0.3)
         self.canvas = self.fig.canvas

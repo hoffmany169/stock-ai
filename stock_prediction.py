@@ -28,7 +28,7 @@ class StockPredictionGUI:
         self.root = root
         self.root.title("Stock Prediction GUI")
         self.root.geometry("1200x800")
-        self.Gui_Config_Data = {ConfigEntry.model_save_path.name: ['models'],
+        self.Gui_Config_Data = {ConfigEntry.model_save_path.name: 'models',
                                 ConfigEntry.ticker_list.name:['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
                                                 'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
                                                 'BABA', 'JD', 'PDD', 'BIDU', 'NTES'],}
@@ -308,10 +308,9 @@ class StockPredictionGUI:
         # 图表显示区域
         self.figure_frame = ttk.Frame(self.visualization_frame)
         self.figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        self.fig, self.ax = plt.subplots(figsize=(10, 6))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        # self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        # self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
+        # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     def _upate_feature_combos(self, ticker):
         # 填充特征列表
@@ -356,7 +355,10 @@ class StockPredictionGUI:
         return symbol
 
     def _open_select_directory(self):
-        chosen_path = filedialog.askdirectory(initialdir='.', title='Choose Directory for Saving Model Data:')
+        last_dir = self._cur_config[ConfigEntry.model_save_path.name]
+        if not os.path.exists(last_dir):
+            last_dir = '.'
+        chosen_path = filedialog.askdirectory(initialdir=last_dir, title='Choose Directory for Saving Model Data:')
         print("Open ", chosen_path)
         return chosen_path
 
@@ -375,9 +377,9 @@ class StockPredictionGUI:
             # loading data from disk
             chosen_path = self._open_select_directory()
             models_dir = self._parse_models_directory(chosen_path)
-            if models_dir not in self._cur_config[ConfigEntry.model_save_path]:
-                self._cur_config[ConfigEntry.model_save_path].append(models_dir)
-            self.manager.process_load_train_data(self._cur_config[ConfigEntry.model_save_path.name])
+            if models_dir != self._cur_config[ConfigEntry.model_save_path.name]:
+                self._cur_config[ConfigEntry.model_save_path.name] = models_dir
+            self.manager.process_load_train_data(chosen_path)
             self._processing_stocks = list(set(self._processing_stocks + self.manager.get_ticker_list()))
             self.update_stock_listbox(from_disk=True)
 
@@ -692,26 +694,36 @@ class StockPredictionGUI:
             messagebox.showwarning("Warning", "Please train the model first")
             return
         
+        from StockChartPlotter import StockChartPlotter
+        stock = self.visual_model_combo.get().strip().upper()
         try:
-            # 获取第一个股票的数据
-            stocks = self.manager.get_all_tickers()
-            if not stocks:
-                self.log_message("No available stock data")
-                return
+            if stock:
+                stock_data = self.manager.get_stock_model(stock)
+                self.plotter = StockChartPlotter(stock_data.loaded_data, figsize=(10, 6))
+                self.fig = self.plotter.create_plot()
+                self.ax = self.plotter.fig.get_axes()
+                self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
+                self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+                self.plotter.show()
+            # # 获取第一个股票的数据
+            # stocks = self.manager.get_all_tickers()
+            # if not stocks:
+            #     self.log_message("No available stock data")
+            #     return
             
-            ticker = stocks[0]
-            data = self.manager.tickers[ticker][TICKER.DATA]
+            # ticker = stocks[0]
+            # data = self.manager.tickers[ticker][TICKER.DATA]
             
-            # 绘制价格曲线
-            self.ax.clear()
-            self.ax.plot(data.index, data['Close'], label='Close Price', linewidth=2)
-            self.ax.set_title(f"{ticker} Stock Trends")
-            self.ax.set_xlabel("Date")
-            self.ax.set_ylabel("Price")
-            self.ax.legend()
-            self.ax.grid(True, alpha=0.3)
+            # # 绘制价格曲线
+            # self.ax.clear()
+            # self.ax.plot(data.index, data['Close'], label='Close Price', linewidth=2)
+            # self.ax.set_title(f"{ticker} Stock Trends")
+            # self.ax.set_xlabel("Date")
+            # self.ax.set_ylabel("Price")
+            # self.ax.legend()
+            # self.ax.grid(True, alpha=0.3)
             
-            self.canvas.draw()
+            # self.canvas.draw()
             
         except Exception as e:
             messagebox.showerror("Error", f"Error displaying data: {str(e)}")
