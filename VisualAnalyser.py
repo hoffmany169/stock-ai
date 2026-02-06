@@ -1,6 +1,7 @@
 import math, sys
 from tkinter import StringVar, filedialog, messagebox
 import matplotlib
+import pandas as pd
 
 from AxisRatioCalculator import AxisRatioCalculator
 matplotlib.use('TkAgg')  # Use Tk backend
@@ -8,6 +9,9 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import ttk
 from Common.AutoNumber import AutoIndex
+from plot_data import PlotData, PLOT_TYPE
+import matplotlib.dates as mdates
+from plot_style import PlotStyle, STYLE, PLOT_ELEMENT
 
 class ElementLayer(AutoIndex):
     MARKER = ()
@@ -66,40 +70,8 @@ class PROPERTY_2_POINTS(AutoIndex):
 
                     
 class VisualAnalyser:
-    class HoverAnnotation:
-        def __init__(self, dates, prices, line):
-            self.dates = dates
-            self.prices = prices
-            self.line = line
-            self.annot = self.ax.annotate("", xy=(0,0), xytext=(20,20),
-                                    textcoords="offset points",
-                                    bbox=dict(boxstyle="round", fc="w", alpha=0.9),
-                                    arrowprops=dict(arrowstyle="->"))
-            self.annot.set_visible(False)
-            
-        def update_annot(self, ind):
-            x, y = self.line.get_data()
-            date_val = mdates.num2date(x[ind["ind"][0]]).strftime('%Y-%m-%d')
-            price_val = y[ind["ind"][0]]
-            self.annot.xy = (x[ind["ind"][0]], y[ind["ind"][0]])
-            text = f"日期: {date_val}\n股价: {price_val:.2f}"
-            self.annot.set_text(text)
-
-        def hover(self, event):
-            vis = self.annot.get_visible()
-            if event.inaxes == self.ax:
-                cont, ind = self.line.contains(event)
-                if cont:
-                    self.update_annot(ind)
-                    self.annot.set_visible(True)
-                    self.fig.canvas.draw_idle()
-                else:
-                    if vis:
-                        self.annot.set_visible(False)
-                        self.fig.canvas.draw_idle()
-
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, fig=None, ax=None, plot_label='Data', figsize=(10,6)):
+    def __init__(self, symbol=None, stock_data=None, figsize=(10,6)):
         """
         Docstring for __init__
         two scenarios:
@@ -109,67 +81,48 @@ class VisualAnalyser:
         2. create fig and ax inside
         :param figsize: figure size
         """
+        self.symbol = symbol
+        self.figsize = figsize
+        self.styles = PlotStyle()
+        self.plot_data = PlotData()
         self._plot_file_name = None
         self.last_click_coords = None
         self.menu_items = {} # map function name (string) -> command index
-        if fig:
-            self.fig = fig
-            self.ax = plt.gca()
-        elif ax:
-            self.ax = ax
-            self.fig = plt.gcf()
-        else:
-            self.fig, self.ax = plt.subplots(figsize=figsize)
-
-        line, = self.ax.plot(self.x, self.y, 'b-', label=plot_label, linewidth=2)
-        self.ax.grid(True, alpha=0.3)
-        self.canvas = self.fig.canvas
-        self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
-        self.curve = {
-            'x': np.array(self.x),
-            'y': np.array(self.y),
-            'points': np.column_stack((self.x, self.y)),
-            'artist': line,
-            'color': line.get_color()
-        }
-        self.__comm_init__()
-        # plt.show()
-        
-    def __comm_init__(self):
-        # Get the Tk root window
-        self.root = self.canvas.manager.window
+        self.fig = None
+        self.ax = None
+        self._stock_data = stock_data
         self._marker_style = MARKER_STYLE.red_circle
         self._line_style = LINE_STYLE.dashed_line
+        self.fig, self.ax = plt.subplots(figsize=figsize)
+        self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
         # if activate real-time search
         self._real_time_search = True # default is True
+        if stock_data is not None:
+            self.create_plot()
+            self._init_plot_window_()
+
+    def _init_plot_window_(self):
+        if self.fig is None:
+            return
+        # Get the Tk root window
+        self.root = self.fig.canvas.manager.window
         # Set window title
         self.root.title("Matplotlib Plot with Menu Bar")
-        
         # Set window size
         self.root.geometry("800x600")
-        
         # Create the menu bar
         self._create_menu_bar()
-        
         # Create toolbar (matplotlib's default)
         self.fig.canvas.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
                 
         # Bind closing event
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-
         self._create_context_menu_commands()
-        # store elements by layer
-        self.layers = {
-            ElementLayer.MARKER: [], # keep only two markers for point selection
-            ElementLayer.ANNOTATION: [],
-            ElementLayer.GUIDELINE: []
-        }
-        self.points_to_line = {}
         # We'll create the menu dynamically each time        
-        self.canvas.mpl_connect('button_press_event', self.on_right_click)
+        self.fig.canvas.mpl_connect('button_press_event', self.on_right_click)
         # self.canvas.mpl_connect('motion_notify_event', self.on_hover)
 
-#region # properties   
+#region # properties
     @property
     def real_time_search(self):
         return self._real_time_search
@@ -208,6 +161,38 @@ class VisualAnalyser:
         if type(line) == LINE_STYLE:
             self._line_style = line
 #endregion # properties
+
+    def set_plot_for_analysis(self, symbol, fig, stock_data):
+        if stock_data is None:
+            return
+        self.symbol = symbol
+        self.fig = fig
+        self.ax = self.fig.get_axes()
+        self._stock_data = stock_data
+        self.create_plot()
+        self._init_plot_window_()
+
+    def create_plot(self):
+        if self.fig is None:
+            return
+        # 确保日期为datetime格式
+        if not pd.api.types.is_datetime64_any_dtype(self._stock_data['Date']):
+            self._stock_data['Date'] = pd.to_datetime(self._stock_data['Date'])
+        
+        # 将日期转换为matplotlib格式
+        self.dates_mpl = mdates.date2num(self._stock_data['Date'])
+        # 绘制收盘价折线
+        price_line, = self.ax.plot(
+            self.dates_mpl, 
+            self._stock_data['Close'],
+            color=self.styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
+            linewidth=self.styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.price_line),
+            label='Close Price',
+            zorder=5
+        )
+        # layer = self.plot_data.add_layer(f'{self.symbol} Price')
+        # layer.add_layer_data(PLOT_TYPE.ORIGINAL, price_line)
+        
 
     def show_plot(self):
         plt.show()

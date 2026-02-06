@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.patches import Rectangle
+from Common.AutoNumber import AutoIndex
+from tkinter import Menu
 
 class StockChartPlotter:
     """
@@ -13,8 +15,15 @@ class StockChartPlotter:
     3. 鼠标悬停显示数据点详细信息
     4. 支持自定义样式和配置
     """
-    
-    def __init__(self, stock_data, figsize=(14, 10)):
+    class CONTEXT_MENU(AutoIndex):
+        MA_5 = ()
+        MA_20 = ()
+        MA_90 = ()
+        Seperator = ()
+        remove = ()
+        remove_all = ()
+
+    def __init__(self, symbol, stock_data, figsize=(14, 10)):
         """
         初始化StockChartPlotter
         
@@ -33,11 +42,13 @@ class StockChartPlotter:
         figsize : tuple
             图表大小，默认(14, 10)
         """
+        self.symbol = symbol
         self.stock_data = stock_data.copy()
         self.figsize = figsize
         self.fig = None
         self.ax_price = None  # 股价图坐标轴
         self.ax_volume = None  # 交易量图坐标轴
+        self.moving_average_lines = []
         
         # 确保日期为datetime格式
         if not pd.api.types.is_datetime64_any_dtype(self.stock_data['Date']):
@@ -53,6 +64,10 @@ class StockChartPlotter:
         self.hover_line = None
         self.price_annotation = None
         self.volume_annotation = None
+        self.create_plot()
+        self._create_context_menu_commands()
+        # We'll create the menu dynamically each time        
+        self.fig.canvas.mpl_connect('button_press_event', self.on_right_click)
         
     def setup_styles(self):
         """设置图表样式"""
@@ -116,7 +131,9 @@ class StockChartPlotter:
             gridspec_kw={'height_ratios': [3, 1]},
             sharex=True
         )
-        
+        if self.fig is None:
+            raise ValueError("fig is None")
+        self.root = self.fig.canvas.manager.window
         # 计算涨跌颜色
         price_colors, volume_colors = self.calculate_price_change()
         
@@ -134,7 +151,6 @@ class StockChartPlotter:
         
         # 调整布局
         plt.tight_layout()
-        return self.fig
         
     def plot_price_chart(self, price_colors):
         """绘制股价图"""
@@ -161,7 +177,7 @@ class StockChartPlotter:
             )
         
         # 设置股价图标题和标签
-        self.ax_price.set_title('Stock Price Trend', 
+        self.ax_price.set_title(f'{self.symbol}: Stock Price Trend', 
                                fontsize=self.styles['font_sizes']['title'],
                                fontweight='bold',
                                pad=20)
@@ -402,7 +418,7 @@ class StockChartPlotter:
         ma_data = self.stock_data['Close'].rolling(window=window).mean()
         
         # 绘制移动平均线
-        self.ax_price.plot(
+        line = self.ax_price.plot(
             self.dates_mpl,
             ma_data,
             color=color,
@@ -410,7 +426,7 @@ class StockChartPlotter:
             alpha=0.8,
             label=ma_label
         )
-        
+        self.moving_average_lines.append(line)
         # 更新图例
         self.ax_price.legend(loc='upper left')
         
@@ -441,6 +457,45 @@ class StockChartPlotter:
         if volume_down:
             self.styles['colors']['volume_down'] = volume_down
 
+    def _create_context_menu_commands(self):
+        self.context_menu = Menu(self.root, tearoff=0)
+        for e in StockChartPlotter.CONTEXT_MENU:
+            if e.name.startswith('Seperator'):
+                self.context_menu.add_separator()
+            else:
+                self.context_menu.add_command(label=' '.join(e.name.split('_')), command=self.dummy_command)
+                self.menu_items[e.name] = self.context_menu.index("end")
+
+    def dummy_command(self):
+        pass
+
+    def remove(self, all=False):
+        line = self.moving_average_lines.pop()
+        line.remove()
+        self.fig.canvas.draw()
+
+
+    def remove_all(self):
+        self.remove(True)
+
+    def on_right_click(self, event):
+        if event.button == 3:  # Right-click in axes
+            # self.last_click_coords = (event.xdata, event.ydata)
+            # self.fig._last_right_click = (event.xdata, event.ydata, event.inaxes)
+            for key in StockChartPlotter.CONTEXT_MENU:
+                # trick here: set key as a default argument to prevent of late binding of variables in lambdas inside a loop!!!
+                if key.name.startswith('MA'):
+                    x = key.name.split('_')[1]
+                    self.context_menu.entryconfig(key.value, command=lambda item=x: self.add_moving_average(item))
+                else:
+                    self.context_menu.entryconfig(key.value, command=lambda: getattr(self, key.name)())
+            try:
+                x_tk = self.root.winfo_pointerx()
+                y_tk = self.root.winfo_pointery()
+                self.context_menu.tk_popup(x_tk, y_tk)
+            except:
+                # Fallback
+                self.context_menu.post(self.last_click_coords)
 
 # ==================== 使用示例 ====================
 

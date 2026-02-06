@@ -8,10 +8,11 @@ class PLOT_TYPE(AutoIndex):
     GUIDELINE = ()
     ORIGINAL = ()
 
-class IPlotData(abc.ABCMeta):
-    @abc.abstractmethod
-    def plot(self):
-        pass
+class IPlotData:
+    # @abc.abstractmethod
+    # def plot(self):
+    #     pass
+    pass
 
 class Marker(IPlotData):
     def __init__(self, data):
@@ -36,9 +37,9 @@ class PlotLayer(IPlotData):
     def get_layer_data(self, type:PLOT_TYPE) -> ChainData|None:
         return self._plot_layers[type]
 
-    def add_layer_data(self, type:PLOT_TYPE, data:Node)->any:
-        self._plot_layers[type].add(data)
-        return data
+    def add_layer_data(self, type:PLOT_TYPE, data:any)->any:
+        new_node = self._plot_layers[type].add(Node(data))
+        return new_node
 
     def remove_layer_data(self, type:PLOT_TYPE, index:int)->any:
         data = self._plot_layers[type].get(index)
@@ -66,8 +67,9 @@ class PlotData(IPlotData):
                 return layer   
         return None
 
-    def add_layer(self, LayerName:str, data:PlotLayer)->bool:
-        self._plot_data[LayerName] = data
+    def add_layer(self, LayerName:str)->bool:
+        self._plot_data[LayerName] = PlotLayer()
+        return self._plot_data[LayerName]
 
     def remove_layer(self, LayerName:str)->bool:
         layer = self.get_layer(LayerName)

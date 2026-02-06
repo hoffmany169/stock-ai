@@ -244,7 +244,7 @@ class ModelSaverLoader:
         return False
 
     def _load_model(self):
-        # 1. 加载模型
+        # 1. 加载模型, support h5 and keras file
         model_file_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.model.name]}"
         model_file = os.path.join(self._directory, model_file_name)
         try:

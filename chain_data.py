@@ -40,6 +40,7 @@ class ChainData:
             current.next = new_node
         
         self._length += 1
+        return new_node
     
     def insert(self, index: int, data: any) -> None:
         """

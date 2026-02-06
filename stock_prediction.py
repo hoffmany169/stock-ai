@@ -698,32 +698,13 @@ class StockPredictionGUI:
         stock = self.visual_model_combo.get().strip().upper()
         try:
             if stock:
-                stock_data = self.manager.get_stock_model(stock)
-                self.plotter = StockChartPlotter(stock_data.loaded_data, figsize=(10, 6))
-                self.fig = self.plotter.create_plot()
+                stock_model = self.manager.get_stock_model(stock)
+                self.plotter = StockChartPlotter(stock, stock_model.loaded_data, figsize=(10, 6))
+                self.fig = self.plotter.fig
                 self.ax = self.plotter.fig.get_axes()
                 self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
                 self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
                 self.plotter.show()
-            # # 获取第一个股票的数据
-            # stocks = self.manager.get_all_tickers()
-            # if not stocks:
-            #     self.log_message("No available stock data")
-            #     return
-            
-            # ticker = stocks[0]
-            # data = self.manager.tickers[ticker][TICKER.DATA]
-            
-            # # 绘制价格曲线
-            # self.ax.clear()
-            # self.ax.plot(data.index, data['Close'], label='Close Price', linewidth=2)
-            # self.ax.set_title(f"{ticker} Stock Trends")
-            # self.ax.set_xlabel("Date")
-            # self.ax.set_ylabel("Price")
-            # self.ax.legend()
-            # self.ax.grid(True, alpha=0.3)
-            
-            # self.canvas.draw()
             
         except Exception as e:
             messagebox.showerror("Error", f"Error displaying data: {str(e)}")
@@ -735,58 +716,73 @@ class StockPredictionGUI:
         if not self.manager:
             messagebox.showwarning("Warning", "Please train the model first")
             return
-        
-        feature_name = self.feature_combo.get()
-        if not feature_name:
-            messagebox.showwarning("Warning", "Please select a feature")
-            return
-        
+
+        from VisualAnalyser import VisualAnalyser
+        stock = self.visual_model_combo.get().strip().upper()
         try:
-            # 获取第一个股票的数据
-            stocks = self.manager.get_all_tickers()
-            if not stocks:
-                self.log_message("No available stock data")
-                return
-            
-            ticker = stocks[0]
-            data = self.manager.tickers[ticker][TICKER.DATA]
-            
-            # 查找对应的特征
-            selected_feature = None
-            for feature in FEATURE:
-                if self._stock_features.get_feature_name(feature) == feature_name:
-                    selected_feature = feature
-                    break
-            
-            if not selected_feature:
-                messagebox.showwarning("Warning", "Feature does not exist")
-                return
-            
-            # 计算特征值
-            selector = LSTMModelTrain()
-            selector.ticker = self.manager.tickers[ticker]
-            selector.preprocess_data()
-            
-            # 绘制特征曲线
-            self.ax.clear()
-            
-            if hasattr(data, selected_feature):
-                self.ax.plot(data.index, data[selected_feature], label=feature_name, linewidth=2)
-                self.ax.set_title(f"{ticker} {feature_name} Curve")
-                self.ax.set_xlabel("Date")
-                self.ax.set_ylabel("Feature Value")
-                self.ax.legend()
-                self.ax.grid(True, alpha=0.3)
-            else:
-                self.ax.text(0.5, 0.5, "Feature data unavailable", 
-                        horizontalalignment='center',
-                        verticalalignment='center',
-                        transform=self.ax.transAxes)
-            
-            self.canvas.draw()
-            
+            if stock:
+                stock_model = self.manager.get_stock_model(stock)
+                self.visual_analyser = VisualAnalyser(stock, stock_model.loaded_data)
+                # self.fig = self.visual_analyser.fig
+                # self.ax = self.fig.get_axes()
+                # self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
+                # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)                
+                self.visual_analyser.show_plot()
+
         except Exception as e:
-            messagebox.showerror("Error", f"Error displaying feature curve: {str(e)}")
+            messagebox.showerror("Error", f"Error displaying data: {str(e)}")
+
+        # feature_name = self.feature_combo.get()
+        # if not feature_name:
+        #     messagebox.showwarning("Warning", "Please select a feature")
+        #     return
+        
+        # try:
+        #     # 获取第一个股票的数据
+        #     stocks = self.manager.get_all_tickers()
+        #     if not stocks:
+        #         self.log_message("No available stock data")
+        #         return
+            
+        #     ticker = stocks[0]
+        #     data = self.manager.tickers[ticker][TICKER.DATA]
+            
+        #     # 查找对应的特征
+        #     selected_feature = None
+        #     for feature in FEATURE:
+        #         if self._stock_features.get_feature_name(feature) == feature_name:
+        #             selected_feature = feature
+        #             break
+            
+        #     if not selected_feature:
+        #         messagebox.showwarning("Warning", "Feature does not exist")
+        #         return
+            
+        #     # 计算特征值
+        #     selector = LSTMModelTrain()
+        #     selector.ticker = self.manager.tickers[ticker]
+        #     selector.preprocess_data()
+            
+        #     # 绘制特征曲线
+        #     self.ax.clear()
+            
+        #     if hasattr(data, selected_feature):
+        #         self.ax.plot(data.index, data[selected_feature], label=feature_name, linewidth=2)
+        #         self.ax.set_title(f"{ticker} {feature_name} Curve")
+        #         self.ax.set_xlabel("Date")
+        #         self.ax.set_ylabel("Feature Value")
+        #         self.ax.legend()
+        #         self.ax.grid(True, alpha=0.3)
+        #     else:
+        #         self.ax.text(0.5, 0.5, "Feature data unavailable", 
+        #                 horizontalalignment='center',
+        #                 verticalalignment='center',
+        #                 transform=self.ax.transAxes)
+            
+        #     self.canvas.draw()
+            
+        # except Exception as e:
+        #     messagebox.showerror("Error", f"Error displaying feature curve: {str(e)}")
         
     def log_message(self, message, target="training"):
         """记录日志消息"""
