@@ -83,7 +83,6 @@ class StockPredictionGUI:
             self.visual_model_combo.current(0)
             self.visual_model_combo.update
 
-
     def load_gui_config(self):
         if os.path.exists(self._gui_config_file_name):
             with open(self._gui_config_file_name, 'r') as cfg:
@@ -700,10 +699,9 @@ class StockPredictionGUI:
             if stock:
                 stock_model = self.manager.get_stock_model(stock)
                 self.plotter = StockChartPlotter(stock, stock_model.loaded_data, figsize=(10, 6))
-                self.fig = self.plotter.fig
-                self.ax = self.plotter.fig.get_axes()
-                self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
-                self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+                self.fig, self.canvas = self.plotter.set_backend_window(self.figure_frame)
+                self.canvas.pack(fill=tk.BOTH, expand=True)
+                self.ax = self.fig.get_axes()
                 self.plotter.show()
             
         except Exception as e:
