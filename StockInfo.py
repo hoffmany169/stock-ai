@@ -76,7 +76,8 @@ HONGKONG = {'0700.HK' : 'QQ', # (腾讯),
 import os, json
 from tkinter.ttk import Combobox
 from tkinter import Label, Frame, Listbox, Scrollbar, Entry, Button, StringVar, Widget
-from tkinter import LEFT, BOTH, TOP, BOTTOM, VERTICAL, RIGHT, Y, WORD
+from tkinter import messagebox
+from tkinter import LEFT, BOTH, TOP, BOTTOM, VERTICAL, RIGHT, Y, WORD, END, INSERT
 from tkinter.scrolledtext import ScrolledText
 
 class StockInfo:
@@ -99,12 +100,31 @@ class StockInfo:
     GermanStockExchange = ['Frankfurt', 'Frankfurt', 'Xetra', 'Duesseldorf', 'Munich', 'Hamburg', 'Stuttgart', 'Berlin']
     StockInfoPath = r'./info'
     StockInfoFile = 'stock_info.cfg'
+
+    @staticmethod
+    def get_product_type_text(prod_type:PRODUCT_TYPE)->str:
+        return ' '.join(prod_type.name.split('_'))
+    
+    @staticmethod
+    def get_product_type_by_index(index:int)->PRODUCT_TYPE:
+        for t in StockInfo.PRODUCT_TYPE:
+            if t.value == index:
+                return t
+
+    @staticmethod
+    def get_product_type_by_text(text:str)->PRODUCT_TYPE:
+        for t in StockInfo.PRODUCT_TYPE:
+            if StockInfo.get_product_type_by_text(t) == text:
+                return t
+
     def __init__(self, parent:Widget):
         self.GermanStockExchangeCodes = dict(zip([c.name for c in StockInfo.SuffixGermanStockExchange],
                                                 StockInfo.GermanStockExchange))
         self.stock_info_file = os.path.join(StockInfo.StockInfoPath, StockInfo.StockInfoFile)
         self.load_stock_info()
         self.parent = parent
+        self.product_index = 0
+        self.stock_selected_index = 0
         self.root = CreateChildWindow(self.parent, "Stock Info", modal=False, XClose=True)
         self.create_gui()
 
@@ -128,14 +148,52 @@ class StockInfo:
         with open(self.stock_info_file, 'w+') as info:
             json.dump(self.stock_info_data, info)
 
+    def get_stock_list_by_product_type(self, prod_type:PRODUCT_TYPE)->str:
+        stock_list = self.stock_info_data[prod_type]
+        return '\n'.join(stock_list)
+
+    def get_stock_name_by_selected_stock_index(self):
+        if self.product_index < 0:
+            return
+        # get product type by selected product index
+        prod_type = StockInfo.get_product_type_by_index(self.product_index)
+        # get stock dict by product type
+        stock_dict = self.stock_info_data.get(prod_type, None)
+        if stock_dict is None:
+            return
+        # get stock text by stock index in the stock list of product type in the list box
+        # remove prefix
+        key_list_text = self.stock_list.get(self.stock_selected_index).strip()
+        parts = key_list_text.split('[')
+        key_text = parts[1][:-1]
+        return key_text
+
+    def get_stock_info_text(self):
+        if self.product_index < 0:
+            return
+        # get product type by selected product index
+        prod_type = StockInfo.get_product_type_by_index(self.product_index)
+        # get stock dict by product type
+        stock_dict = self.stock_info_data.get(prod_type, None)
+        if stock_dict is None:
+            return
+        # get stock text by stock index in the stock list of product type in the list box
+        # remove prefix
+        key_list_text = self.stock_list.get(self.stock_selected_index).strip()
+        parts = key_list_text.split('[')
+        key_text = parts[1][:-1]
+        return stock_dict[key_text]
+
     def create_gui(self):
         prod = Frame(self.root)
         prod.pack(fill=BOTH, expand=True, padx=10, pady=10)
         Label(prod, text='Product').pack(side=LEFT)
         product_var = StringVar(prod, 'select product')
-        self.product_combo = Combobox(prod, width=10, values=[''.join(p.name.split('_')) for p in StockInfo.PRODUCT_TYPE])
+        self.product_combo = Combobox(prod, width=10,
+                                      values=[''.join(p.name.split('_')) for p in StockInfo.PRODUCT_TYPE],
+                                      state='readonly')
         self.product_combo.pack(side=LEFT)
-        product_var.trace('w', lambda *_: self._on_product_change())
+        self.product_combo.bind('<<ComboboxSelected>>', self._on_product_change)
 
         stock_frame = Frame(self.root)
         stock_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
@@ -143,8 +201,9 @@ class StockInfo:
 
         listbox_frame = Frame(stock_frame)
         listbox_frame.pack(side=LEFT)
-        self.stock_list = Listbox(listbox_frame, height=10, width=25)
+        self.stock_list = Listbox(listbox_frame, height=10, width=25, selectmode='single')
         self.stock_list.pack(side=LEFT, fill=BOTH, expand=True)
+        self.stock_list.bind('<<ListboxSelect>>', self._on_select_stock)
         # 滚动条
         scrollbar = Scrollbar(listbox_frame, orient=VERTICAL, command=self.stock_list.yview)
         scrollbar.pack(side=RIGHT, fill=Y)
@@ -155,13 +214,27 @@ class StockInfo:
                                         font=("Times New Roman", 15))    
         self.info_field.pack(side=LEFT, padx=5)
 
-    def _on_product_change(self):
-        index = self.product_combo.current()
-        for i in StockInfo.PRODUCT_TYPE:
-            if i.value== index:
-                print(i.name)
-                break
+    def _on_product_change(self, event):
+        self.product_index = self.product_combo.current()
+        print(StockInfo.get_product_type_by_index(self.product_index).name)
+        self.update_stock_listbox(self.product_index)
 
+    def _on_select_stock(self, event):
+        self.stock_selected_index = self.stock_list.curselection()
+        print(f"selected text of index {self.stock_selected_index}: {self.stock_list.get(self.stock_selected_index)}")
+        self.info_field.delete('1.0', END)
+        self.info_field.insert(INSERT, self.get_stock_info_text())
+
+    def update_stock_listbox(self, index):
+        """更新Listbox显示"""
+        # 清空Listbox
+        self.stock_list.delete(0, END)
+        stock_list = self.stock_info_data[StockInfo.get_product_type_by_index(index)]
+        # 添加所有股票
+        for i, key in enumerate(stock_list.keys()):
+            self.stock_list.insert(END, f"{i}.[{key}]")
+        # 更新状态显示
+        self.stock_list.update()
 
     def on_exit(self):
         CloseChildWindow(self.root)
@@ -170,6 +243,8 @@ def open_stock_info(parent):
     StockInfo(parent)
 
 if __name__ == '__main__':
+    print(f'Text of Product Type ger_stock: {StockInfo.get_product_type_text(StockInfo.PRODUCT_TYPE.ger_stock)}')
+    print(f'Product Type name of index 1: {StockInfo.get_product_type_by_index(1).name}')
     from tkinter import Tk
     root = Tk()
     root.geometry('100x50')
