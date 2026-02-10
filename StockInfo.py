@@ -1,5 +1,7 @@
 from Common.AutoNumber import AutoIndex
 from Common.Util import CreateChildWindow, CloseChildWindow
+from stock_prediction import StockPredictionGUI
+from Common.EventHandler import Event
 
 USA_STOCK = {
         'AAPL' : 'Aple',
@@ -188,7 +190,6 @@ class StockInfo:
         prod = Frame(self.root)
         prod.pack(fill=BOTH, expand=True, padx=10, pady=10)
         Label(prod, text='Product').pack(side=LEFT)
-        product_var = StringVar(prod, 'select product')
         self.product_combo = Combobox(prod, width=10,
                                       values=[''.join(p.name.split('_')) for p in StockInfo.PRODUCT_TYPE],
                                       state='readonly')
@@ -197,11 +198,11 @@ class StockInfo:
 
         stock_frame = Frame(self.root)
         stock_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
-        Label(stock_frame, text='Stocks').pack(side=LEFT)
+        Label(stock_frame, text='Stocks').pack(side=LEFT, anchor='n')
 
         listbox_frame = Frame(stock_frame)
         listbox_frame.pack(side=LEFT)
-        self.stock_list = Listbox(listbox_frame, height=10, width=25, selectmode='single')
+        self.stock_list = Listbox(listbox_frame, height=8, width=20, selectmode='single')
         self.stock_list.pack(side=LEFT, fill=BOTH, expand=True)
         self.stock_list.bind('<<ListboxSelect>>', self._on_select_stock)
         # 滚动条
@@ -210,9 +211,16 @@ class StockInfo:
         self.stock_list.config(yscrollcommand=scrollbar.set)
         # info field
         self.info_field = ScrolledText(stock_frame, wrap=WORD,
-                                        width=40, height=8,
+                                        width=30, height=4,
                                         font=("Times New Roman", 15))    
-        self.info_field.pack(side=LEFT, padx=5)
+        self.info_field.pack(side=LEFT, padx=5, anchor='n')
+        # buttons
+        btn_frame = Frame(self.root)
+        btn_frame.pack(anchor='center', expand=True, padx=10, pady=10)
+        self.select_button = Button(btn_frame, text='select', command=self._on_selected, anchor='center')
+        self.select_button.pack(side=LEFT, padx=10)
+        Button(btn_frame, text='close', command=self.on_exit).pack(side=LEFT, padx=10)
+
 
     def _on_product_change(self, event):
         self.product_index = self.product_combo.current()
@@ -224,6 +232,9 @@ class StockInfo:
         print(f"selected text of index {self.stock_selected_index}: {self.stock_list.get(self.stock_selected_index)}")
         self.info_field.delete('1.0', END)
         self.info_field.insert(INSERT, self.get_stock_info_text())
+
+    def _on_selected(self):
+        pass
 
     def update_stock_listbox(self, index):
         """更新Listbox显示"""

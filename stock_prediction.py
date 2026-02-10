@@ -18,12 +18,14 @@ from TickerManager import TickerManager
 from DateRangePicker import DateRangePicker
 from Common.AutoNumber import AutoIndex
 from StockModel import StockModel
+from Common.EventHandler import EventHandler, Event
 
 class ConfigEntry(AutoIndex):
     model_save_path = ()
     ticker_list = ()
 
 class StockPredictionGUI:
+    event_handler = EventHandler()
     def __init__(self, root):
         self.root = root
         self.root.title("Stock Prediction GUI")
@@ -43,6 +45,7 @@ class StockPredictionGUI:
         self.manager = TickerManager()
         self._reload_data = True # decide if reloading data
         self._cur_config = self.Gui_Config_Data
+        StockPredictionGUI.event_handler += Event('selected_stock', self.add_stock)
         self.load_gui_config()
         # 特征
         self._stock_features = StockFeature()
