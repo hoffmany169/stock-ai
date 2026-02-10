@@ -19,6 +19,8 @@ from DateRangePicker import DateRangePicker
 from Common.AutoNumber import AutoIndex
 from StockModel import StockModel
 from Common.EventHandler import EventHandler, Event
+from Common.DropdownButton import DropdownButton
+from StockEvent import StockEvent
 
 class ConfigEntry(AutoIndex):
     model_save_path = ()
@@ -45,7 +47,7 @@ class StockPredictionGUI:
         self.manager = TickerManager()
         self._reload_data = True # decide if reloading data
         self._cur_config = self.Gui_Config_Data
-        StockPredictionGUI.event_handler += Event('selected_stock', self.add_stock)
+        StockPredictionGUI.event_handler += Event(StockEvent.selected_stock, lambda name: self.add_stock(name))
         self.load_gui_config()
         # 特征
         self._stock_features = StockFeature()
@@ -122,9 +124,13 @@ class StockPredictionGUI:
         combobox_var.trace('w', lambda *_: self._reload_data)
         
         # 添加按钮
-        add_btn = tk.Button(input_frame, text="Add", 
-                        command=self.add_stock, width=6)
-        add_btn.pack(side=tk.LEFT, padx=(0, 5))
+        self.add_btn = DropdownButton(input_frame, 
+                                   ['Add Atock', 'Open Add Stock'], 
+                                    command=self.add_stock)
+        self.add_btn.pack(side=tk.LEFT, padx=(0, 5))
+        # add_btn = tk.Button(input_frame, text="Add", 
+        #                 command=self.add_stock, width=6)
+        # add_btn.pack(side=tk.LEFT, padx=(0, 5))
         
         # 删除按钮
         remove_btn = tk.Button(input_frame, text="Remove",
@@ -195,7 +201,6 @@ class StockPredictionGUI:
         btn_frame2 = tk.Frame(self.training_frame)
         btn_frame2.grid(row=1, column=0, columnspan=2, pady=20)
         # 加载数据
-        from Common.DropdownButton import DropdownButton
         self.load_btn = DropdownButton(btn_frame2, 
                                    ['Load from Markt', 'Load from Disk'], 
                                     command=self.start_loading_ticker_data)
@@ -336,7 +341,7 @@ class StockPredictionGUI:
         
         # 基本验证：只包含字母、数字和点号，长度1-10个字符
         import re
-        if not re.match(r'^[A-Z0-9.]{1,10}$', symbol):
+        if not re.match(r'^[\^A-Z0-9.]{1,10}$', symbol):
             return False
         
         # 常见股票代码后缀验证（可选）
@@ -385,54 +390,64 @@ class StockPredictionGUI:
             self._processing_stocks = list(set(self._processing_stocks + self.manager.get_ticker_list()))
             self.update_stock_listbox(from_disk=True)
 
-    def add_stock(self):
+    def add_stock(self, selected:str):
         """添加股票代码"""
-        stock = self.stock_combo.get().strip().upper()
-        if not stock:
-            messagebox.showwarning("Warning", "Please enter a stock code")
-            return
-        
-        if stock in self._processing_stocks:
-            messagebox.showinfo("Duplicate Stock", f"Stock [{stock}] exists in the processing list already.")
-            return
+        if selected.startswith('Open'):
+            from StockInfo import StockInfo 
+            StockInfo(self.training_frame)
 
-        # 验证股票代码格式
-        if not self.validate_stock_symbol(stock):
-            messagebox.showwarning("Warning", f"Format of Stock is wrong: {stock}\nThey must be capital and number, for example: AAPL, GOOGL")
-            return
-        
-        # 检查是否已存在
-        if stock in self._processing_stocks:
-            messagebox.showinfo("Hint", f"{stock} exists already!")
-            return
-        
-        # 可选：快速验证股票代码是否存在
-        if not self.quick_check_stock_exists(stock):
-            response = messagebox.askyesno("Confirmation", 
-                f"Stock Symbol {stock} may not exist or invalid\nAdd it?")
-            if not response:
+        else:
+            if selected.startswith('Add'):
+                stock = self.stock_combo.get().strip().upper()
+            else:
+                stock = selected
+            print("==> Adding stock: ", stock)
+            if not stock:
+                messagebox.showwarning("Warning", "Please enter a stock code")
                 return
-        
-        # 添加到内部列表
-        self._processing_stocks.append(stock)
-        
-        # 更新Listbox显示
-        self.update_stock_listbox()
-        
-        # 清空输入框
-        self.stock_combo.set("")
-        
-        # 记录日志
-        self.log_message(f"Add Stock: [{stock}]")
-        
-        # 焦点回到输入框
-        self.stock_combo.focus_set()
-        # 添加到下拉框的历史记录
-        # self.add_to_combo_history(stock)
-        self._reload_data = True
-        if stock not in self._cur_config[ConfigEntry.ticker_list.name]:
-            self._cur_config[ConfigEntry.ticker_list.name].append(stock)
-            self.save_gui_config() # update gui.cfg on disk
+            
+            if stock in self._processing_stocks:
+                messagebox.showinfo("Duplicate Stock", f"Stock [{stock}] exists in the processing list already.")
+                return
+
+            # 验证股票代码格式
+            if not self.validate_stock_symbol(stock):
+                messagebox.showwarning("Warning", f"Format of Stock is wrong: {stock}\nThey must be capital and number, for example: AAPL, GOOGL")
+                return
+            
+            # 检查是否已存在
+            if stock in self._processing_stocks:
+                messagebox.showinfo("Hint", f"{stock} exists already!")
+                return
+            
+            # 可选：快速验证股票代码是否存在
+            if not self.quick_check_stock_exists(stock):
+                response = messagebox.askyesno("Confirmation", 
+                    f"Stock Symbol {stock} may not exist or invalid\nAdd it?")
+                if not response:
+                    return
+            
+            # 添加到内部列表
+            self._processing_stocks.append(stock)
+            
+            # 更新Listbox显示
+            self.update_stock_listbox()
+            
+            # 清空输入框
+            self.stock_combo.set("")
+            
+            # 记录日志
+            self.log_message(f"Add Stock: [{stock}]")
+            
+            # 焦点回到输入框
+            self.stock_combo.focus_set()
+            # 添加到下拉框的历史记录
+            # self.add_to_combo_history(stock)
+            self._reload_data = True
+            if stock not in self._cur_config[ConfigEntry.ticker_list.name]:
+                self._cur_config[ConfigEntry.ticker_list.name].append(stock)
+                self.save_gui_config() # update gui.cfg on disk
+            
 
     def quick_check_stock_exists(self, symbol):
         """快速检查股票代码是否存在"""

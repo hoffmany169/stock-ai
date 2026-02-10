@@ -81,6 +81,7 @@ from tkinter import Label, Frame, Listbox, Scrollbar, Entry, Button, StringVar, 
 from tkinter import messagebox
 from tkinter import LEFT, BOTH, TOP, BOTTOM, VERTICAL, RIGHT, Y, WORD, END, INSERT
 from tkinter.scrolledtext import ScrolledText
+from StockEvent import StockEvent
 
 class StockInfo:
     class PRODUCT_TYPE(AutoIndex):
@@ -228,13 +229,18 @@ class StockInfo:
         self.update_stock_listbox(self.product_index)
 
     def _on_select_stock(self, event):
-        self.stock_selected_index = self.stock_list.curselection()
+        self.stock_selected_index = self.stock_list.curselection()[0]
         print(f"selected text of index {self.stock_selected_index}: {self.stock_list.get(self.stock_selected_index)}")
         self.info_field.delete('1.0', END)
         self.info_field.insert(INSERT, self.get_stock_info_text())
+        line = self.stock_list.get(self.stock_selected_index)
+        self.selected_stock_name = line.split('[')[1]
+        self.selected_stock_name = self.selected_stock_name.strip()[:-1]
+        print("Selected stock name: ", self.selected_stock_name)
 
     def _on_selected(self):
-        pass
+        StockPredictionGUI.event_handler(StockEvent.selected_stock, self.selected_stock_name)
+        self.on_exit()
 
     def update_stock_listbox(self, index):
         """更新Listbox显示"""

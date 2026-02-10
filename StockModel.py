@@ -28,6 +28,7 @@ class StockModel:
         self._model = None
         self._intervals = dict(zip([itv for itv in StockModel.INTERVAL], StockModel.Interval))
         self._ticker_directory_on_disk = None
+        self._interval = '1d'
 
 #region properties    
     @property
