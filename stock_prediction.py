@@ -281,7 +281,7 @@ class StockPredictionGUI:
     def create_visualization_tab(self):
         """创建可视化标签页"""
         self.visualization_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.visualization_frame, text="Data Visualization")
+        self.notebook.add(self.visualization_frame, text="Data Visual Analysis")
 #region original stock curve        
         # 控制面板
         control_frame = ttk.Frame(self.visualization_frame)
@@ -395,21 +395,20 @@ class StockPredictionGUI:
         if selected.startswith('Open'):
             from StockInfo import StockInfo 
             StockInfo(self.training_frame)
-
         else:
             if selected.startswith('Add'):
                 stock = self.stock_combo.get().strip().upper()
             else:
                 stock = selected
+                # add new stock into current config
+                if stock not in self._cur_config[ConfigEntry.ticker_list]:
+                    self._cur_config[ConfigEntry.ticker_list].append(stock)
+
             print("==> Adding stock: ", stock)
             if not stock:
                 messagebox.showwarning("Warning", "Please enter a stock code")
                 return
             
-            if stock in self._processing_stocks:
-                messagebox.showinfo("Duplicate Stock", f"Stock [{stock}] exists in the processing list already.")
-                return
-
             # 验证股票代码格式
             if not self.validate_stock_symbol(stock):
                 messagebox.showwarning("Warning", f"Format of Stock is wrong: {stock}\nThey must be capital and number, for example: AAPL, GOOGL")
@@ -448,7 +447,6 @@ class StockPredictionGUI:
                 self._cur_config[ConfigEntry.ticker_list.name].append(stock)
                 self.save_gui_config() # update gui.cfg on disk
             
-
     def quick_check_stock_exists(self, symbol):
         """快速检查股票代码是否存在"""
         try:
@@ -733,20 +731,28 @@ class StockPredictionGUI:
             messagebox.showwarning("Warning", "Please train the model first")
             return
 
-        from VisualAnalyser import VisualAnalyser
-        stock = self.visual_model_combo.get().strip().upper()
-        try:
-            if stock:
-                stock_model = self.manager.get_stock_model(stock)
-                self.visual_analyser = VisualAnalyser(stock, stock_model.loaded_data)
-                # self.fig = self.visual_analyser.fig
-                # self.ax = self.fig.get_axes()
-                # self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
-                # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)                
-                self.visual_analyser.show_plot()
+        # create popup window
+        def open_feature_analysis(parent):
+            from VisualAnalyser import VisualAnalyser
+            from Common.Util import CreateChildWindow
+            visual_root = CreateChildWindow(parent, title='Visual Analysis', modal=False, XClose=True)
+            stock = self.visual_model_combo.get().strip().upper()
+            try:
+                if stock:
+                    stock_model = self.manager.get_stock_model(stock)
+                    visual_analyser = VisualAnalyser(stock, stock_model.loaded_data)
+                    local_fig, local_canvas = visual_analyser.set_backend_window(visual_root)
+                    local_canvas.pack(fill=tk.BOTH, expand=True)
+                    local_ax = local_fig.get_axes()
+                    # self.fig = self.visual_analyser.fig
+                    # self.ax = self.fig.get_axes()
+                    # self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
+                    # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)                
+                    visual_analyser.show_plot()
+            except Exception as e:
+                messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 
-        except Exception as e:
-            messagebox.showerror("Error", f"Error displaying data: {str(e)}")
+        open_feature_analysis(self.visualization_frame)
 
         # feature_name = self.feature_combo.get()
         # if not feature_name:

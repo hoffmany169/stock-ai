@@ -68,10 +68,10 @@ class PROPERTY_2_POINTS(AutoIndex):
     percentage_of_value_change = ()
     tangent_of_line = ()
 
-                    
-class VisualAnalyser:
+from StockChartPlotter import StockChartPlotter                    
+class VisualAnalyser(StockChartPlotter):
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, symbol=None, stock_data=None, figsize=(10,6)):
+    def __init__(self, symbol, stock_data, figsize=(10,6)):
         """
         Docstring for __init__
         two scenarios:
@@ -81,46 +81,59 @@ class VisualAnalyser:
         2. create fig and ax inside
         :param figsize: figure size
         """
-        self.symbol = symbol
-        self.figsize = figsize
-        self.styles = PlotStyle()
+        super().__init__(symbol=symbol, stock_data=stock_data, figsize=figsize)
         self.plot_data = PlotData()
-        self._plot_file_name = None
-        self.last_click_coords = None
-        self.menu_items = {} # map function name (string) -> command index
-        self.fig = None
-        self.ax = None
-        self._stock_data = stock_data
+        # self.symbol = symbol
+        # self.figsize = figsize
+        # self.styles = PlotStyle()
+        # self._plot_file_name = None
+        # self.last_click_coords = None
+        # self.menu_items = {} # map function name (string) -> command index
+        # self.fig = None
+        # self.ax = None
+        # self._stock_data = stock_data
         self._marker_style = MARKER_STYLE.red_circle
         self._line_style = LINE_STYLE.dashed_line
-        self.fig, self.ax = plt.subplots(figsize=figsize)
-        self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
+        # self.fig, self.ax = plt.subplots(figsize=figsize)
         # if activate real-time search
+        self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
         self._real_time_search = True # default is True
-        if stock_data is not None:
-            self.create_plot()
-            self._init_plot_window_()
+        # if stock_data is not None:
+        #     self.create_plot()
+            # self._init_plot_window_()
 
-    def _init_plot_window_(self):
-        if self.fig is None:
-            return
-        # Get the Tk root window
-        self.root = self.fig.canvas.manager.window
-        # Set window title
-        self.root.title("Matplotlib Plot with Menu Bar")
-        # Set window size
-        self.root.geometry("800x600")
-        # Create the menu bar
-        self._create_menu_bar()
-        # Create toolbar (matplotlib's default)
-        self.fig.canvas.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+    # def _init_plot_window_(self):
+    #     if self.fig is None:
+    #         return
+    #     # Get the Tk root window
+    #     self.root = self.fig.canvas.manager.window
+    #     # Set window title
+    #     self.root.title("Matplotlib Plot with Menu Bar")
+    #     # Set window size
+    #     self.root.geometry("800x600")
+    #     # Create the menu bar
+    #     self._create_menu_bar()
+    #     # Create toolbar (matplotlib's default)
+    #     self.fig.canvas.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
                 
-        # Bind closing event
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    #     # Bind closing event
+    #     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    #     self._create_context_menu_commands()
+    #     # We'll create the menu dynamically each time        
+    #     self.fig.canvas.mpl_connect('button_press_event', self.on_right_click)
+    #     # self.canvas.mpl_connect('motion_notify_event', self.on_hover)
+
+    def set_backend_window(self, parent):
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        # add plot canvas of figure to tkinter window
+        self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
+        # get root of window, which is top level window of canvas, also sub-window of parent tkinter window 
+        self.root = self.canvas.get_tk_widget() # root of this figure canvas
         self._create_context_menu_commands()
-        # We'll create the menu dynamically each time        
-        self.fig.canvas.mpl_connect('button_press_event', self.on_right_click)
-        # self.canvas.mpl_connect('motion_notify_event', self.on_hover)
+        # We'll create the menu dynamically each time. add event to figure's canvas        
+        self.canvas.mpl_connect('button_press_event', self.on_right_click)
+        return (self.fig, self.root) # root is canvas of parent figure
+
 
 #region # properties
     @property
@@ -162,27 +175,10 @@ class VisualAnalyser:
             self._line_style = line
 #endregion # properties
 
-    def set_plot_for_analysis(self, symbol, fig, stock_data):
-        if stock_data is None:
-            return
-        self.symbol = symbol
-        self.fig = fig
-        self.ax = self.fig.get_axes()
-        self._stock_data = stock_data
-        self.create_plot()
-        self._init_plot_window_()
-
     def create_plot(self):
-        if self.fig is None:
-            return
-        # 确保日期为datetime格式
-        if not pd.api.types.is_datetime64_any_dtype(self._stock_data['Date']):
-            self._stock_data['Date'] = pd.to_datetime(self._stock_data['Date'])
-        
-        # 将日期转换为matplotlib格式
-        self.dates_mpl = mdates.date2num(self._stock_data['Date'])
         # 绘制收盘价折线
-        price_line, = self.ax.plot(
+        self.fig, self.ax = plt.subplot(figsize=self.figsize)
+        self.price_line, = self.ax.plot(
             self.dates_mpl, 
             self._stock_data['Close'],
             color=self.styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
@@ -705,7 +701,7 @@ def main(type):
         # 2- create plot in PlotAnalyser class
         data_x = np.linspace(0, 10, 100)
         data_y = np.cos(data_x) * np.exp(-0.05*data_x)
-        dynamic_menu = PlotAnalyser(data=(data_x, data_y), figsize=(10,6))
+        dynamic_menu = VisualAnalyser('test', data=(data_x, data_y), figsize=(10,6))
     else:
         fig, ax = plt.subplots(figsize=(10, 6))
         x = np.linspace(0, 4*np.pi, 200)
@@ -715,9 +711,9 @@ def main(type):
 
         if type == 1: ## with fig
             # Create dynamic context menu
-            dynamic_menu = PlotAnalyser(data=(x, y), fig=fig)
+            dynamic_menu = VisualAnalyser('test', data=(x, y), fig=fig)
         else: ## with ax
-            dynamic_menu = PlotAnalyser(data=(x, y), ax=ax)
+            dynamic_menu = VisualAnalyser('test', data=(x, y), ax=ax)
     dynamic_menu.fill_between(alpha=0.2)
     dynamic_menu.set_labels(xlabel='X-axis', ylabel='Y-axis')
     dynamic_menu.set_legend()
