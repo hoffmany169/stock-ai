@@ -717,7 +717,7 @@ class StockPredictionGUI:
                 self.plotter = StockChartPlotter(stock, stock_model.loaded_data, figsize=(10, 6))
                 self.fig, self.canvas = self.plotter.set_backend_window(self.figure_frame)
                 self.canvas.pack(fill=tk.BOTH, expand=True)
-                self.ax = self.fig.get_axes()
+                # self.ax = self.fig.get_axes()
                 self.plotter.show()
             
         except Exception as e:
@@ -735,7 +735,9 @@ class StockPredictionGUI:
         def open_feature_analysis(parent):
             from VisualAnalyser import VisualAnalyser
             from Common.Util import CreateChildWindow
-            visual_root = CreateChildWindow(parent, title='Visual Analysis', modal=False, XClose=True)
+            visual_root = CreateChildWindow(parent, title='Visual Analysis', 
+                                            modal=True, XClose=True,
+                                            geometry="800x600")            
             stock = self.visual_model_combo.get().strip().upper()
             try:
                 if stock:
@@ -743,16 +745,16 @@ class StockPredictionGUI:
                     visual_analyser = VisualAnalyser(stock, stock_model.loaded_data)
                     local_fig, local_canvas = visual_analyser.set_backend_window(visual_root)
                     local_canvas.pack(fill=tk.BOTH, expand=True)
-                    local_ax = local_fig.get_axes()
+                    # local_ax = local_fig.get_axes()
                     # self.fig = self.visual_analyser.fig
                     # self.ax = self.fig.get_axes()
                     # self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
                     # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)                
-                    visual_analyser.show_plot()
+                    # visual_analyser.show()
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 
-        open_feature_analysis(self.visualization_frame)
+        open_feature_analysis(self.notebook)
 
         # feature_name = self.feature_combo.get()
         # if not feature_name:

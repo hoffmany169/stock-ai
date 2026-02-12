@@ -83,47 +83,17 @@ class VisualAnalyser(StockChartPlotter):
         """
         super().__init__(symbol=symbol, stock_data=stock_data, figsize=figsize)
         self.plot_data = PlotData()
-        # self.symbol = symbol
-        # self.figsize = figsize
-        # self.styles = PlotStyle()
-        # self._plot_file_name = None
-        # self.last_click_coords = None
-        # self.menu_items = {} # map function name (string) -> command index
-        # self.fig = None
-        # self.ax = None
-        # self._stock_data = stock_data
         self._marker_style = MARKER_STYLE.red_circle
         self._line_style = LINE_STYLE.dashed_line
-        # self.fig, self.ax = plt.subplots(figsize=figsize)
-        # if activate real-time search
         self.axis_ratio_calculator = AxisRatioCalculator(self.ax)
+        # if activate real-time search
         self._real_time_search = True # default is True
         # if stock_data is not None:
         #     self.create_plot()
             # self._init_plot_window_()
 
-    # def _init_plot_window_(self):
-    #     if self.fig is None:
-    #         return
-    #     # Get the Tk root window
-    #     self.root = self.fig.canvas.manager.window
-    #     # Set window title
-    #     self.root.title("Matplotlib Plot with Menu Bar")
-    #     # Set window size
-    #     self.root.geometry("800x600")
-    #     # Create the menu bar
-    #     self._create_menu_bar()
-    #     # Create toolbar (matplotlib's default)
-    #     self.fig.canvas.toolbar.pack(side=tk.BOTTOM, fill=tk.X)
-                
-    #     # Bind closing event
-    #     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-    #     self._create_context_menu_commands()
-    #     # We'll create the menu dynamically each time        
-    #     self.fig.canvas.mpl_connect('button_press_event', self.on_right_click)
-    #     # self.canvas.mpl_connect('motion_notify_event', self.on_hover)
-
     def set_backend_window(self, parent):
+        self.parent = parent
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
         # add plot canvas of figure to tkinter window
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
@@ -132,9 +102,12 @@ class VisualAnalyser(StockChartPlotter):
         self._create_context_menu_commands()
         # We'll create the menu dynamically each time. add event to figure's canvas        
         self.canvas.mpl_connect('button_press_event', self.on_right_click)
+        self._init_plot_window_()
         return (self.fig, self.root) # root is canvas of parent figure
 
-
+    def _init_plot_window_(self):
+        self._create_menu_bar()
+                
 #region # properties
     @property
     def real_time_search(self):
@@ -177,25 +150,22 @@ class VisualAnalyser(StockChartPlotter):
 
     def create_plot(self):
         # 绘制收盘价折线
-        self.fig, self.ax = plt.subplot(figsize=self.figsize)
+        self.ax = plt.subplot(111, frameon=False)
+        self.fig = self.ax.get_figure(root=True)
         self.price_line, = self.ax.plot(
             self.dates_mpl, 
-            self._stock_data['Close'],
-            color=self.styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
-            linewidth=self.styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.price_line),
+            self.stock_data['Close'],
+            color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
+            linewidth=self.plot_styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.price_line),
             label='Close Price',
             zorder=5
         )
         # layer = self.plot_data.add_layer(f'{self.symbol} Price')
         # layer.add_layer_data(PLOT_TYPE.ORIGINAL, price_line)
         
-
-    def show_plot(self):
-        plt.show()
-
     def _create_menu_bar(self):
-        self.menubar = tk.Menu(self.root)
-        self.root.config(menu=self.menubar)
+        self.menubar = tk.Menu(self.parent)
+        self.parent.config(menu=self.menubar)
         # File menu
         self.file_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label='File', menu=self.file_menu)
@@ -217,6 +187,7 @@ class VisualAnalyser(StockChartPlotter):
 
     def _create_context_menu_commands(self):
         self.context_menu = tk.Menu(self.root, tearoff=0)
+        self.menu_items = {}
         for e in COMMAND:
             if e.name.startswith('seperator'):
                 self.context_menu.add_separator()
@@ -239,6 +210,10 @@ class VisualAnalyser(StockChartPlotter):
         """Set legend on the plot."""
         self.ax.legend(loc=location, shadow=shadow, fontsize=fsize)
         self.canvas.draw()
+
+    def show(self):
+        # 因为PLOT被加入TKINTER窗口，不用再调用此方法
+        pass
 
     def on_right_click(self, event):
         if event.button == 3 and event.inaxes == self.ax:  # Right-click in axes
@@ -688,11 +663,11 @@ class VisualAnalyser(StockChartPlotter):
     def references(self):
         messagebox.showinfo("References", "Plot Analyser\nVersion 1.0")
 
-    def on_closing(self):
-        if messagebox.askokcancel("Quit", "Do you want to quit?"):
-            plt.close(self.fig)
-            self.root.quit()
-            self.root.destroy()
+    # def on_closing(self):
+    #     if messagebox.askokcancel("Quit", "Do you want to quit?"):
+    #         plt.close(self.fig)
+    #         self.root.quit()
+    #         self.root.destroy()
 #endregion
 
 import numpy as np
