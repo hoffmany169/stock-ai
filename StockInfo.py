@@ -131,8 +131,16 @@ class StockInfo:
         self.root = CreateChildWindow(self.parent, 'stock info', modal=True, XClose=True)
         self.create_gui()
 
+    def total_stock_count(self):
+        count = 0
+        for prod_type in self.stock_info_data:
+            stock_dict = self.stock_info_data[prod_type]
+            count += len(stock_dict)
+        return count
+
     def load_stock_info(self):
         if os.path.exists(self.stock_info_file):
+            print(f"Loading stock info from {self.stock_info_file}")
             with open(self.stock_info_file, 'r') as info:
                 stock_info_info = json.load(info)
             # convert product from string to PRODUCT_TYPE
@@ -142,14 +150,74 @@ class StockInfo:
                     if s == p.name:
                         self.stock_info_data[p] = stock_info_info[s]
         else:
-            self.stock_info_data = dict(zip([p.name for p in StockInfo.PRODUCT_TYPE], [USA_STOCK, GER_STOCK, FUTURES, INDICES, HONGKONG]))
+            self.stock_info_data = dict(zip([p for p in StockInfo.PRODUCT_TYPE], [USA_STOCK, GER_STOCK, FUTURES, INDICES, HONGKONG]))
             self.save_stock_info()
+
+    def update_stock_info(self):
+        import threading
+        popup = CreateChildWindow(self.root, 'Stock info', geometry='200x50')
+        show_text = 'Updating stock info...'
+        count = self.total_stock_count()
+        text_var = StringVar()
+        text_var.set(f"{show_text} (0/{count})")
+        Label(popup, textvariable=text_var, justify='center').pack(fill=BOTH, anchor='center', padx=10, pady=10)
+        def run_update(callback):
+            updated_count = 1
+            for prod_type in self.stock_info_data:
+                stock_dict = self.stock_info_data[prod_type]
+                for stock_code in stock_dict:
+                    print(f"Updating info for {stock_code}...")
+                    success, result = self.obtain_stock_info(stock_code)
+                    if success:
+                        info = ""
+                        for r, v in result.items():
+                            info += f"{r}: {v}\n"
+                        stock_dict[stock_code] = info
+                    else:
+                        print(f"Failed to obtain info for {stock_code}: {result}")
+                    print(f"Updated {updated_count}/{count} stocks.")
+                    text_var.set(f"{show_text} ({updated_count}/{count})")
+                    popup.update()
+                    updated_count += 1
+            self.save_stock_info()
+            callback()  # 在更新完成后调用回调函数关闭弹窗
+        func =lambda: self.root.after(0, popup.destroy)
+        threading.Thread(target=run_update, daemon=True, args=(func,)).start()
+
+    def obtain_stock_info(self, symbol:str):
+        import yfinance as yf
+        try:
+            # 确保使用正确的后缀
+            # if not any(symbol.endswith(suffix) for suffix in ['.DE', '.F', '.ETR', '.DUSS', '.MUN', '.HAM', '.STU', '.BER']):
+            #     symbol_with_suffix = symbol + '.DE'
+            # else:
+            #     symbol_with_suffix = symbol
+            
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            company_name = info.get('longName', info.get('shortName', symbol))
+            sector = info.get('sector', 'N/A')
+            industry = info.get('industry', 'N/A')
+            result = {
+                        'symbol': symbol,
+                        'company': company_name,
+                        'sector': sector,
+                        'industry': industry
+                    }
+            return True, result
+        except Exception as e:
+            return False, str(e)
 
     def save_stock_info(self):
         if not os.path.exists(StockInfo.StockInfoPath):
             os.mkdir(StockInfo.StockInfoPath)
+        print(f"Saving stock info to {self.stock_info_file}")
+        self.save_stock_info_data = {}
+        for prod_type, stock_dict in self.stock_info_data.items():
+            if isinstance(prod_type, StockInfo.PRODUCT_TYPE):
+                self.save_stock_info_data[prod_type.name] = stock_dict
         with open(self.stock_info_file, 'w+') as info:
-            json.dump(self.stock_info_data, info)
+            json.dump(self.save_stock_info_data, info)
 
     def get_stock_list_by_product_type(self, prod_type:PRODUCT_TYPE)->str:
         stock_list = self.stock_info_data[prod_type]
@@ -190,38 +258,50 @@ class StockInfo:
     def create_gui(self):
         prod = Frame(self.root)
         prod.pack(fill=BOTH, expand=True, padx=10, pady=10)
-        Label(prod, text='Product').pack(side=LEFT)
-        self.product_combo = Combobox(prod, width=10,
+        frame1 = Frame(prod)
+        frame1.pack(side=LEFT, fill='x', expand=True)
+        Label(frame1, text='Product').pack(side=LEFT)
+        self.product_combo = Combobox(frame1, width=10,
                                       values=[''.join(p.name.split('_')) for p in StockInfo.PRODUCT_TYPE],
                                       state='readonly')
-        self.product_combo.pack(side=LEFT)
+        self.product_combo.pack(side=LEFT, padx=5)
         self.product_combo.bind('<<ComboboxSelected>>', self._on_product_change)
-
+        Label(frame1, text='New Stock').pack(side=LEFT, padx=5)
+        self.new_stock_entry = Entry(frame1, width=16)
+        self.new_stock_entry.pack(side=LEFT, padx=5)
+        self.add_stock_button = Button(frame1, text='Add', command=self.add_new_stock)
+        self.add_stock_button.pack(side=LEFT, padx=5)
+        # frame 2
         stock_frame = Frame(self.root)
         stock_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
+        # left frame of frame 2
         Label(stock_frame, text='Stocks').pack(side=LEFT, anchor='n')
-
         listbox_frame = Frame(stock_frame)
         listbox_frame.pack(side=LEFT)
-        self.stock_list = Listbox(listbox_frame, height=8, width=20, selectmode='single')
+        self.stock_list = Listbox(listbox_frame, height=10, width=20, selectmode='single')
         self.stock_list.pack(side=LEFT, fill=BOTH, expand=True)
         self.stock_list.bind('<<ListboxSelect>>', self._on_select_stock)
         # 滚动条
         scrollbar = Scrollbar(listbox_frame, orient=VERTICAL, command=self.stock_list.yview)
         scrollbar.pack(side=RIGHT, fill=Y)
         self.stock_list.config(yscrollcommand=scrollbar.set)
+        # right frame of frame 2
+        frame2_right = Frame(stock_frame)
+        frame2_right.pack(side=LEFT, fill='x', expand=True, padx=10)
         # info field
-        self.info_field = ScrolledText(stock_frame, wrap=WORD,
-                                        width=30, height=4,
+        self.info_field = ScrolledText(frame2_right, wrap=WORD,
+                                        width=40, height=8,
                                         font=("Times New Roman", 15))    
-        self.info_field.pack(side=LEFT, padx=5, anchor='n')
+        self.info_field.pack(padx=5, pady=10, anchor='n')
+        # button update stock info
+        self.update_stock_info_button = Button(frame2_right, text='Update Stock Info', command=self.update_stock_info)
+        self.update_stock_info_button.pack(anchor='center')
         # buttons
         btn_frame = Frame(self.root)
         btn_frame.pack(anchor='center', expand=True, padx=10, pady=10)
         self.select_button = Button(btn_frame, text='select', command=self._on_selected, anchor='center')
         self.select_button.pack(side=LEFT, padx=10)
         Button(btn_frame, text='close', command=self.on_exit).pack(side=LEFT, padx=10)
-
 
     def _on_product_change(self, event):
         self.product_index = self.product_combo.current()
@@ -252,6 +332,27 @@ class StockInfo:
             self.stock_list.insert(END, f"{i}.[{key}]")
         # 更新状态显示
         self.stock_list.update()
+
+    def add_new_stock(self):
+        new_stock = self.new_stock_entry.get().strip()
+        if not new_stock:
+            messagebox.showwarning("Input Error", "Please enter a stock code.")
+            return
+        if self.product_index < 0:
+            messagebox.showwarning("Selection Error", "Please select a product type first.")
+            return
+        prod_type = StockInfo.get_product_type_by_index(self.product_index)
+        stock_dict = self.stock_info_data.get(prod_type, None)
+        if stock_dict is None:
+            messagebox.showerror("Error", "Invalid product type selected.")
+            return
+        if new_stock in stock_dict:
+            messagebox.showwarning("Duplicate Error", "This stock code already exists.")
+            return
+        # Add new stock with default name same as code
+        stock_dict[new_stock] = new_stock
+        self.update_stock_listbox(self.product_index)
+        self.new_stock_entry.delete(0, END)
 
     def on_exit(self):
         CloseChildWindow(self.root)

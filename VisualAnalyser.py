@@ -93,17 +93,19 @@ class VisualAnalyser(StockChartPlotter):
             # self._init_plot_window_()
 
     def set_backend_window(self, parent):
-        self.parent = parent
-        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-        # add plot canvas of figure to tkinter window
-        self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
-        # get root of window, which is top level window of canvas, also sub-window of parent tkinter window 
-        self.root = self.canvas.get_tk_widget() # root of this figure canvas
-        self._create_context_menu_commands()
-        # We'll create the menu dynamically each time. add event to figure's canvas        
-        self.canvas.mpl_connect('button_press_event', self.on_right_click)
+        super().set_backend_window(parent)
         self._init_plot_window_()
+        # self.parent = parent
+        # from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        # # add plot canvas of figure to tkinter window
+        # self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
+        # # get root of window, which is top level window of canvas, also sub-window of parent tkinter window 
+        # self.root = self.canvas.get_tk_widget() # root of this figure canvas
+        # self._create_context_menu_commands()
+        # # We'll create the menu dynamically each time. add event to figure's canvas        
+        # self.canvas.mpl_connect('button_press_event', self.on_right_click)
         return (self.fig, self.root) # root is canvas of parent figure
+
 
     def _init_plot_window_(self):
         self._create_menu_bar()

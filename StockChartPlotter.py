@@ -72,6 +72,7 @@ class StockChartPlotter:
 
     # after plot is created, create window controls, e.g. context menu
     def set_backend_window(self, parent):
+        self.parent = parent
         # add plot canvas of figure to tkinter window
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
         # get root of window, which is top level window of canvas, also sub-window of parent tkinter window 

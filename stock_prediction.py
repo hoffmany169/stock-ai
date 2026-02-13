@@ -401,8 +401,8 @@ class StockPredictionGUI:
             else:
                 stock = selected
                 # add new stock into current config
-                if stock not in self._cur_config[ConfigEntry.ticker_list]:
-                    self._cur_config[ConfigEntry.ticker_list].append(stock)
+                if stock not in self._cur_config[ConfigEntry.ticker_list.name]:
+                    self._cur_config[ConfigEntry.ticker_list.name].append(stock)
 
             print("==> Adding stock: ", stock)
             if not stock:
