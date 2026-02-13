@@ -128,7 +128,7 @@ class StockInfo:
         self.parent = parent
         self.product_index = 0
         self.stock_selected_index = 0
-        self.root = CreateChildWindow(self.parent, "Stock Info", modal=False, XClose=True)
+        self.root = CreateChildWindow(self.parent, 'stock info', modal=True, XClose=True)
         self.create_gui()
 
     def load_stock_info(self):

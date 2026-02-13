@@ -12,6 +12,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Python Debugger: Stock Info (GUI)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "StockInfo.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Python-Debugger: stock prediction (GUI)",
             "type": "debugpy",
             "request": "launch",
