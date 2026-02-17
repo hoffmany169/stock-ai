@@ -48,9 +48,12 @@ class StockChartPlotter:
         self.stock_data = stock_data.copy()
         self.figsize = figsize
         self.fig = None
-        self.ax_price = None  # 股价图坐标轴
-        self.ax_volume = None  # 交易量图坐标轴
-        self.moving_average_lines = []
+        self.visaul_config = {}
+        self.visaul_config.axes = []
+        self.visaul_config.curves = []
+        # self.ax_price = None  # 股价图坐标轴
+        # self.ax_volume = None  # 交易量图坐标轴
+        self.visaul_config.moving_average_lines = []
         self.plot_styles = PlotStyle()
         
         # 确保日期为datetime格式
@@ -61,7 +64,7 @@ class StockChartPlotter:
         self.dates_mpl = mdates.date2num(self.stock_data['Date'])
         
         # 配置样式
-        self.setup_styles()
+        # self.setup_styles()
         
         # 初始化交互元素
         self.hover_line = None
@@ -74,47 +77,14 @@ class StockChartPlotter:
     def set_backend_window(self, parent):
         self.parent = parent
         # add plot canvas of figure to tkinter window
-        self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
+        self.fig_canvas = FigureCanvasTkAgg(self.fig, master=parent)
         # get root of window, which is top level window of canvas, also sub-window of parent tkinter window 
-        self.root = self.canvas.get_tk_widget() # root of this figure canvas
+        self.tk_root = self.canvas.get_tk_widget() # root of this figure canvas
         self._create_context_menu_commands()
         # We'll create the menu dynamically each time. add event to figure's canvas        
-        self.canvas.mpl_connect('button_press_event', self.on_right_click)
+        self.fig_canvas.mpl_connect('button_press_event', self.on_right_click)
         return (self.fig, self.root) # root is canvas of parent figure
 
-    def setup_styles(self):
-        """设置图表样式"""
-        self.styles = {
-            # 颜色配置
-            'colors': {
-                'price_line': '#1f77b4',        # 股价线颜色
-                'price_up': '#2ecc71',          # 上涨颜色
-                'price_down': '#e74c3c',        # 下跌颜色
-                'volume_up': 'lightgreen',      # 上涨交易量颜色
-                'volume_down': 'lightcoral',    # 下跌交易量颜色
-                'hover_line': '#e74c3c',        # 悬停线颜色
-                'annotation_bg': 'white',       # 注释框背景
-                'grid_color': '#ecf0f1',        # 网格颜色
-            },
-            # 线型配置
-            'linewidths': {
-                'price_line': 2,
-                'hover_line': 1,
-            },
-            # 透明度
-            'alphas': {
-                'volume': 0.7,
-                'hover_line': 0.5,
-            },
-            # 字体大小
-            'font_sizes': {
-                'title': 16,
-                'axis_label': 12,
-                'annotation': 10,
-                'tick_label': 10,
-            }
-        }
-        
     def calculate_price_change(self):
         """计算价格涨跌，用于确定颜色"""
         if 'Open' in self.stock_data.columns and 'Close' in self.stock_data.columns:
@@ -126,20 +96,16 @@ class StockChartPlotter:
             price_change.iloc[0] = True  # 第一天默认为上涨
         
         # 计算涨跌颜色
-        price_colors = np.where(price_change, 
+        colors = np.where(price_change, 
                                 self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_up), 
-                                self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_down))
-        volume_colors = np.where(price_change,
-                                 self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.volume_up),
-                                 self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_down))
-        
-        return price_colors, volume_colors
+                                self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_down))        
+        return colors
     
     # plot stock chart
     def create_plot(self):
         """创建主图表"""
         # 创建图形和坐标轴
-        self.fig, (self.ax_price, self.ax_volume) = plt.subplots(
+        self.fig, (ax_price, ax_volume) = plt.subplots(
             2, 1, 
             figsize=self.figsize,
             gridspec_kw={'height_ratios': [3, 1]},
@@ -148,27 +114,31 @@ class StockChartPlotter:
         if self.fig is None:
             raise ValueError("fig is None")
         # 计算涨跌颜色
-        price_colors, volume_colors = self.calculate_price_change()
+        self.visaul_config.price_colors  = self.calculate_price_change()
+        self.visaul_config.volume_colors = self.visaul_config.price_colors  # 交易量颜色与价格涨跌一致
         
         # 绘制股价图
-        self.plot_price_chart(price_colors)
+        self.plot_price_chart(ax_price)
         
         # 绘制交易量图
-        self.plot_volume_chart(volume_colors)
+        self.plot_volume_chart(ax_volume, self.visaul_config.volume_colors)
         
         # 配置图表格式
-        self.format_chart()
+        self.format_chart_price(ax_price)
+        self.format_chart_bar(ax_volume)
         
         # 添加交互功能
-        self.add_interactive_features()
+        self.add_interactive_features(ax_price, ax_price=True)
+        self.add_interactive_features(ax_volume, ax_price=False)
+        self.visaul_config.axes = [ax_price, ax_volume]
         
         # 调整布局
         plt.tight_layout()
         
-    def plot_price_chart(self, price_colors):
+    def plot_price_chart(self, ax_price):
         """绘制股价图"""
         # 绘制收盘价折线
-        self.price_line, = self.ax_price.plot(
+        price_line, = ax_price.plot(
             self.dates_mpl, 
             self.stock_data['Close'],
             color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
@@ -176,11 +146,11 @@ class StockChartPlotter:
             label='Close Price',
             zorder=5
         )
-        
+        self.visaul_config.curves.append(price_line)
         # 如果有高低价数据，绘制价格区间
         if all(col in self.stock_data.columns for col in ['High', 'Low']):
             # 绘制价格区间（阴影）
-            self.ax_price.fill_between(
+            ax_price.fill_between(
                 self.dates_mpl,
                 self.stock_data['Low'],
                 self.stock_data['High'],
@@ -190,45 +160,46 @@ class StockChartPlotter:
             )
         
         # 设置股价图标题和标签
-        self.ax_price.set_title(f'{self.symbol}: Stock Price Trend', 
+        ax_price.set_title(f'{self.symbol}: Stock Price Trend', 
                                fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.title),
                                fontweight='bold',
                                pad=20)
-        self.ax_price.set_ylabel('Price (€)', 
+        ax_price.set_ylabel('Price (€)', 
                                  fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
-        self.ax_price.legend(loc='upper left')
-        self.ax_price.grid(True, alpha=0.3, linestyle='--', 
+        ax_price.legend(loc='upper left')
+        ax_price.grid(True, alpha=0.3, linestyle='--', 
                           color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.grid_color))
         
         # 添加网格
-        self.ax_price.grid(True, alpha=0.3, linestyle='--')
+        ax_price.grid(True, alpha=0.3, linestyle='--')
         
-    def plot_volume_chart(self, volume_colors):
+    def plot_volume_chart(self, ax_volume, volume_colors):
         """绘制交易量图"""
         # 绘制交易量柱状图
-        self.ax_volume.bar(
+        ax_volume.bar(
             self.dates_mpl,
             self.stock_data['Volume'],
             color=volume_colors,
-            alpha=self.styles['alphas']['volume'],
+            alpha=self.plot_styles.get_setting(STYLE.alphas, PLOT_ELEMENT.volume),
             width=0.8,  # 柱状图宽度
             edgecolor='black',
             linewidth=0.5
         )
         
         # 设置交易量图标签
-        self.ax_volume.set_ylabel('Volume', 
+        ax_volume.set_ylabel('Volume', 
                                   fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
-        self.ax_volume.set_xlabel('Date', 
+        ax_volume.set_xlabel('Date', 
                                   fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
-        self.ax_volume.grid(True, alpha=0.3, linestyle='--',
+        ax_volume.grid(True, alpha=0.3, linestyle='--',
                            color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.grid_color))
         
         # 格式化y轴标签（使用K/M/B表示大数字）
-        self.ax_volume.yaxis.set_major_formatter(
+        ax_volume.yaxis.set_major_formatter(
             plt.FuncFormatter(self.format_large_numbers)
         )
-        
+        self.visaul_config.curves.append(ax_volume)
+
     def format_large_numbers(self, x, pos):
         """格式化大数字显示（如1000显示为1K）"""
         if x >= 1e9:
@@ -239,8 +210,14 @@ class StockChartPlotter:
             return f'{x/1e3:.1f}K'
         else:
             return f'{x:.0f}'
-    
-    def format_chart(self):
+
+    def format_chart_price(self, ax):
+        # 设置y轴格式
+        ax.yaxis.set_major_formatter(
+            plt.FuncFormatter(lambda x, pos: f'€{x:.2f}')
+        )
+
+    def format_chart_bar(self, ax):
         """格式化图表"""
         # 设置x轴日期格式
         date_formatter = mdates.DateFormatter('%Y-%m-%d')
@@ -258,21 +235,28 @@ class StockChartPlotter:
             locator = mdates.MonthLocator()
         
         # 应用格式到交易量图（股价图共享x轴）
-        self.ax_volume.xaxis.set_major_locator(locator)
-        self.ax_volume.xaxis.set_major_formatter(date_formatter)
+        ax.xaxis.set_major_locator(locator)
+        ax.xaxis.set_major_formatter(date_formatter)
         
         # 自动旋转日期标签
-        plt.setp(self.ax_volume.xaxis.get_majorticklabels(), rotation=45, ha='right')
-        
-        # 设置y轴格式
-        self.ax_price.yaxis.set_major_formatter(
-            plt.FuncFormatter(lambda x, pos: f'€{x:.2f}')
-        )
-    
-    def add_interactive_features(self):
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+            
+    def add_interactive_features(self, ax, ax_price=True):
         """添加交互功能"""
+        if ax_price:
+            self._add_interactive_features_to_price(ax)
+        else:
+            self._add_interactive_features_to_volume(ax)
+
+        # 连接鼠标移动事件
+        self.fig.canvas.mpl_connect("motion_notify_event", self.on_hover)
+        
+        # 连接鼠标离开事件
+        self.fig.canvas.mpl_connect("axes_leave_event", self.on_leave)
+
+    def _add_interactive_features_to_price(self, ax):
         # 创建悬停线（垂直虚线）
-        self.hover_line = self.ax_price.axvline(
+        self.visaul_config.axes[0].hover_line = ax.axvline(
             x=self.dates_mpl[0],
             color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.hover_line),
             linewidth=self.plot_styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.hover_line),
@@ -282,7 +266,7 @@ class StockChartPlotter:
         )
         
         # 创建股价注释框
-        self.price_annotation = self.ax_price.annotate(
+        self.visaul_config.axes[0].price_annotation = ax.annotate(
             "",
             xy=(0, 0),
             xytext=(20, 20),
@@ -296,10 +280,11 @@ class StockChartPlotter:
             fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.annotation),
             zorder=11
         )
-        self.price_annotation.set_visible(False)
-        
+        self.visaul_config.axes[0].price_annotation.set_visible(False)
+
+    def _add_interactive_features_to_volume(self, ax):
         # 创建交易量注释框
-        self.volume_annotation = self.ax_volume.annotate(
+        self.visaul_config.axes[1].volume_annotation = ax.annotate(
             "",
             xy=(0, 0),
             xytext=(20, -30),
@@ -313,24 +298,19 @@ class StockChartPlotter:
             fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.annotation),
             zorder=11
         )
-        self.volume_annotation.set_visible(False)
+        self.visaul_config.axes[1].volume_annotation.set_visible(False)
         
-        # 连接鼠标移动事件
-        self.fig.canvas.mpl_connect("motion_notify_event", self.on_hover)
-        
-        # 连接鼠标离开事件
-        self.fig.canvas.mpl_connect("axes_leave_event", self.on_leave)
     
     def on_hover(self, event):
         """鼠标悬停事件处理"""
         # 检查鼠标是否在图表区域内
-        if event.inaxes in [self.ax_price, self.ax_volume]:
+        if event.inaxes in self.visaul_config.axes:
             # 找到最近的日期点
             idx = np.abs(self.dates_mpl - event.xdata).argmin()
             
             # 更新悬停线位置
-            self.hover_line.set_xdata([self.dates_mpl[idx]])
-            self.hover_line.set_visible(True)
+            self.visaul_config.axes[0].hover_line.set_xdata([self.dates_mpl[idx]])
+            self.visaul_config.axes[0].hover_line.set_visible(True)
             
             # 获取数据
             date_str = mdates.num2date(self.dates_mpl[idx]).strftime('%Y-%m-%d')
@@ -367,16 +347,16 @@ class StockChartPlotter:
             if extra_info:
                 price_text += f"\n{extra_info}"
             
-            self.price_annotation.set_text(price_text)
-            self.price_annotation.xy = (self.dates_mpl[idx], close_price)
-            self.price_annotation.set_visible(True)
+            self.visaul_config.axes[0].price_annotation.set_text(price_text)
+            self.visaul_config.axes[0].price_annotation.xy = (self.dates_mpl[idx], close_price)
+            self.visaul_config.axes[0].price_annotation.set_visible(True)
             
             # 更新交易量注释框
             volume_text = f"Date: {date_str}\n" \
                          f"Volume: {volume:,.0f}"
-            self.volume_annotation.set_text(volume_text)
-            self.volume_annotation.xy = (self.dates_mpl[idx], volume)
-            self.volume_annotation.set_visible(True)
+            self.visaul_config.axes[1].volume_annotation.set_text(volume_text)
+            self.visaul_config.axes[1].volume_annotation.xy = (self.dates_mpl[idx], volume)
+            self.visaul_config.axes[1].volume_annotation.set_visible(True)
             
             # 重绘图形
             self.fig.canvas.draw_idle()
@@ -384,9 +364,9 @@ class StockChartPlotter:
     def on_leave(self, event):
         """鼠标离开图表区域事件处理"""
         # 隐藏注释框和悬停线
-        self.hover_line.set_visible(False)
-        self.price_annotation.set_visible(False)
-        self.volume_annotation.set_visible(False)
+        self.visaul_config.axes[0].hover_line.set_visible(False)
+        self.visaul_config.axes[0].price_annotation.set_visible(False)
+        self.visaul_config.axes[1].volume_annotation.set_visible(False)
         self.fig.canvas.draw_idle()
     
     def show(self):
@@ -423,7 +403,7 @@ class StockChartPlotter:
         label : str
             图例标签，如果为None则使用'MA{window}'
         """
-        if self.ax_price is None:
+        if self.axes[0] is None:
             raise ValueError("请先调用create_plot()或show()方法")
         
         # 计算移动平均
@@ -431,7 +411,7 @@ class StockChartPlotter:
         ma_data = self.stock_data['Close'].rolling(window=window).mean()
         
         # 绘制移动平均线
-        line = self.ax_price.plot(
+        line = self.axes[0].plot(
             self.dates_mpl,
             ma_data,
             color=color,
@@ -439,9 +419,9 @@ class StockChartPlotter:
             alpha=0.8,
             label=ma_label
         )
-        self.moving_average_lines.append(line)
+        self.visaul_config.moving_average_lines.append(line)
         # 更新图例
-        self.ax_price.legend(loc='upper left')
+        self.visaul_config.axes[0].legend(loc='upper left')
         
         if self.fig is not None:
             self.fig.canvas.draw_idle()
@@ -484,9 +464,9 @@ class StockChartPlotter:
         pass
 
     def remove(self):
-        if len(self.moving_average_lines) == 0:
+        if len(self.visaul_config.moving_average_lines) == 0:
             return
-        line = self.moving_average_lines.pop()
+        line = self.visaul_config.moving_average_lines.pop()
         if line:
             for artist in line:
                 if artist:
@@ -495,13 +475,14 @@ class StockChartPlotter:
 
 
     def remove_all(self):
-        if len(self.moving_average_lines) == 0:
+        if len(self.visaul_config.moving_average_lines) == 0:
             return
-        for line in self.moving_average_lines:
+        for line in self.visaul_config.moving_average_lines:
             if line:
                 for artist in line:
                     if artist:
                         artist.remove()
+        self.visaul_config.moving_average_lines.clear()
         self.fig.canvas.draw()
 
     def on_right_click(self, event):

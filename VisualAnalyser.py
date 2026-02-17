@@ -71,7 +71,7 @@ class PROPERTY_2_POINTS(AutoIndex):
 from StockChartPlotter import StockChartPlotter                    
 class VisualAnalyser(StockChartPlotter):
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, symbol, stock_data, figsize=(10,6)):
+    def __init__(self, symbol, stock_data, figsize=(14,8)):
         """
         Docstring for __init__
         two scenarios:
@@ -81,7 +81,7 @@ class VisualAnalyser(StockChartPlotter):
         2. create fig and ax inside
         :param figsize: figure size
         """
-        super().__init__(symbol=symbol, stock_data=stock_data, figsize=figsize)
+        super().__init__(symbol, stock_data, figsize=figsize)
         self.plot_data = PlotData()
         self._marker_style = MARKER_STYLE.red_circle
         self._line_style = LINE_STYLE.dashed_line
@@ -95,15 +95,6 @@ class VisualAnalyser(StockChartPlotter):
     def set_backend_window(self, parent):
         super().set_backend_window(parent)
         self._init_plot_window_()
-        # self.parent = parent
-        # from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-        # # add plot canvas of figure to tkinter window
-        # self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
-        # # get root of window, which is top level window of canvas, also sub-window of parent tkinter window 
-        # self.root = self.canvas.get_tk_widget() # root of this figure canvas
-        # self._create_context_menu_commands()
-        # # We'll create the menu dynamically each time. add event to figure's canvas        
-        # self.canvas.mpl_connect('button_press_event', self.on_right_click)
         return (self.fig, self.root) # root is canvas of parent figure
 
 
@@ -149,11 +140,9 @@ class VisualAnalyser(StockChartPlotter):
         if type(line) == LINE_STYLE:
             self._line_style = line
 #endregion # properties
-
-    def create_plot(self):
+    def plot_price_chart(self, price_colors):
+        """绘制股价图"""
         # 绘制收盘价折线
-        self.ax = plt.subplot(111, frameon=False)
-        self.fig = self.ax.get_figure(root=True)
         self.price_line, = self.ax.plot(
             self.dates_mpl, 
             self.stock_data['Close'],
@@ -162,6 +151,50 @@ class VisualAnalyser(StockChartPlotter):
             label='Close Price',
             zorder=5
         )
+        
+        # 如果有高低价数据，绘制价格区间
+        # if all(col in self.stock_data.columns for col in ['High', 'Low']):
+        #     # 绘制价格区间（阴影）
+        #     self.ax.fill_between(
+        #         self.dates_mpl,
+        #         self.stock_data['Low'],
+        #         self.stock_data['High'],
+        #         alpha=0.2,
+        #         color='gray',
+        #         label='Price Range'
+        #     )
+        
+        # 设置股价图标题和标签
+        self.ax.set_title(f'{self.symbol}: Stock Price Trend', 
+                               fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.title),
+                               fontweight='bold',
+                               pad=20)
+        self.ax.set_ylabel('Price (€)', 
+                                 fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
+        self.ax.legend(loc='upper left')
+        self.ax.grid(True, alpha=0.3, linestyle='--', 
+                          color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.grid_color))
+        
+        # 添加网格
+        self.ax.grid(True, alpha=0.3, linestyle='--')
+
+    def create_plot(self):
+        # 绘制收盘价折线
+        self.fig, self.ax = plt.subplots(figsize=self.figsize)
+        if self.fig is None:
+            raise ValueError("fig is None")
+        # 计算涨跌颜色
+        price_colors = self.calculate_price_change()
+        self.plot_price_chart(self.ax)
+        
+        # 配置图表格式
+        self.format_chart_price(self.ax)
+        
+        # 添加交互功能
+        self.add_interactive_features(self.ax, ax_price=True)
+        
+        # 调整布局
+        plt.tight_layout()
         # layer = self.plot_data.add_layer(f'{self.symbol} Price')
         # layer.add_layer_data(PLOT_TYPE.ORIGINAL, price_line)
         
@@ -265,14 +298,14 @@ class VisualAnalyser(StockChartPlotter):
         ylim = self.ax.get_ylim()
         self.ax.set_xlim(xlim[0]*0.8, xlim[1]*0.8)
         self.ax.set_ylim(ylim[0]*0.8, ylim[1]*0.8)
-        self.fig.canvas.draw()
+        self.canvas.draw()
     
     def zoom_out(self, coords):
         xlim = self.ax.get_xlim()
         ylim = self.ax.get_ylim()
         self.ax.set_xlim(xlim[0]*1.2, xlim[1]*1.2)
         self.ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
-        self.fig.canvas.draw()
+        self.canvas.draw()
     
     def add_point(self, coords):
         if coords:
