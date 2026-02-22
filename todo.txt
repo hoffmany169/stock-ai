@@ -1,0 +1,2 @@
+1. volume ma-5: activate and deactivate
+2. plot feature curve after loading raw data
