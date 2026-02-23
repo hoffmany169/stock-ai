@@ -10,14 +10,23 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class StockVisualData:
     class TYPE(AutoIndex):
-        axes = ()
-        artist = ()
-        property = ()
+        ax = ()
+        artists = ()
+        properties = ()
+
     def __init__(self, fig=None):
+        # 存储图表配置和元素的对象，包含以下属性:
+        # - visual_data: dict {name1: {ax : ax1, 
+        #                             artists: {artist1 : data, ...}, 
+        #                             properties: {property1 : data, ...}
+        #                      },
+        #                      {name2: {ax : ax2, 
+        #                              artists: {artist2 : data, ...},
+        #                              properties: {property1 : data, ...}
+        #                      }
+        #                      ...
         self._fig = fig
         self.visual_data = {}
-        # self.visual_data.artist = {}
-        # self.visual_data.property = {}
 
     @property
     def fig(self):
@@ -26,7 +35,7 @@ class StockVisualData:
     def fig(self, value):
         self._fig = value
 
-    def add_stock_visual_data(self, data_type:TYPE, data:any, axes_name=None, name=None):
+    def add_stock_visual_data(self, data_type:TYPE, data:any, data_name, axes_name=None):
         """添加股票数据到图表
         
         参数:
@@ -38,49 +47,77 @@ class StockVisualData:
             - property: 数据属性（如价格、交易量等）
         data : any
             数据内容，具体格式取决于数据类型
+        name : str
+            数据名称，用于定位具体的数据项
+        axes_name : str
+            数据区域名称，用于加入或获取数据，如果数据类型是artist或property，axes_name必须提供，用于定位数据所在的坐标轴
         """
         # 根据数据类型添加数据到图表
-        if data_type == StockVisualData.TYPE.axes:
-            if (type(data) == list and type(name) != list):
-                raise ValueError("如果data是列表，name必须也是列表，且长度与data相同")
-            if type(data) == list and name is not None and  len(data) != len(name):
-                raise ValueError("data和name列表长度不一致")
+        if data_name is None:
+            raise ValueError("data_name must be provided for all data types")
+        if data_type == StockVisualData.TYPE.ax:
+            if (type(data) == list and (data_name is not None and type(data_name) != list) and  len(data) != len(data_name)):
+                raise ValueError("如果data是列表，data_name必须也是列表，且长度与data相同")
             if type(data) == list:
-                for i, ax in enumerate(data):
-                    if name is None:
-                        name = f"axes_{len(self.visual_data.get('axes', []))}"
-                    self.visual_data[name[i]] = ax
-                    self.visual_data[name[i]].artists = {}
-                    self.visual_data[name[i]].properties = {}
+                for i, name in enumerate(data_name):
+                    self.visual_data[name] = {StockVisualData.TYPE.ax : data[i]}
+                    self.visual_data[name][StockVisualData.TYPE.artists] = {}
+                    self.visual_data[name][StockVisualData.TYPE.properties] = {}
             else:
-                if name is None:
-                    name = f"axes_{len(self.visual_data.get('axes', []))}"
-                self.visual_data[name] = data
-                self.visual_data[name].artists = {}
-                self.visual_data[name].properties = {}
+                self.visual_data[data_name] = {StockVisualData.TYPE.ax : data}
+                self.visual_data[data_name][StockVisualData.TYPE.artists] = {}
+                self.visual_data[data_name][StockVisualData.TYPE.properties] = {}
         else:
             if axes_name is None:
-                raise ValueError("axes_name must be provided for artist data")
+                raise ValueError("axes_name must be provided for artist data except for axes data")
             if self.visual_data.get(axes_name) is None:
                 raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
-            if data_type == StockVisualData.TYPE.artist:
-                if name is None:
-                    name = f"artist_{len(self.visual_data[axes_name].artists)}"
-                # if name already exists, overwrite it
-                self.visual_data[axes_name].artists[name] = data
-            if data_type == StockVisualData.TYPE.property:
-                if name is None:
-                    name = f"property_{len(self.visual_data[axes_name].properties)}"
-                self.visual_data[axes_name].properties[name] = data
-            else:
-                # 其他类型的数据处理（如价格、交易量等）
-                pass
+            self.visual_data[axes_name][data_type][data_name] = data
         
         # 重绘图表
-        if self.fig is not None:
-            self.fig.canvas.draw_idle()
+        if self._fig is not None:
+            self._fig.canvas.draw_idle()
 
-    def get_stock_visual_data(self, data_type:TYPE, axes_name, name=None):
+    def set_stock_visual_data(self, data_type:TYPE, data:any, axes_name, data_name=None):
+        """设置图表中的股票数据
+        
+        参数:
+        ----------
+        data_type : StockVisualData
+            数据类型，包含以下属性:
+            - axes: 图表坐标轴对象
+            - artist: 图表元素对象（如线条、柱状图等）
+            - property: 数据属性（如价格、交易量等）
+        data : any
+            数据内容，具体格式取决于数据类型
+        name : str
+            数据名称，用于定位具体的数据项
+        axes_name : str
+            数据区域名称，用于定位数据所在的坐标轴，如果数据类型是artist或property，axes_name必须提供，用于定位数据所在的坐标轴
+        """
+        if axes_name is None:
+            raise ValueError("axes_name must be provided for artist data except for axes data")
+        
+        if data_type == StockVisualData.TYPE.ax:
+            if type(data) == list:
+                for i, name in enumerate(axes_name):
+                    if self.visual_data.get(name) is None:
+                        raise ValueError(f"axes_name '{axname}' does not exist in visual_data")
+                    if name in self.visual_data.keys():
+                        self.visual_data[name][data_type] = data[i]
+                    else:
+                        self.add_stock_visual_data(data_type, data[i], name)
+            else:
+                if self.visual_data.get(axes_name) is None:
+                    raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
+                if axes_name in self.visual_data.keys():
+                    self.visual_data[axes_name][data_type] = data
+                else:
+                    self.add_stock_visual_data(data_type, data, axes_name)
+        else: 
+            self.visual_data[axes_name][data_type][data_name] = data
+
+    def get_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
         """获取图表中的股票数据
         
         参数:
@@ -89,7 +126,7 @@ class StockVisualData:
             数据类型，包含以下属性:
             - axes: 图表坐标轴对象
             - artist: 图表元素对象（如线条、柱状图等）
-            - property: 数据属性（如价格、交易量等
+            - property: 数据属性（如价格、交易量等）
         axes_name : str
             坐标轴名称，用于定位数据所在的坐标轴
         name : str
@@ -98,16 +135,14 @@ class StockVisualData:
         any
             返回指定的数据项内容
         """
-        if self.visual_data.visual_data.get(axes_name) is None:
-            raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
-        if data_type == StockVisualData.TYPE.property:
-            return self.visual_data.visual_data[axes_name].properties.get(name)
-        elif data_type == StockVisualData.TYPE.artist:
-            return self.visual_data.visual_data[axes_name].artists.get(name)
-        elif data_type == StockVisualData.TYPE.axes:
-            return self.visual_data.visual_data.get(axes_name)
+        if self.visual_data.get(axes_name) is None:
+            raise ValueError(f"axes_name '{axes_name}' does not exist in visual data")
+        if data_type == StockVisualData.TYPE.ax:
+            return self.visual_data[axes_name][data_type].get(data_type, None)
+        else:
+            return self.visual_data[axes_name][data_type].get(data_name, None)
 
-    def popup_stock_visual_data(self, data_type:TYPE, axes_name, name=None):
+    def popup_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
         """从图表中移除指定的股票数据
         
         参数:
@@ -122,17 +157,14 @@ class StockVisualData:
         name : str
             数据名称，用于定位具体的数据项
         """
-        if self.visual_data.visual_data.get(axes_name) is None:
+        if self.visual_data.get(axes_name) is None:
             raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
-        if data_type == StockVisualData.TYPE.property:
-            if name in self.visual_data.visual_data[axes_name].properties:
-                return self.visual_data.visual_data[axes_name].properties.pop(name)
-        elif data_type == StockVisualData.TYPE.artist:
-            if name in self.visual_data.visual_data[axes_name].artists:
-                return self.visual_data.visual_data[axes_name].artists.pop(name)    
-        elif data_type == StockVisualData.TYPE.axes:
-            if axes_name in self.visual_data.visual_data:
-                return self.visual_data.visual_data.pop(axes_name)
+        if data_type == StockVisualData.TYPE.ax:
+            if axes_name in self.visual_data:
+                return self.visual_data.pop(axes_name)
+        else:
+            if data_name in self.visual_data[axes_name][data_type]:
+                return self.visual_data[axes_name][data_type].pop(data_name)
         return None    
 
 class StockChartPlotter:
@@ -206,13 +238,13 @@ class StockChartPlotter:
     def set_backend_window(self, parent):
         self.parent = parent
         # add plot canvas of figure to tkinter window
-        self.fig_canvas = FigureCanvasTkAgg(self.fig, master=parent)
+        self.fig_canvas = FigureCanvasTkAgg(self.visual_data.fig, master=parent)
         # get root of window, which is top level window of canvas, also sub-window of parent tkinter window 
-        self.tk_root = self.canvas.get_tk_widget() # root of this figure canvas
+        self.tk_root = self.fig_canvas.get_tk_widget() # root of this figure canvas
         self._create_context_menu_commands()
         # We'll create the menu dynamically each time. add event to figure's canvas        
         self.fig_canvas.mpl_connect('button_press_event', self.on_right_click)
-        return (self.fig, self.root) # root is canvas of parent figure
+        return (self.visual_data.fig, self.tk_root) # root is canvas of parent figure
 
     def calculate_price_change(self):
         """计算价格涨跌，用于确定颜色"""
@@ -243,17 +275,17 @@ class StockChartPlotter:
         if fig is None:
             raise ValueError("fig is None")
         self.visual_data.fig = fig
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.axes, [ax_price, ax_volume])
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.ax, [ax_price, ax_volume], ['ax_price', 'ax_volume'])
         # 计算涨跌颜色
         colors = self.calculate_price_change()
-        self.visaul_config.add_visual_data(StockVisualData.TYPE.property, colors, axes_name='axes_0', name='price_change')
-        self.visaul_config.add_visual_data(StockVisualData.TYPE.property, colors, axes_name='axes_1', name='price_change')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name='ax_price')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name='ax_volume')
         
         # 绘制股价图
         self.plot_price_chart(ax_price)
         
         # 绘制交易量图
-        self.plot_volume_chart(ax_volume, self.visaul_config.volume_colors)
+        self.plot_volume_chart(ax_volume, self.visual_data.get_stock_visual_data(StockVisualData.TYPE.properties, 'ax_volume', data_name='price_change'))
         
         # 配置图表格式
         self.format_chart_price(ax_price)
@@ -262,7 +294,7 @@ class StockChartPlotter:
         # 添加交互功能
         self.add_interactive_features(ax_price, ax_price=True)
         self.add_interactive_features(ax_volume, ax_price=False)
-        self.visaul_config.axes = [ax_price, ax_volume]
+        self.visual_data.set_stock_visual_data(StockVisualData.TYPE.ax, [ax_price, ax_volume], ['ax_price', 'ax_volume'])
         
         # 调整布局
         plt.tight_layout()
@@ -278,7 +310,7 @@ class StockChartPlotter:
             label='Close Price',
             zorder=5
         )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artist, price_line, name='price_line', axes_name='axes_0')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_line, 'price_line', axes_name='ax_price')
         # 如果有高低价数据，绘制价格区间
         if all(col in self.stock_data.columns for col in ['High', 'Low']):
             # 绘制价格区间（阴影）
@@ -317,7 +349,7 @@ class StockChartPlotter:
             edgecolor='black',
             linewidth=0.5
         )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artist, bar, name='volume_bar', axes_name='axes_1')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, bar, 'volume_bar', axes_name='ax_volume')
         # 设置交易量图标签
         ax_volume.set_ylabel('Volume', 
                                   fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
@@ -396,7 +428,7 @@ class StockChartPlotter:
             visible=False,
             zorder=10
         )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artist, hover_line, name='hover_line', axes_name='axes_0')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, hover_line, 'hover_line', axes_name='ax_price')
         # 创建股价注释框
         price_annotation = ax.annotate(
             "",
@@ -413,7 +445,7 @@ class StockChartPlotter:
             zorder=11
         )
         price_annotation.set_visible(False)
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artist, price_annotation, name='price_annotation', axes_name='axes_0')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_annotation, 'price_annotation', axes_name='ax_price')
 
     def _add_interactive_features_to_volume(self, ax):
         # 创建交易量注释框
@@ -432,17 +464,17 @@ class StockChartPlotter:
             zorder=11
         )
         volume_annotation.set_visible(False)
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artist, volume_annotation, name='volume_annotation', axes_name='axes_1')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, volume_annotation, 'volume_annotation', axes_name='ax_volume')
     
     def on_hover(self, event):
         """鼠标悬停事件处理"""
         # 检查鼠标是否在图表区域内
-        if event.inaxes in self.visual_data.axes:
+        if event.inaxes in self.visual_data.values():
             # 找到最近的日期点
             idx = np.abs(self.dates_mpl - event.xdata).argmin()
             
             # 更新悬停线位置
-            hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artist, 'hover_line', axes_name='axes_0')
+            hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', axes_name='hover_line')
             hover_line.set_xdata([self.dates_mpl[idx]])
             hover_line.set_visible(True)
             
@@ -481,13 +513,13 @@ class StockChartPlotter:
             if extra_info:
                 price_text += f"\n{extra_info}"
             
-            price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artist, 'price_annotation', axes_name='axes_0')  
+            price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='price_annotation')  
             price_annotation.set_text(price_text)
             price_annotation.xy = (self.dates_mpl[idx], close_price)
             price_annotation.set_visible(True)
             
             # 更新交易量注释框
-            volume_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artist, 'volume_annotation', axes_name='axes_1')
+            volume_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_volume', data_name='volume_annotation')
             volume_text = f"Date: {date_str}\n" \
                          f"Volume: {volume:,.0f}"
             volume_annotation.set_text(volume_text)
@@ -500,11 +532,11 @@ class StockChartPlotter:
     def on_leave(self, event):
         """鼠标离开图表区域事件处理"""
         # 隐藏注释框和悬停线
-        hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artist, 'hover_line', axes_name='axes_0')
+        hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='hover_line')
         hover_line.set_visible(False)
-        price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artist, 'price_annotation', axes_name='axes_0')  
+        price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='price_annotation')  
         price_annotation.set_visible(False)
-        volume_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artist, 'volume_annotation', axes_name='axes_1')
+        volume_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_volume', data_name='volume_annotation')
         volume_annotation.set_visible(False)
         self.visual_data.fig.canvas.draw_idle()
     
@@ -530,11 +562,13 @@ class StockChartPlotter:
         self.visual_data.fig.savefig(filename, dpi=dpi, bbox_inches='tight')
         print(f"图表已保存为: {filename}")
     
-    def add_moving_average(self, window=20, color='orange', label=None):
+    def add_moving_average(self, ax_name, window=20, color='orange', label=None):
         """添加移动平均线
         
         参数:
         ----------
+        ax_name : str
+            要添加移动平均线的坐标轴名称
         window : int
             移动平均窗口大小
         color : str
@@ -542,7 +576,7 @@ class StockChartPlotter:
         label : str
             图例标签，如果为None则使用'MA{window}'
         """
-        if self.axes[0] is None:
+        if self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, ax_name) is None:
             raise ValueError("请先调用create_plot()或show()方法")
         
         # 计算移动平均
@@ -550,7 +584,7 @@ class StockChartPlotter:
         ma_data = self.stock_data['Close'].rolling(window=window).mean()
         
         # 绘制移动平均线
-        axes0 = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.axes, 'axes_0')
+        axes0 = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, ax_name)
         line = axes0.plot(
             self.dates_mpl,
             ma_data,
@@ -559,7 +593,7 @@ class StockChartPlotter:
             alpha=0.8,
             label=ma_label
         )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artist, line, name='moving_average', axes_name='axes_0')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, line, 'moving_average', axes_name=ax_name)
         # 更新图例
         axes0.legend(loc='upper left')
         
@@ -603,8 +637,8 @@ class StockChartPlotter:
     def dummy_command(self):
         pass
 
-    def remove(self):
-        moving_average_lines = self.visual_data.popup_stock_visual_data(StockVisualData.TYPE.artist, 'moving_average', axes_name='axes_0')
+    def remove(self, ax_name):
+        moving_average_lines = self.visual_data.popup_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name='moving_average')
         if moving_average_lines is None:
             return False
         if len(moving_average_lines) == 0:
@@ -617,8 +651,8 @@ class StockChartPlotter:
         self.visual_data.fig.canvas.draw_idle()
         return True
 
-    def remove_all(self):
-        moving_average_lines = self.visual_data.popup_stock_visual_data(StockVisualData.TYPE.artist, 'moving_average', axes_name='axes_0')
+    def remove_all(self, ax_name):
+        moving_average_lines = self.visual_data.popup_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name='moving_average')
         if moving_average_lines is None:
             return
         if len(moving_average_lines) == 0:
