@@ -102,7 +102,7 @@ class StockVisualData:
             if type(data) == list:
                 for i, name in enumerate(axes_name):
                     if self.visual_data.get(name) is None:
-                        raise ValueError(f"axes_name '{axname}' does not exist in visual_data")
+                        raise ValueError(f"axes_name '{name}' does not exist in visual_data")
                     if name in self.visual_data.keys():
                         self.visual_data[name][data_type] = data[i]
                     else:
@@ -138,9 +138,9 @@ class StockVisualData:
         if self.visual_data.get(axes_name) is None:
             raise ValueError(f"axes_name '{axes_name}' does not exist in visual data")
         if data_type == StockVisualData.TYPE.ax:
-            return self.visual_data[axes_name][data_type].get(data_type, None)
+            return self.visual_data[axes_name].get(data_type, None)
         else:
-            return self.visual_data[axes_name][data_type].get(data_name, None)
+            return self.visual_data[axes_name].get(data_type, {}).get(data_name, None)
 
     def popup_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
         """从图表中移除指定的股票数据
@@ -224,13 +224,6 @@ class StockChartPlotter:
         # 将日期转换为matplotlib格式
         self.dates_mpl = mdates.date2num(self.stock_data['Date'])
         
-        # 配置样式
-        # self.setup_styles()
-        
-        # 初始化交互元素
-        self.hover_line = None
-        self.price_annotation = None
-        self.volume_annotation = None
         # valid fig and ax are available after plot is created.
         self.create_plot()
 
@@ -469,12 +462,12 @@ class StockChartPlotter:
     def on_hover(self, event):
         """鼠标悬停事件处理"""
         # 检查鼠标是否在图表区域内
-        if event.inaxes in self.visual_data.values():
+        if event.inaxes in [self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, 'ax_price'), self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, 'ax_volume')]:
             # 找到最近的日期点
             idx = np.abs(self.dates_mpl - event.xdata).argmin()
             
             # 更新悬停线位置
-            hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', axes_name='hover_line')
+            hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='hover_line')
             hover_line.set_xdata([self.dates_mpl[idx]])
             hover_line.set_visible(True)
             
