@@ -293,7 +293,7 @@ class StockPredictionGUI:
         self.visual_model_combo.pack(side=tk.LEFT, padx=5)
         self.visual_model_combo['values'] = self._processing_stocks
 
-        ttk.Button(control_frame, text="Show Raw Data", command=self.show_raw_data).pack(side=tk.LEFT, padx=5)
+        ttk.Button(control_frame, text="Show Price-Volume Data", command=self.show_raw_data).pack(side=tk.LEFT, padx=5)
 #endregion
 #region feature curve
         control_frame_2 = ttk.Frame(self.visualization_frame)
@@ -710,13 +710,13 @@ class StockPredictionGUI:
             messagebox.showwarning("Warning", "Please train the model first")
             return
         
-        from StockChartPlotter import StockChartPlotter
+        from PriceVolumePlotter import PriceVolumePlotter
         stock = self.visual_model_combo.get().strip().upper()
         self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
         try:
             if stock:
                 stock_model = self.manager.get_stock_model(stock)
-                self.plotter = StockChartPlotter(stock, stock_model.loaded_data, figsize=(10, 6))
+                self.plotter = PriceVolumePlotter(stock, stock_model.loaded_data)
                 self.fig, self.canvas = self.plotter.set_backend_window(self.figure_frame)
                 self.canvas.pack(fill=tk.BOTH, expand=True)
                 self.row_plotter['plotter'] = self.plotter
