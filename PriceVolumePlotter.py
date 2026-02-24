@@ -400,6 +400,7 @@ if __name__ == "__main__":
     sample_data = create_sample_stock_data(days=60)
     root = Tk()
     frame = Frame(root)
+    frame.pack(fill=BOTH, expand=True)
     # 创建图表对象
     plotter = PriceVolumePlotter('test', sample_data)
     fig, canvas = plotter.set_backend_window(frame)
