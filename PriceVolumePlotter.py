@@ -29,11 +29,13 @@ class PriceVolumePlotter(StockChartPlotter):
         if fig is None:
             raise ValueError("fig is None")
         self.visual_data.fig = fig
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.ax, [ax_price, ax_volume], ['ax_price', 'ax_volume'])
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.ax, 
+                                               [ax_price, ax_volume],
+                                               [StockVisualData.AX_PRICE, StockVisualData.AX_VOLUME])
         # 计算涨跌颜色
         colors = self.calculate_price_change()
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name='ax_price')
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name='ax_volume')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_VOLUME)
         
         self.plot([ax_price, ax_volume])
         
@@ -42,12 +44,12 @@ class PriceVolumePlotter(StockChartPlotter):
         self.format_chart_bar(ax_volume)
         
         # 添加交互功能
-        self._add_interactive_features_to_price(ax_price)
+        self.add_mouse_hover_event(ax_price)
         self._add_interactive_features_to_volume(ax_volume)
-        super().add_interactive_features(ax_price)
-        super().add_interactive_features(ax_volume)
+        super().add_mouse_hover_event(ax_volume)
 
-        self.visual_data.set_stock_visual_data(StockVisualData.TYPE.ax, [ax_price, ax_volume], ['ax_price', 'ax_volume'])
+        self.visual_data.set_stock_visual_data(StockVisualData.TYPE.ax, [ax_price, ax_volume], 
+                                               [StockVisualData.AX_PRICE, StockVisualData.AX_VOLUME])
         
         # 调整布局
         plt.tight_layout()
@@ -72,7 +74,7 @@ class PriceVolumePlotter(StockChartPlotter):
             label='Close Price',
             zorder=5
         )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_line, 'price_line', axes_name='ax_price')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_line, 'price_line', axes_name=StockVisualData.AX_PRICE)
         # 如果有高低价数据，绘制价格区间
         if all(col in self.stock_data.columns for col in ['High', 'Low']):
             # 绘制价格区间（阴影）
@@ -125,7 +127,7 @@ class PriceVolumePlotter(StockChartPlotter):
             plt.FuncFormatter(self.format_large_numbers)
         )
 
-    def _add_interactive_features_to_price(self, ax):
+    def add_mouse_hover_event(self, ax):
         # 创建悬停线（垂直虚线）
         hover_line = ax.axvline(
             x=self.dates_mpl[0],
@@ -135,7 +137,7 @@ class PriceVolumePlotter(StockChartPlotter):
             visible=False,
             zorder=10
         )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, hover_line, 'hover_line', axes_name='ax_price')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, hover_line, 'hover_line', axes_name=StockVisualData.AX_PRICE)
         # 创建股价注释框
         price_annotation = ax.annotate(
             "",
@@ -152,7 +154,8 @@ class PriceVolumePlotter(StockChartPlotter):
             zorder=11
         )
         price_annotation.set_visible(False)
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_annotation, 'price_annotation', axes_name='ax_price')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_annotation, 'price_annotation', axes_name=StockVisualData.AX_PRICE)
+        super().add_mouse_hover_event(ax)
 
     def _add_interactive_features_to_volume(self, ax):
         # 创建交易量注释框
@@ -209,7 +212,7 @@ class PriceVolumePlotter(StockChartPlotter):
         if extra_info:
             price_text += f"\n{extra_info}"
         
-        price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='price_annotation')  
+        price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, StockVisualData.AX_PRICE, data_name='price_annotation')  
         price_annotation.set_text(price_text)
         price_annotation.xy = (self.dates_mpl[date_idx], close_price)
         price_annotation.set_visible(True)
@@ -224,9 +227,9 @@ class PriceVolumePlotter(StockChartPlotter):
 
     def on_leave_info(self, *args):
         # 隐藏注释框和悬停线
-        hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='hover_line')
+        hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, StockVisualData.AX_PRICE, data_name='hover_line')
         hover_line.set_visible(False)
-        price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='price_annotation')  
+        price_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, StockVisualData.AX_PRICE, data_name='price_annotation')  
         price_annotation.set_visible(False)
         volume_annotation = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_volume', data_name='volume_annotation')
         volume_annotation.set_visible(False)
@@ -407,8 +410,8 @@ if __name__ == "__main__":
     canvas.pack(fill=BOTH, expand=True)
     
     # 添加移动平均线
-    plotter.add_moving_average('ax_price', window=5, color='red', label='MA_5')
-    plotter.add_moving_average('ax_price', window=20, color='blue', label='MA_20')
+    plotter.add_moving_average(StockVisualData.AX_PRICE, window=5, color='red', label='MA_5')
+    plotter.add_moving_average(StockVisualData.AX_PRICE, window=20, color='blue', label='MA_20')
     
     # 显示图表
     # plotter.show()

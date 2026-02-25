@@ -2,8 +2,8 @@ import math, sys
 from tkinter import StringVar, filedialog, messagebox
 import matplotlib
 import pandas as pd
-
 from AxisRatioCalculator import AxisRatioCalculator
+from PriceVolumePlotter import PriceVolumePlotter, StockVisualData
 matplotlib.use('TkAgg')  # Use Tk backend
 import matplotlib.pyplot as plt
 import tkinter as tk
@@ -12,7 +12,7 @@ from Common.AutoNumber import AutoIndex
 from plot_data import PlotData, PLOT_TYPE
 import matplotlib.dates as mdates
 from plot_style import PlotStyle, STYLE, PLOT_ELEMENT
-from StockChartPlotter import StockChartPlotter, StockVisualData
+import mplcursors
 
 class ElementLayer(AutoIndex):
     MARKER = ()
@@ -24,8 +24,8 @@ class COMMAND(AutoIndex):
       zoom_in = ()
       zoom_out = ()
       seperator_1 = ()
-      draw_horizontal_line = ()
-      draw_vertical_line = ()
+      start_period = ()
+      end_period = ()
       seperator_2 = ()
       add_point = ()
     #   add_second_point = ()
@@ -69,8 +69,7 @@ class PROPERTY_2_POINTS(AutoIndex):
     percentage_of_value_change = ()
     tangent_of_line = ()
 
-from StockChartPlotter import StockChartPlotter                    
-class VisualAnalyser(StockChartPlotter):
+class VisualAnalyser(PriceVolumePlotter):
     CONTEXT_MENU_TEXT = ['label', 'command']
     def __init__(self, symbol, stock_data, figsize=(14,8)):
         """
@@ -85,7 +84,7 @@ class VisualAnalyser(StockChartPlotter):
         super().__init__(symbol, stock_data, figsize=figsize)
         self._marker_style = MARKER_STYLE.red_circle
         self._line_style = LINE_STYLE.dashed_line
-        self.axis_ratio_calculator = AxisRatioCalculator(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')  )
+        self.axis_ratio_calculator = AxisRatioCalculator(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)  )
         # if activate real-time search
         self._real_time_search = True # default is True
 
@@ -94,9 +93,9 @@ class VisualAnalyser(StockChartPlotter):
         self._init_plot_window_()
         return (self.visual_data.fig, self.tk_root) # root is canvas of parent figure
 
-
     def _init_plot_window_(self):
         self._create_menu_bar()
+        self._create_context_menu_commands()
                 
 #region # properties
     @property
@@ -138,66 +137,36 @@ class VisualAnalyser(StockChartPlotter):
             self._line_style = line
 #endregion # properties
 
-    def plot_price_chart(self, ax):
-        """绘制股价图"""
-        # 绘制收盘价折线
-        price_line, = ax.plot(
-            self.dates_mpl, 
-            self.stock_data['Close'],
-            color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
-            linewidth=self.plot_styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.price_line),
-            label='Close Price',
-            zorder=5
-        )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_line, 'price_line', axes_name='ax_price')
-        
-        # 如果有高低价数据，绘制价格区间
-        # if all(col in self.stock_data.columns for col in ['High', 'Low']):
-        #     # 绘制价格区间（阴影）
-        #     ax.fill_between(
-        #         self.dates_mpl,
-        #         self.stock_data['Low'],
-        #         self.stock_data['High'],
-        #         alpha=0.2,
-        #         color='gray',
-        #         label='Price Range'
-        #     )
-        
-        # 设置股价图标题和标签
-        ax.set_title(f'{self.symbol}: Stock Price Trend', 
-                               fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.title),
-                               fontweight='bold',
-                               pad=20)
-        ax.set_ylabel('Price (€)', 
-                                 fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
-        ax.legend(loc='upper left')
-        ax.grid(True, alpha=0.3, linestyle='--', 
-                          color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.grid_color))
-        
-        # 添加网格
-        ax.grid(True, alpha=0.3, linestyle='--')
-
     def create_plot(self):
         # 绘制收盘价折线
         fig, ax = plt.subplots(figsize=self.figsize)
         if fig is None:
             raise ValueError("fig is None")
         self.visual_data.fig = fig
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.ax, ax, 'ax_price')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.ax, ax, StockVisualData.AX_PRICE)
         # 计算涨跌颜色
         colors = self.calculate_price_change()
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name='ax_price')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
         self.plot_price_chart(ax)
-        
+        self.price_line_cursor = mplcursors.cursor(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 
+                                                                                          StockVisualData.AX_PRICE, 
+                                                                                          data_name='price_line'),
+                                                   hover=True)
+        self.price_line_cursor.connect("add", self.on_add)
+        # self.price_line_cursor.connect("remove", self.on_right_click)
         # 配置图表格式
         self.format_chart_price(ax)
         
-        # 添加交互功能
-        self.add_interactive_features(ax, ax_price=True)
+        # 添加交互功能, not activate interactive features for volume subplot for now, as it may cause some performance issue and the interaction on price plot is more intuitive and useful
+        # self.add_mouse_hover_event(ax)
         
         # 调整布局
         plt.tight_layout()
-        
+
+    def on_add(self, sel):
+        sel.annotation.set(text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}")
+        sel.annotation.get_bbox_patch().set_alpha(0.9)
+
     def _create_menu_bar(self):
         self.menubar = tk.Menu(self.parent)
         self.parent.config(menu=self.menubar)
@@ -237,14 +206,14 @@ class VisualAnalyser(StockChartPlotter):
 
     def set_labels(self, xlabel='', ylabel=''):
         """Set x and y axis labels."""
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         self.canvas.draw()
 
     def set_legend(self, location='upper right', shadow=True, fsize='x-small'):
         """Set legend on the plot."""
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         ax.legend(loc=location, shadow=shadow, fontsize=fsize)
         self.canvas.draw()
 
@@ -276,7 +245,7 @@ class VisualAnalyser(StockChartPlotter):
     
     def draw_horizontal_line(self, coords):
         if coords:
-            ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')
+            ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
             x, y = coords
             artist1 = ax.axhline(y=y, color='purple', linestyle=self.line_style, alpha=0.7, linewidth=2)
             artist2 = ax.text(0.5, y, f'y = {y:.2f}', 
@@ -287,7 +256,7 @@ class VisualAnalyser(StockChartPlotter):
         
     def draw_vertical_line(self, coords):
         if coords:
-            ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')
+            ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
             x, y = coords
             # Draw vertical line at x position
             artist1 = ax.axvline(x=x, color='g', linestyle=self.line_style, alpha=0.5)
@@ -298,7 +267,7 @@ class VisualAnalyser(StockChartPlotter):
             # self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
     
     def zoom_in(self, coords):
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         ax.set_xlim(xlim[0]*0.8, xlim[1]*0.8)
@@ -306,30 +275,18 @@ class VisualAnalyser(StockChartPlotter):
         self.canvas.draw()
     
     def zoom_out(self, coords):
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         ax.set_xlim(xlim[0]*1.2, xlim[1]*1.2)
         ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
         self.canvas.draw()
     
-    def add_point(self, coords):
-        # if coords:
-        #     ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price')
-        #     result = self.find_closest_point(coords[0], coords[1])
-        #     x, y = result['point']
-        #     # print(f"Clicked at data coords: ({x}, {y})")
-        #     # x_tk = self.root.winfo_pointerx() - self.root.winfo_rootx()
-        #     # y_tk = self.root.winfo_pointery() - self.root.winfo_rooty()
-        #     # print(f"Clicked at Tk coords: ({x_tk}, {y_tk})")
-        #     artist = ax.plot(x, y, self.marker_style, markersize=4, alpha=0.7, 
-        #                 markeredgecolor='black', markeredgewidth=2)[0]
-        #     idx = len(self.layers[ElementLayer.MARKER]) + 1
-        #     artist_idx = self.ax.text(x, y, f'P{idx}', weight='bold', 
-        #                 verticalalignment='bottom', horizontalalignment='left', color='black')
-        #     self.layers[ElementLayer.MARKER].append((artist, artist_idx, idx))
-        #     self.canvas.draw()
-            print(f"Added point marker at ({x:.3f}, {y:.3f})")
+    def begin_period(self, sel):
+        pass
+
+    def end_period(self, sel):
+        pass
 
     def find_closest_point(self, x_click, y_click):
         """

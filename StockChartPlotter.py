@@ -14,6 +14,8 @@ class StockVisualData:
         artists = ()
         properties = ()
 
+    AX_PRICE = 'ax_price'
+    AX_VOLUME = 'ax_volume'
     def __init__(self, fig=None):
         # 存储图表配置和元素的对象，包含以下属性:
         # - visual_data: dict {name1: {ax : ax1, 
@@ -256,41 +258,6 @@ class StockChartPlotter(ABC):
     def plot(self, ax):
         """绘制股价图"""
         pass
-        # 绘制收盘价折线
-        # price_line, = ax_price.plot(
-        #     self.dates_mpl, 
-        #     self.stock_data['Close'],
-        #     color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
-        #     linewidth=self.plot_styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.price_line),
-        #     label='Close Price',
-        #     zorder=5
-        # )
-        # self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_line, 'price_line', axes_name='ax_price')
-        # # 如果有高低价数据，绘制价格区间
-        # if all(col in self.stock_data.columns for col in ['High', 'Low']):
-        #     # 绘制价格区间（阴影）
-        #     ax_price.fill_between(
-        #         self.dates_mpl,
-        #         self.stock_data['Low'],
-        #         self.stock_data['High'],
-        #         alpha=0.2,
-        #         color='gray',
-        #         label='Price Range'
-        #     )
-        
-        # # 设置股价图标题和标签
-        # ax_price.set_title(f'{self.symbol}: Stock Price Trend', 
-        #                        fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.title),
-        #                        fontweight='bold',
-        #                        pad=20)
-        # ax_price.set_ylabel('Price (€)', 
-        #                          fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
-        # ax_price.legend(loc='upper left')
-        # ax_price.grid(True, alpha=0.3, linestyle='--', 
-        #                   color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.grid_color))
-        
-        # # 添加网格
-        # ax_price.grid(True, alpha=0.3, linestyle='--')
         
     def format_large_numbers(self, x, pos):
         """格式化大数字显示（如1000显示为1K）"""
@@ -333,9 +300,9 @@ class StockChartPlotter(ABC):
         # 自动旋转日期标签
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
             
-    def add_interactive_features(self, ax):
+    def add_mouse_hover_event(self, ax):
         """添加交互功能"""
-        # 连接鼠标移动事件
+        # 连接鼠标移动hover事件
         fig = self.visual_data.fig
         fig.canvas.mpl_connect("motion_notify_event", self.on_hover)
         
@@ -350,12 +317,12 @@ class StockChartPlotter(ABC):
     def on_hover(self, event):
         """鼠标悬停事件处理"""
         # 检查鼠标是否在图表区域内
-        if event.inaxes in [self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, 'ax_price'), self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, 'ax_volume')]:
+        if event.inaxes in [self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE), self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, 'ax_volume')]:
             # 找到最近的日期点
             idx = np.abs(self.dates_mpl - event.xdata).argmin()
             
             # 更新悬停线位置
-            hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 'ax_price', data_name='hover_line')
+            hover_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, StockVisualData.AX_PRICE, data_name='hover_line')
             hover_line.set_xdata([self.dates_mpl[idx]])
             hover_line.set_visible(True)
             
