@@ -164,7 +164,9 @@ class VisualAnalyser(PriceVolumePlotter):
         plt.tight_layout()
 
     def on_add(self, sel):
-        sel.annotation.set(text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}")
+        Volume = self.stock_data['Volume'].fillna(0)  # Ensure Volume column has no NaN values
+        # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
+        sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
         sel.annotation.get_bbox_patch().set_alpha(0.9)
 
     def _create_menu_bar(self):
