@@ -3,15 +3,13 @@ from tkinter import StringVar, filedialog, messagebox
 import matplotlib
 import pandas as pd
 from AxisRatioCalculator import AxisRatioCalculator
+from StockChartPlotter import PointData
 from PriceVolumePlotter import PriceVolumePlotter, StockVisualData
 matplotlib.use('TkAgg')  # Use Tk backend
 import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import ttk
 from Common.AutoNumber import AutoIndex
-from plot_data import PlotData, PLOT_TYPE
-import matplotlib.dates as mdates
-from plot_style import PlotStyle, STYLE, PLOT_ELEMENT
 import mplcursors
 
 class ElementLayer(AutoIndex):
@@ -68,7 +66,7 @@ class PROPERTY_2_POINTS(AutoIndex):
     value_difference = ()
     percentage_of_value_change = ()
     tangent_of_line = ()
-
+    
 class VisualAnalyser(PriceVolumePlotter):
     CONTEXT_MENU_TEXT = ['label', 'command']
     def __init__(self, symbol, stock_data, figsize=(14,8)):
@@ -164,9 +162,12 @@ class VisualAnalyser(PriceVolumePlotter):
         plt.tight_layout()
 
     def on_add(self, sel):
-        Volume = self.stock_data['Volume'].fillna(0)  # Ensure Volume column has no NaN values
+        point = PointData(sel)
+        # Volume = self.stock_data['Volume'].fillna(0)  # Ensure Volume column has no NaN values
+        Volume = point.get_feature_value(self.stock_data, 'Volume')
         # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
-        sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
+        # sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
+        sel.annotation.set(ha='left', text=f"{str(point)}\nVolume: {Volume:.0f}")
         sel.annotation.get_bbox_patch().set_alpha(0.9)
 
     def _create_menu_bar(self):

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -168,6 +169,65 @@ class StockVisualData:
             if data_name in self.visual_data[axes_name][data_type]:
                 return self.visual_data[axes_name][data_type].pop(data_name)
         return None    
+
+class PointData:
+    def __init__(self, selection):
+        self.x = selection.target[0]
+        self.price = selection.target[1]
+        self.index = selection.index
+        self.date_str = mdates.num2date(self.x).strftime('%Y-%m-%d')
+
+    def __str__(self):
+        return f"Date: {self.date_str}\nPrice: {self.price:.2f}\nIndex: {round(self.index)}"
+    
+    def compare_with(self, other, to_string=False):
+        if self.date_str == other.date_str:
+            return "Same point selected"
+        x_diff = other.x - self.x
+        price_diff = other.price - self.price
+        percentage_change = (price_diff / self.price * 100) if self.price != 0 else float('inf')
+        tangent = (price_diff / x_diff) if x_diff != 0 else float('inf')
+        date_diff = datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
+    
+        result = {
+            'price_diff': price_diff,
+            'percentage_change': percentage_change,
+            'tangent': tangent,
+            'date_span': date_diff
+        }
+        if to_string:
+            return f"price change: {result['price_diff']:.2f}({result['percentage_change']:.2f}%)\ntangent: {result['tangent']:.2f}\ndate span: {result['date_span'].days} days"
+        return result
+
+    def get_feature_value(self, stock_data, feature):
+        if feature in stock_data.columns:
+            feature_column = stock_data[feature].fillna(0)  # Ensure feature column has no NaN values
+            return feature_column.iloc[int(self.index)]
+        return None
+
+    def compare_feature_value(self, other, stock_data, feature):
+        if self.date_str == other.date_str:
+            return "Same point selected"
+        if feature in stock_data.columns:
+            date_diff = datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
+            value = self.get_feature_value(stock_data, feature)
+            other_value = other.get_feature_value(stock_data, feature)
+            value_diff = other_value - value
+            percentage_change = (value_diff / value * 100) if value != 0 else float('inf')
+            return f"Days:{date_diff.days}\n{feature} change: {value_diff:.2f}({percentage_change:.2f}%)"
+
+    def sum_feature_value(self, other, stock_data, feature):
+        if self.date_str == other.date_str:
+            return "Same point selected"
+        sum_value = 0
+        if feature in stock_data.columns:
+            date_diff = datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
+            feature_column = stock_data[feature].fillna(0)  # Ensure feature column has no NaN values
+            for d in range(0, other.index - self.index + 1):
+                current_index = self.index + d
+                sum_value += feature_column.iloc[int(current_index)]
+            return f"Days:{date_diff.days}\nsum_value: {sum_value:.2f}"
+        return ""
 
 class StockChartPlotter(ABC):
     """
