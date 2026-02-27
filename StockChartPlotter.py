@@ -180,7 +180,7 @@ class PointData:
     def __str__(self):
         return f"Date: {self.date_str}\nPrice: {self.price:.2f}\nIndex: {round(self.index)}"
     
-    def compare_with(self, other, to_string=False):
+    def compare_with(self, other, to_string=False) -> str|dict:
         if self.date_str == other.date_str:
             return "Same point selected"
         x_diff = other.x - self.x
@@ -205,7 +205,7 @@ class PointData:
             return feature_column.iloc[int(self.index)]
         return None
 
-    def compare_feature_value(self, other, stock_data, feature):
+    def compare_feature_value(self, other, stock_data, feature) -> str:
         if self.date_str == other.date_str:
             return "Same point selected"
         if feature in stock_data.columns:

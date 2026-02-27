@@ -18,14 +18,12 @@ class ElementLayer(AutoIndex):
     GUIDELINE = ()
     ORIGINAL = ()
 
-class COMMAND(AutoIndex):
+class CONTEXT_COMMAND(AutoIndex):
       zoom_in = ()
       zoom_out = ()
       seperator_1 = ()
-      start_period = ()
-      end_period = ()
-      seperator_2 = ()
-      add_point = ()
+      set_first_point = ()
+      compare_point = ()
     #   add_second_point = ()
 
 
@@ -85,6 +83,8 @@ class VisualAnalyser(PriceVolumePlotter):
         self.axis_ratio_calculator = AxisRatioCalculator(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)  )
         # if activate real-time search
         self._real_time_search = True # default is True
+        self.current_point = None
+        self.first_point = None
 
     def set_backend_window(self, parent):
         super().set_backend_window(parent)
@@ -161,15 +161,6 @@ class VisualAnalyser(PriceVolumePlotter):
         # 调整布局
         plt.tight_layout()
 
-    def on_add(self, sel):
-        point = PointData(sel)
-        # Volume = self.stock_data['Volume'].fillna(0)  # Ensure Volume column has no NaN values
-        Volume = point.get_feature_value(self.stock_data, 'Volume')
-        # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
-        # sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
-        sel.annotation.set(ha='left', text=f"{str(point)}\nVolume: {Volume:.0f}")
-        sel.annotation.get_bbox_patch().set_alpha(0.9)
-
     def _create_menu_bar(self):
         self.menubar = tk.Menu(self.parent)
         self.parent.config(menu=self.menubar)
@@ -195,7 +186,7 @@ class VisualAnalyser(PriceVolumePlotter):
     def _create_context_menu_commands(self):
         self.context_menu = tk.Menu(self.tk_root, tearoff=0)
         self.menu_items = {}
-        for e in COMMAND:
+        for e in CONTEXT_COMMAND:
             if e.name.startswith('seperator'):
                 self.context_menu.add_separator()
             else:
@@ -224,6 +215,7 @@ class VisualAnalyser(PriceVolumePlotter):
         # 因为PLOT被加入TKINTER窗口，不用再调用此方法
         pass
 
+#region ### event callback functions    
     def on_right_click(self, event):
         if event.button == 3 and event.inaxes == self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price'):  # Right-click in axes
             self.last_click_coords = (event.xdata, event.ydata)
@@ -239,13 +231,34 @@ class VisualAnalyser(PriceVolumePlotter):
                 # Fallback
                 self.context_menu.post(self.last_click_coords)
             
-#region ### event callback functions    
     def dummy_command(self):
         """Placeholder - will be replaced"""
         print("This dummy_command")
 
-    # def add_point_marker(self, coords):
-    
+    def on_add(self, sel):
+        self.current_point = PointData(sel)
+        # Volume = self.stock_data['Volume'].fillna(0)  # Ensure Volume column has no NaN values
+        Volume = self.current_point.get_feature_value(self.stock_data, 'Volume')
+        # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
+        # sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
+        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {Volume:.0f}")
+        sel.annotation.get_bbox_patch().set_alpha(0.9)
+
+    def set_first_point(self, *args):
+        self.first_point = self.current_point
+
+    def compare_point(self, *args):
+        if self.first_point is None:
+            messagebox.showinfo("Info", "Please select the first point before comparing.")
+            return
+        else:
+            result = self.first_point.compare_with(self.current_point, to_string=True)
+            from Common.Util import CreateChildWindow
+            def create_comparison_dialog():
+                top = CreateChildWindow(self.tk_root, "Comparison Result", "300x200", XClose=True)
+                tk.Label(top, text=result,justify=tk.CENTER).pack(pady=20, padx=20)
+            create_comparison_dialog()
+
     def draw_horizontal_line(self, coords):
         if coords:
             ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
