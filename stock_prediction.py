@@ -716,7 +716,7 @@ class StockPredictionGUI:
         try:
             if stock:
                 stock_model = self.manager.get_stock_model(stock)
-                self.plotter = PriceVolumePlotter(stock, stock_model.loaded_data)
+                self.plotter = PriceVolumePlotter(stock, stock_model)
                 self.fig, self.canvas = self.plotter.set_backend_window(self.figure_frame)
                 self.canvas.pack(fill=tk.BOTH, expand=True)
                 self.row_plotter['plotter'] = self.plotter
@@ -748,7 +748,7 @@ class StockPredictionGUI:
             try:
                 if stock:
                     stock_model = self.manager.get_stock_model(stock)
-                    self.feature_plotter['plotter'] = VisualAnalyser(stock, stock_model.loaded_data)
+                    self.feature_plotter['plotter'] = VisualAnalyser(stock, stock_model)
                     local_fig, local_canvas = self.feature_plotter['plotter'].set_backend_window(visual_root)
                     local_canvas.pack(fill=tk.BOTH, expand=True)
                     self.feature_plotter['fig'] = local_fig

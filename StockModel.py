@@ -19,6 +19,27 @@ class StockModel:
         ONE_WEEK = ()
         ONE_MONTH = ()
         THREE_MONTHS = ()
+
+    class FEATURE(AutoIndex):
+        Price = ()
+        Volume = ()
+        Open = ()
+        Close = ()
+        High = ()
+        Low = ()
+        # add more features as needed
+
+    # extended features
+    class ExtendFeature(AutoIndex):
+        high_low_range = ()
+        open_close_range = ()
+        total_days = ()
+        max_price = ()
+        min_price = ()
+        max_volume = ()
+        avg_price = ()
+        total_volume = ()
+
     Interval = ['1m','2m','5m','15m','30m','60m','90m','1h','1d','5d','1wk','1mo','3mo']
     def __init__(self, ticker_symbol, load_data=None, start_date=None, end_date=None):
         self._ticker_symbol = ticker_symbol
@@ -29,6 +50,10 @@ class StockModel:
         self._intervals = dict(zip([itv for itv in StockModel.INTERVAL], StockModel.Interval))
         self._ticker_directory_on_disk = None
         self._interval = '1d'
+        self._feature_functions = None
+        self._extend_features = {}
+        if load_data is not None:
+            self._extracted_features()
 
 #region properties    
     @property
@@ -61,7 +86,10 @@ class StockModel:
         return self._loaded_data.copy()
     @loaded_data.setter
     def loaded_data(self, data):
-        self._loaded_data = data
+        if data is not None:
+            self._loaded_data = data
+            self._extracted_features()
+
 
     @property
     def model(self):
@@ -78,6 +106,36 @@ class StockModel:
         self._ticker_directory_on_disk = dir
 #endregion properties
 
+    def _extracted_features(self):
+        """提取股票属性信息"""
+        # 提取基本统计信息
+        print(self._loaded_data.shape)
+        data_num = self._loaded_data.shape[1] if self._loaded_data is not None else 0
+        self._extend_features[StockModel.ExtendFeature.total_days] = data_num
+        self._extend_features[StockModel.ExtendFeature.max_price] = self._loaded_data['High'].max()
+        self._extend_features[StockModel.ExtendFeature.min_price] = self._loaded_data['Low'].min()
+        self._extend_features[StockModel.ExtendFeature.max_volume] = self._loaded_data['Volume'].max()
+        self._extend_features[StockModel.ExtendFeature.avg_price] = self._loaded_data['Close'].mean()
+        self._extend_features[StockModel.ExtendFeature.total_volume] = self._loaded_data['Volume'].sum()
+        self._extend_features[StockModel.ExtendFeature.high_low_range] = self._loaded_data['High'] - self._loaded_data['Low']
+        self._extend_features[StockModel.ExtendFeature.open_close_range] = self._loaded_data['Open'] - self._loaded_data['Close']
+
+    def get_feature_value(self, feature: FEATURE, index:int=None):
+        """获取股票特征值"""
+        if self._loaded_data is None:
+            raise ValueError("No data loaded for this stock model.")
+        if index is None or index >= len(self._loaded_data):
+            raise IndexError("Index out of range for loaded data.")
+        return self._loaded_data.get(feature.name, None).iloc[index]
+
+    def get_ext_feature(self, ext_feature : ExtendFeature, index:int=None):
+        """获取股票属性值"""
+        if index is not None:
+            feature_data = self._extend_features.get(ext_feature, None)
+            if feature_data is not None and hasattr(feature_data, '__len__') and index < len(feature_data):
+                return feature_data.iloc[index]
+        return self._extend_features.get(ext_feature, None)
+
     def load_historical_data(self, start_date:str=None, end_date:str=None):
         """load historical data for a single ticker from yfinance"""
         if self._start_date is None and start_date is None:
@@ -92,6 +150,7 @@ class StockModel:
         try:
             self._loaded_data = yf.Ticker(self._ticker_symbol).history(start=self._start_date, end=self._end_date)
             print(f"Loaded history data of ticker [{self._ticker_symbol}]")
+            self._extracted_features()
             return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbol}: {e}")
@@ -117,6 +176,7 @@ class StockModel:
                                 timeout=60     # 延长超时时间
                                 # threads=True    # 使用多线程
                                 )
+            self._extracted_features()
             return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbolicker}: {e}")

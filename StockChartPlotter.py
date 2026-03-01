@@ -171,6 +171,7 @@ class StockVisualData:
         return None    
 
 class PointData:
+
     def __init__(self, selection):
         self.x = selection.target[0]
         self.price = selection.target[1]
@@ -179,6 +180,14 @@ class PointData:
 
     def __str__(self):
         return f"Date: {self.date_str}\nPrice: {self.price:.2f}\nIndex: {round(self.index)}"
+
+    def __repr__(self):
+        return f"Date='{self.date_str}' PointData(x='{self.x}', price={self.price:.2f}, index={round(self.index)})"
+    
+    def __eq__(self, other):
+        if isinstance(other, PointData):
+            return self.date_str == other.date_str
+        return False
     
     def compare_with(self, other, to_string=False) -> str|dict:
         if self.date_str == other.date_str:
@@ -198,12 +207,6 @@ class PointData:
         if to_string:
             return f"price change: {result['price_diff']:.2f}({result['percentage_change']:.2f}%)\ntangent: {result['tangent']:.2f}\ndate span: {result['date_span'].days} days"
         return result
-
-    def get_feature_value(self, stock_data, feature):
-        if feature in stock_data.columns:
-            feature_column = stock_data[feature].fillna(0)  # Ensure feature column has no NaN values
-            return feature_column.iloc[int(self.index)]
-        return None
 
     def compare_feature_value(self, other, stock_data, feature) -> str:
         if self.date_str == other.date_str:
@@ -238,7 +241,7 @@ class StockChartPlotter(ABC):
     3. 鼠标悬停显示数据点详细信息
     4. 支持自定义样式和配置
     """
-    def __init__(self, symbol, stock_data, figsize=(14, 10)):
+    def __init__(self, symbol, stock_model, figsize=(14, 10)):
         """
         初始化StockChartPlotter
         
@@ -266,7 +269,8 @@ class StockChartPlotter(ABC):
                          ]
         """
         self.symbol = symbol
-        self.stock_data = stock_data.copy()
+        self.stock_model = stock_model
+        self.stock_data = stock_model.loaded_data.copy()
         self.figsize = figsize
         self.visual_data = StockVisualData()
         self.plot_styles = PlotStyle()
@@ -318,7 +322,7 @@ class StockChartPlotter(ABC):
     def plot(self, ax):
         """绘制股价图"""
         pass
-        
+
     def format_large_numbers(self, x, pos):
         """格式化大数字显示（如1000显示为1K）"""
         if x >= 1e9:

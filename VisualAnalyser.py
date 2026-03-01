@@ -37,16 +37,16 @@ class FILE_MENU_COMMAND(AutoIndex):
       seperator_2 = ()
       exit = ()
 
-class ACTION_MENU_COMMAND(AutoIndex):
-      show_point_properties = ()
-      show_comparison_2_points = ()
-      draw_line = ()
-      seperator_1 = ()
-      remove_point = ()
-      remove_line = ()
-      clear_all_markers = ()
-      clear_all_lines = ()
-      reset_view = ()
+# class ACTION_MENU_COMMAND(AutoIndex):
+#       show_point_properties = ()
+#       show_comparison_2_points = ()
+#       draw_line = ()
+#       seperator_1 = ()
+#       remove_point = ()
+#       remove_line = ()
+#       clear_all_markers = ()
+#       clear_all_lines = ()
+#       reset_view = ()
 
 class MARKER_STYLE(AutoIndex):
     red_circle = ()
@@ -151,7 +151,8 @@ class VisualAnalyser(PriceVolumePlotter):
                                                                                           data_name='price_line'),
                                                    hover=True)
         self.price_line_cursor.connect("add", self.on_add)
-        # self.price_line_cursor.connect("remove", self.on_right_click)
+        # disable remove event to prevent right-click conflict with hover event, as they may trigger at the same time when user right-clicks on a point, which can cause the context menu to not show up
+        self.price_line_cursor.connect("remove", None)
         # 配置图表格式
         self.format_chart_price(ax)
         
@@ -171,7 +172,7 @@ class VisualAnalyser(PriceVolumePlotter):
         # Action menu
         self.action_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label='Action', menu=self.action_menu)
-        self._add_command_to_menu(self.action_menu, ACTION_MENU_COMMAND)
+        # self._add_command_to_menu(self.action_menu, ACTION_MENU_COMMAND)
 
     def _add_command_to_menu(self, menu, commands):
         for e in commands:
@@ -236,17 +237,24 @@ class VisualAnalyser(PriceVolumePlotter):
         print("This dummy_command")
 
     def on_add(self, sel):
+        from StockModel import StockModel
         self.current_point = PointData(sel)
+        idx = int(sel.index)
         # Volume = self.stock_data['Volume'].fillna(0)  # Ensure Volume column has no NaN values
-        Volume = self.current_point.get_feature_value(self.stock_data, 'Volume')
+        Volume = self.stock_model.get_feature_value(StockModel.FEATURE.Volume, idx)
+        max_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.max_volume)
+        vol_perc = Volume / max_volume * 100 if max_volume is None or max_volume > 0 else 0
+        active = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
         # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
         # sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
-        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {Volume:.0f}")
+        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {Volume:.0f}({vol_perc:.1f}%)\nActive: {active:.0f}")
         sel.annotation.get_bbox_patch().set_alpha(0.9)
 
+    # set selected first point for comparison
     def set_first_point(self, *args):
         self.first_point = self.current_point
 
+    # compare current point with the first point and show the result in a dialog
     def compare_point(self, *args):
         if self.first_point is None:
             messagebox.showinfo("Info", "Please select the first point before comparing.")
@@ -256,7 +264,7 @@ class VisualAnalyser(PriceVolumePlotter):
             from Common.Util import CreateChildWindow
             def create_comparison_dialog():
                 top = CreateChildWindow(self.tk_root, "Comparison Result", "300x200", XClose=True)
-                tk.Label(top, text=result,justify=tk.CENTER).pack(pady=20, padx=20)
+                tk.Label(top, text=result,justify=tk.LEFT).pack(pady=20, padx=20)
             create_comparison_dialog()
 
     def draw_horizontal_line(self, coords):
@@ -298,88 +306,6 @@ class VisualAnalyser(PriceVolumePlotter):
         ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
         self.canvas.draw()
     
-    def begin_period(self, sel):
-        pass
-
-    def end_period(self, sel):
-        pass
-
-    def find_closest_point(self, x_click, y_click):
-        """
-        暴力搜索：计算所有距离，找到最小值
-        时间复杂度：O(n)，适合小数据集
-        """
-        x_curve = self.curve['x']
-        y_curve = self.curve['y']
-        # 计算所有距离
-        distances = np.sqrt((x_curve - x_click)**2 + (y_curve - y_click)**2)
-        
-        # 找到最小距离的索引
-        min_index = np.argmin(distances)
-        
-        return {
-            'index': min_index,
-            'point': (x_curve[min_index], y_curve[min_index]),
-            'distance': distances[min_index]
-        }
-
-    def _find_closest_marker_index(self, x, y):
-        min_dist = float('inf')
-        closest_idx = -1
-        for i, (artist, artist_idx, idx) in enumerate(self.layers[ElementLayer.MARKER]):
-            px = float(artist.get_xdata()[0])
-            py = float(artist.get_ydata()[0])
-            dist = math.hypot(px - x, py - y)
-            if dist < min_dist:
-                min_dist = dist
-                closest_idx = i
-        return closest_idx
-
-    def update_points_marker(self):
-        for artist, artist_idx, idx in self.layers[ElementLayer.MARKER]:
-            x = float(artist.get_xdata()[0])
-            y = float(artist.get_ydata()[0])
-            artist_idx.set_position((x, y))
-            artist_idx.set_text(f'P{idx}')
-        self.canvas.draw()
-
-    def show_comparison_2_points(self):
-        x1, y1 = self.layers[ElementLayer.MARKER][0].get_xdata()[0], self.layers[ElementLayer.MARKER][0].get_ydata()[0]
-        x2, y2 = self.layers[ElementLayer.MARKER][1].get_xdata()[0], self.layers[ElementLayer.MARKER][1].get_ydata()[0]
-        x_diff = x2 - x1
-        y_diff = y2 - y1
-        y_perc = (y_diff / y1 * 100) if y1 != 0 else float('inf')
-        tangent = (y_diff / x_diff) if x_diff !=0 else float('inf')
-        selections = [' '.join(e.name.split('_')) for e in PROPERTY_2_POINTS]
-        data = [0]*len(selections)
-        data[0] = x_diff
-        data[1] = y_diff
-        data[2] = y_perc
-        data[3] = tangent
-        sel_data = dict(zip(selections, data))
-        selected_text = StringVar(value=selections[0])
-        # create pup-up dialog
-        def create_properties_dialog():
-            dialog = tk.Toplevel(self.tk_root)
-            dialog.title("comparison of 2 points")
-            dialog.geometry("300x300")
-            
-            tk.Label(dialog, text=f"Coordinates:", font=('Arial', 12, 'bold')).pack()
-            tk.Label(dialog, text=f"x1, y1 = ({x1:.6f}, {y1:.6f}) ").pack()
-            tk.Label(dialog, text=f"x2, y2 = ({x2:.6f}, {y2:.6f})").pack()
-            tk.Label(dialog, text=f"{selections[0]} = {x_diff:.6f}").pack()
-            tk.Label(dialog, text=f"{selections[1]} = {y_diff:.6f}").pack()
-            tk.Label(dialog, text=f"{selections[2]} = {y_perc:.2f}%").pack()
-            tk.Label(dialog, text=f"{selections[3]} = {tangent:.2f}").pack()
-            tk.Label(dialog, text=f"Degree of Line = {math.atan2(y_diff, x_diff)*180/math.pi:.2f}").pack()
-            combo = ttk.Combobox(dialog, values=selections, state='readonly', textvariable=selected_text)
-            combo.pack(pady=10)
-            tk.Button(dialog, text="Record", command=lambda text=selected_text.get(): self.record_data(sel_data[text])).pack(pady=10)
-        create_properties_dialog()
-
-    def record_data(self, value):
-        print(f"Recorded value: {value}")
-
     def draw_line(self):
         """
         Docstring for draw_line
