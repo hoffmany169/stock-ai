@@ -197,20 +197,20 @@ class VisualAnalyser(PriceVolumePlotter):
     # def fill_between(self, alpha=0.2):
     #     """Fill area under the curve with specified alpha transparency."""
     #     self.ax.fill_between(self.x, self.y, alpha=alpha)
-    #     self.canvas.draw()
+    #     self.fig_canvas.draw()
 
     def set_labels(self, xlabel='', ylabel=''):
         """Set x and y axis labels."""
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        self.canvas.draw()
+        self.fig_canvas.draw()
 
     def set_legend(self, location='upper right', shadow=True, fsize='x-small'):
         """Set legend on the plot."""
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         ax.legend(loc=location, shadow=shadow, fontsize=fsize)
-        self.canvas.draw()
+        self.fig_canvas.draw()
 
     def show(self):
         # 因为PLOT被加入TKINTER窗口，不用再调用此方法
@@ -275,7 +275,7 @@ class VisualAnalyser(PriceVolumePlotter):
             artist2 = ax.text(0.5, y, f'y = {y:.2f}', 
                         transform=ax.get_yaxis_transform(),
                         color='purple', ha='center', va='bottom')
-            self.canvas.draw()
+            self.fig_canvas.draw()
             self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
         
     def draw_vertical_line(self, coords):
@@ -287,7 +287,7 @@ class VisualAnalyser(PriceVolumePlotter):
             # Add text annotation
             artist2 = ax.text(x, ax.get_ylim()[1]*0.9, f'x={x:.2f}', 
                         rotation=90, verticalalignment='top')
-            self.canvas.draw()
+            self.fig_canvas.draw()
             # self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
     
     def zoom_in(self, coords):
@@ -296,7 +296,7 @@ class VisualAnalyser(PriceVolumePlotter):
         ylim = ax.get_ylim()
         ax.set_xlim(xlim[0]*0.8, xlim[1]*0.8)
         ax.set_ylim(ylim[0]*0.8, ylim[1]*0.8)
-        self.canvas.draw()
+        self.fig_canvas.draw()
     
     def zoom_out(self, coords):
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
@@ -304,7 +304,7 @@ class VisualAnalyser(PriceVolumePlotter):
         ylim = ax.get_ylim()
         ax.set_xlim(xlim[0]*1.2, xlim[1]*1.2)
         ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
-        self.canvas.draw()
+        self.fig_canvas.draw()
     
     def draw_line(self):
         """
@@ -356,7 +356,7 @@ class VisualAnalyser(PriceVolumePlotter):
             text_number = len(self.layers[ElementLayer.GUIDELINE]) + 1
             artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'L{text_number}', 
                         rotation=visual_angle, verticalalignment='top')
-            self.canvas.draw()
+            self.fig_canvas.draw()
             self.points_to_line[(start_idx, end_idx)] = len(self.layers[ElementLayer.GUIDELINE])
             self.layers[ElementLayer.GUIDELINE].append((artist1, artist2, text_number))
 
@@ -370,7 +370,7 @@ class VisualAnalyser(PriceVolumePlotter):
             text.set_position(((x1+x2)/2, (y1+y2)/2))
             text.set_rotation(visual_angle)
             text.set_text(f'L{text_number}')
-        self.canvas.draw()
+        self.fig_canvas.draw()
 
     def show_point_properties(self):
         # Create a properties dialog
@@ -479,7 +479,7 @@ class VisualAnalyser(PriceVolumePlotter):
                                 artist_idx.remove()
                             self.layers[ElementLayer.MARKER][i] = None
                             to_deleted_point_idx = i
-                            self.canvas.draw()
+                            self.fig_canvas.draw()
                         else:
                             if idx > point_idx:
                                 self.layers[ElementLayer.MARKER][i] = (artist, artist_idx, idx-1)
@@ -515,7 +515,7 @@ class VisualAnalyser(PriceVolumePlotter):
                         self.layers[ElementLayer.GUIDELINE] = [item for item in self.layers[ElementLayer.GUIDELINE] if item is not None]
                     self.update_points_marker()
                     self.update_lines()
-                    self.canvas.draw()
+                    self.fig_canvas.draw()
                     if dialog:
                         dialog.destroy()
                 else:
@@ -529,7 +529,7 @@ class VisualAnalyser(PriceVolumePlotter):
             if marker:
                 marker.remove()
         self.layers[ElementLayer.MARKER].clear()
-        self.canvas.draw()
+        self.fig_canvas.draw()
 
     def remove_line(self):
         def create_remove_line_dialog():
@@ -577,7 +577,7 @@ class VisualAnalyser(PriceVolumePlotter):
                                 del self.points_to_line[points]
                     self.update_points_marker()
                     self.update_lines()
-                    self.canvas.draw()
+                    self.fig_canvas.draw()
                     dialog.destroy()
                 else:
                     messagebox.showwarning("Warning", "Invalid line index.")
@@ -592,7 +592,7 @@ class VisualAnalyser(PriceVolumePlotter):
                     if artist:
                         artist.remove()
         self.layers[ElementLayer.GUIDELINE] = []
-        self.canvas.draw()
+        self.fig_canvas.draw()
 
     def reset_view(self):
         self.ax.relim()
