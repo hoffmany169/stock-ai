@@ -149,7 +149,7 @@ class VisualAnalyser(PriceVolumePlotter):
         self.price_line_cursor = mplcursors.cursor(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 
                                                                                           StockVisualData.AX_PRICE, 
                                                                                           data_name='price_line'),
-                                                   hover=True)
+                                                   hover=2) # Transient hover mode: the annotation appears when the mouse is near a point and disappears when the mouse moves away, with a delay of 2 seconds before disappearing. This mode is useful for providing information about points without requiring a click, while also ensuring that the annotation does not linger on the screen for too long.
         self.price_line_cursor.connect("add", self.on_add)
         # disable remove event to prevent right-click conflict with hover event, as they may trigger at the same time when user right-clicks on a point, which can cause the context menu to not show up
         self.price_line_cursor.connect("remove", None)
@@ -247,8 +247,14 @@ class VisualAnalyser(PriceVolumePlotter):
         active = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
         # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
         # sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
-        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {Volume:.0f}({vol_perc:.1f}%)\nActive: {active:.0f}")
+        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {self.format_large_numbers(Volume, 0)}({vol_perc:.1f}%)\nActive: {active:.0f}")
         sel.annotation.get_bbox_patch().set_alpha(0.9)
+        # draw selected point marker
+        x, y = sel.target
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        highlight = ax.plot(x, y, color='red', marker='o', markersize=5)
+        # add it to extras so it is removed on deselection
+        sel.extras.append(highlight[0])
 
     # set selected first point for comparison
     def set_first_point(self, *args):
