@@ -323,6 +323,16 @@ class StockChartPlotter(ABC):
         """绘制股价图"""
         pass
 
+    @abstractmethod
+    def on_hover_info(self, *args):
+        """获取悬停信息"""
+        pass
+
+    @abstractmethod
+    def on_leave_info(self, *args):
+        """获取鼠标离开信息"""
+        pass
+
     def format_large_numbers(self, x, pos):
         """格式化大数字显示（如1000显示为1K）"""
         if x >= 1e9:
@@ -373,11 +383,11 @@ class StockChartPlotter(ABC):
         # 连接鼠标离开事件
         fig.canvas.mpl_connect("axes_leave_event", self.on_leave)
 
-    @abstractmethod
-    def on_hover_info(self, *args):
-        """获取悬停信息"""
-        pass
-
+    def on_leave(self, event):
+        """鼠标离开图表区域事件处理"""
+        self.on_leave_info()
+        self.visual_data.fig.canvas.draw_idle()
+    
     def on_hover(self, event):
         """鼠标悬停事件处理"""
         # 检查鼠标是否在图表区域内
@@ -394,16 +404,6 @@ class StockChartPlotter(ABC):
             
             # 重绘图形
             self.visual_data.fig.canvas.draw_idle()
-    
-    @abstractmethod
-    def on_leave_info(self, *args):
-        """获取鼠标离开信息"""
-        pass
-
-    def on_leave(self, event):
-        """鼠标离开图表区域事件处理"""
-        self.on_leave_info()
-        self.visual_data.fig.canvas.draw_idle()
     
     def show(self):
         """显示图表"""

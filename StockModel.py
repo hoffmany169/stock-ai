@@ -184,6 +184,22 @@ class StockModel:
                                  f"Error downloading data for {self.ticker_symbolticker}: {e}")
             return False
 
+    def load_model_data_from_disk(self, data_dir):
+        from ModelIO import ModelSaverLoader
+        from StockDefine import MODEL_TRAIN_DATA
+        mio = ModelSaverLoader(data_dir, 
+                               ticker_symbol=self._ticker_symbol,
+                               save=False)
+        result = mio.load_train_data()
+        if result[MODEL_TRAIN_DATA.ticker_data]:
+            self._loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data)
+        if result[MODEL_TRAIN_DATA.ticker_data_params]:
+            data_params = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data_params)
+            self.assign_ticker_params_from_loading(data_params)
+        if result[MODEL_TRAIN_DATA.model]:
+            self.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
+        return result
+
     def create_ticker_parameters(self):
         return {TICKER_DATA_PARAM.ticker_symbol.name: self._ticker_symbol,
                 TICKER_DATA_PARAM.start_date.name: self._start_date,
