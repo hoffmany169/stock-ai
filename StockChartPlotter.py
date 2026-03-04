@@ -19,13 +19,13 @@ class StockVisualData:
     AX_VOLUME = 'ax_volume'
     def __init__(self, fig=None):
         # 存储图表配置和元素的对象，包含以下属性:
-        # - visual_data: dict {name1: {ax : ax1, 
-        #                             artists: {artist1 : data, ...}, 
-        #                             properties: {property1 : data, ...}
+        # - visual_data: dict {name1: {TYPE.ax : ax1, 
+        #                              TYPE.artists: {artist1 : data, ...}, 
+        #                              TYPE.properties: {property1 : data, ...}
         #                      },
-        #                      {name2: {ax : ax2, 
-        #                              artists: {artist2 : data, ...},
-        #                              properties: {property1 : data, ...}
+        #                      {name2: {TYPE.ax : ax2, 
+        #                               TYPE.artists: {artist2 : data, ...},
+        #                               TYPE.properties: {property1 : data, ...}
         #                      }
         #                      ...
         self._fig = fig
@@ -151,9 +151,12 @@ class StockVisualData:
         if data_type == StockVisualData.TYPE.ax:
             return self.visual_data[axes_name].get(data_type, None)
         else:
-            return self.visual_data[axes_name].get(data_type, {}).get(data_name, None)
+            if data_name is None:
+                return self.visual_data[axes_name][data_type] # return all artists dict
+            else:
+                return self.visual_data[axes_name].get(data_type, {}).get(data_name, None)
 
-    def popup_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
+    def remove_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
         """从图表中移除指定的股票数据
         
         参数:
@@ -167,6 +170,7 @@ class StockVisualData:
             坐标轴名称，用于定位数据所在的坐标轴
         name : str
             数据名称，用于定位具体的数据项
+        return: element which is removed
         """
         if self.visual_data.get(axes_name) is None:
             raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
@@ -282,6 +286,12 @@ class StockChartPlotter(ABC):
         self.figsize = figsize
         self.visual_data = StockVisualData()
         self.plot_styles = PlotStyle()
+        #parent window of tkinter
+        self.parent = None
+        # canvas for tkinter from plot figure, original figure is saved in self.visual_data.fig
+        self.fig_canvas = None 
+        # tk widget obtained from figure canvas
+        self.tk_root = None 
         
         # 确保日期为datetime格式
         if not pd.api.types.is_datetime64_any_dtype(self.stock_data['Date']):
@@ -456,40 +466,125 @@ class StockChartPlotter(ABC):
         
         # 绘制高点标记
         if peaks:
-            ax_main.scatter(
-                self.dates_mpl[peaks],
-                feature_data[peaks],
-                marker=peak_marker,  # 向下三角表示高点（因为要下跌）
-                color=peak_color,
-                s=120,
-                zorder=10,
-                edgecolors='white',
-                linewidth=1.5,
-                label=peak_label
-            )
+            artist1 = ax_main.scatter(
+                        self.dates_mpl[peaks],
+                        feature_data[peaks],
+                        marker=peak_marker,  # 向下三角表示高点（因为要下跌）
+                        color=peak_color,
+                        s=120,
+                        zorder=10,
+                        edgecolors='white',
+                        linewidth=1.5,
+                        label=peak_label
+                    )
         
         # 绘制低点标记
         if valleys:
-            ax_main.scatter(
-                self.dates_mpl[valleys],
-                feature_data[valleys],
-                marker=valley_marker,  # 向上三角表示低点（因为要上涨）
-                color=valley_color,
-                s=120,
-                zorder=10,
-                edgecolors='white',
-                linewidth=1.5,
-                label=valley_label
-            )
-        
+            artist2 = ax_main.scatter(
+                        self.dates_mpl[valleys],
+                        feature_data[valleys],
+                        marker=valley_marker,  # 向上三角表示低点（因为要上涨）
+                        color=valley_color,
+                        s=120,
+                        zorder=10,
+                        edgecolors='white',
+                        linewidth=1.5,
+                        label=valley_label
+                    )
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist1, 'peaks', axes_name=StockVisualData.AX_PRICE)
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist2, 'valleys', axes_name=StockVisualData.AX_PRICE)
         ax_main.legend(loc='upper left')
-        self.visual_data.fig.canvas.draw_idle()        
+        if self.parent is None:
+            self.visual_data.fig.canvas.draw_idle()
+        else:
+            self.tk_root.update()
+
+    def remove_highlighted_peaks_valleys(self):
+        self.remove_artist(StockVisualData.AX_PRICE, 'peaks')
+        self.remove_artist(StockVisualData.AX_PRICE, 'valleys')
+
+    def add_custom_markers(self, name, indices=None, dates=None, marker='^', color='red', size=100):
+        """
+        在特定位置添加自定义标记
+        
+        参数:
+        ----------
+        indices : list
+            要标记的数据点索引列表
+        dates : list
+            或者用日期列表指定要标记的点
+        marker : str
+            标记样式 ('^' 向上三角, 'v' 向下三角, 'o' 圆形, 's' 方形, '*' 星形)
+        color : str
+            标记颜色
+        size : int
+            标记大小
+        """
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        if self.ax is None:
+            raise ValueError("Please, call create_plot() or show() at first.")
+        
+        if indices is not None:
+            # 使用索引标记
+            x_coords = self.dates_mpl[indices]
+            y_coords = self.stock_data['Close'].iloc[indices]
+        elif dates is not None:
+            # 使用日期标记
+            date_indices = []
+            for date in dates:
+                # 找到最接近的日期索引
+                date_num = mdates.date2num(pd.to_datetime(date))
+                idx = np.abs(self.dates_mpl - date_num).argmin()
+                date_indices.append(idx)
+            
+            x_coords = self.dates_mpl[date_indices]
+            y_coords = self.stock_data['Close'].iloc[date_indices]
+        else:
+            raise ValueError("必须提供indices或dates参数")
+        
+        # 绘制标记
+        markers = ax.scatter(
+            x_coords, 
+            y_coords,
+            marker=marker,
+            color=color,
+            s=size,  # 标记大小
+            zorder=10,  # 确保标记显示在最上层
+            edgecolors='white',
+            linewidth=1,
+            label=f'Markers ({marker})'
+        )
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE, markers, name, StockVisualData.AX_PRICE)
+        # 更新图例
+        ax.legend(loc='upper left')
+        
+        if self.fig is not None:
+            self.fig.canvas.draw_idle()
+
+    def remove_artist(self, axes_name, data_name):
+        artist = self.visual_data.remove_stock_visual_data(StockVisualData.TYPE.artists, axes_name, data_name)
+        if artist is None:
+            return
+        artist.remove()
+        self.visual_data.fig.canvas.draw_idle()
+
+    def remove_all_artists(self, ax_name):
+        artists = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name)
+        for name in artists.keys():
+            artist = self.visual_data.remove_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name=name)
+            if artist is None:
+                continue
+            artist.remove()
+            print(f"Removed artist: {name}")
+        self.visual_data.fig.canvas.draw_idle()
 
     def show(self):
         """显示图表"""
         if self.visual_data.fig is None:
             self.create_plot()
-        plt.show()
+        # if parent is a tkinter widget, don't call show() function.
+        if self.parent is None:
+            plt.show()
     
     def save(self, filename, dpi=300):
         """保存图表为文件

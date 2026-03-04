@@ -39,6 +39,7 @@ class FILE_MENU_COMMAND(AutoIndex):
 
 class ACTION_MENU_COMMAND(AutoIndex):
       highlight_peaks_and_valleys = ()
+      remove_peaks_and_valleys = ()
 #       show_comparison_2_points = ()
 #       draw_line = ()
 #       seperator_1 = ()
@@ -211,11 +212,7 @@ class VisualAnalyser(PriceVolumePlotter):
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         ax.legend(loc=location, shadow=shadow, fontsize=fsize)
         self.fig_canvas.draw()
-
-    def show(self):
-        # 因为PLOT被加入TKINTER窗口，不用再调用此方法
-        pass
-
+        
 #region ### event callback functions    
     def on_right_click(self, event):
         if event.button == 3 and event.inaxes == self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, axes_name='ax_price'):  # Right-click in axes
@@ -463,11 +460,18 @@ class VisualAnalyser(PriceVolumePlotter):
                                 peak_label='Local Highest Point',
                                 valley_label='Local Lowest Point'
                                 ):
+        self.remove_highlighted_peaks_valleys()
         super().highlight_peaks_valleys(ax_name, feature, window=window, peak_color=peak_color, valley_color=valley_color,
                                         peak_marker=peak_marker,
                                         valley_marker=valley_marker,
                                         peak_label=peak_label,
                                         valley_label=valley_label)
+
+    def on_remove_peaks_and_valleys(self):
+        self.remove_highlighted_peaks_valleys()
+
+    def remove_highlighted_peaks_valleys(self):
+        super().remove_highlighted_peaks_valleys()
 
     def on_open_file(self):
         pass

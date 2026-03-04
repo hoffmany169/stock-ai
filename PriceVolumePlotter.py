@@ -283,31 +283,7 @@ class PriceVolumePlotter(StockChartPlotter):
             self.menu_items[e.name] = self.context_menu.index("end")
 
     def remove_artist(self, ax_name, data_name):
-        moving_average_lines = self.visual_data.popup_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name=data_name)
-        if moving_average_lines is None:
-            return False
-        if len(moving_average_lines) == 0:
-            return False
-        line = moving_average_lines.pop()
-        if line:
-            for artist in line:
-                if artist:
-                    artist.remove()
-        self.visual_data.fig.canvas.draw_idle()
-        return True
-
-    def remove_all_artists(self, ax_name, data_name):
-        moving_average_lines = self.visual_data.popup_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name=data_name)
-        if moving_average_lines is None:
-            return
-        if len(moving_average_lines) == 0:
-            return
-        for line in moving_average_lines:
-            if line:
-                for artist in line:
-                    if artist:
-                        artist.remove()
-        self.visual_data.fig.canvas.draw()
+        super().remove_artist(ax_name, data_name)
 
     def on_right_click(self, event):
         if event.button == 3:  # Right-click in axes
@@ -329,21 +305,6 @@ class PriceVolumePlotter(StockChartPlotter):
             except:
                 # Fallback
                 self.context_menu.post(self.last_click_coords)
-
-    def highlight_peaks_valleys(self, ax_name:str, feature:str,
-                                window=5, 
-                                peak_color='green', 
-                                valley_color='red',
-                                peak_marker='v',
-                                valley_marker='^',
-                                peak_label='Local Highest Point',
-                                valley_label='Local Lowest Point'
-                                ):
-        super().highlight_peaks_valleys(ax_name, feature, window=window, peak_color=peak_color, valley_color=valley_color,
-                                        peak_marker=peak_marker,
-                                        valley_marker=valley_marker,
-                                        peak_label=peak_label,
-                                        valley_label=valley_label)
 
 # ==================== 使用示例 ====================
 import numpy as np

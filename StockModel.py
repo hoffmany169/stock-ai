@@ -198,6 +198,7 @@ class StockModel:
             self.assign_ticker_params_from_loading(data_params)
         if result[MODEL_TRAIN_DATA.model]:
             self.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
+        self._extracted_features()
         return result
 
     def create_ticker_parameters(self):
