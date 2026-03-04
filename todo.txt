@@ -1,3 +1,4 @@
 1. volume ma-5: activate and deactivate
 2. plot feature curve after loading raw data
 3. extract High and low point of waves.
+4. compare wave 

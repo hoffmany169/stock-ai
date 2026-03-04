@@ -24,7 +24,10 @@ class CONTEXT_COMMAND(AutoIndex):
       seperator_1 = ()
       set_first_point = ()
       compare_point = ()
-    #   add_second_point = ()
+      seperator_2 = ()
+      wave_begin = ()
+      wave_middle = ()
+      wave_end_compare = ()
 
 
 class FILE_MENU_COMMAND(AutoIndex):
@@ -42,7 +45,6 @@ class ACTION_MENU_COMMAND(AutoIndex):
       remove_peaks_and_valleys = ()
 #       show_comparison_2_points = ()
 #       draw_line = ()
-#       seperator_1 = ()
 #       remove_point = ()
 #       remove_line = ()
 #       clear_all_markers = ()
@@ -241,10 +243,10 @@ class VisualAnalyser(PriceVolumePlotter):
         Volume = self.stock_model.get_feature_value(StockModel.FEATURE.Volume, idx)
         max_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.max_volume)
         vol_perc = Volume / max_volume * 100 if max_volume is None or max_volume > 0 else 0
-        active = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
+        range = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
         # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
         # sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
-        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {self.format_large_numbers(Volume, 0)}({vol_perc:.1f}%)\nActive: {active:.0f}")
+        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {self.format_large_numbers(Volume, 0)}({vol_perc:.1f}%)\nHL Range: {range:.0f}")
         sel.annotation.get_bbox_patch().set_alpha(0.9)
         # draw selected point marker
         x, y = sel.target
@@ -430,17 +432,6 @@ class VisualAnalyser(PriceVolumePlotter):
         valley_marker = ttk.Combobox(frm4, textvariable=textvar[6], values=marker_list)
         valley_marker.pack(side='left', padx=5)
         
-        # def update_point():
-        #     try:
-        #         new_y = float(new_y_var.get())
-        #         # Find and update the point if it exists
-        #         for artist in self.ax.get_children():
-        #             if hasattr(artist, 'get_label') and artist.get_label() == 'Clicked point':
-        #                 # This is a simplified approach - in reality, you'd need to track the point
-        #                 pass
-        #         print(f"Would update point to y={new_y}")
-        #     except ValueError:
-        #         pass
         frm6 = tk.Frame(dialog)
         frm6.pack(fill='x', expand=True, pady=(0, 5))
         tk.Button(frm6, text="OK", command=lambda x=textvar: self.highlight_peaks_valleys(x[0].get(),
