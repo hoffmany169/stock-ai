@@ -38,6 +38,10 @@ class StockVisualData:
     def fig(self, value):
         self._fig = value
 
+    @property
+    def data(self):
+        return self.visual_data
+
     def add_stock_visual_data(self, data_type:TYPE, data:any, data_name, axes_name=None):
         """添加股票数据到图表
         
@@ -60,16 +64,20 @@ class StockVisualData:
             raise ValueError("data_name must be provided for all data types")
         if data_type == StockVisualData.TYPE.ax:
             if (type(data) == list and (data_name is not None and type(data_name) != list) and  len(data) != len(data_name)):
-                raise ValueError("如果data是列表，data_name必须也是列表，且长度与data相同")
+                raise ValueError("if data is a list, data_name must be a list, and length of data must be same.")
             if type(data) == list:
                 for i, name in enumerate(data_name):
-                    self.visual_data[name] = {StockVisualData.TYPE.ax : data[i]}
-                    self.visual_data[name][StockVisualData.TYPE.artists] = {}
-                    self.visual_data[name][StockVisualData.TYPE.properties] = {}
+                    self.visual_data[name] = {
+                        StockVisualData.TYPE.ax : data[i],
+                        StockVisualData.TYPE.artists : {}, 
+                        StockVisualData.TYPE.properties : {}
+                    }
             else:
-                self.visual_data[data_name] = {StockVisualData.TYPE.ax : data}
-                self.visual_data[data_name][StockVisualData.TYPE.artists] = {}
-                self.visual_data[data_name][StockVisualData.TYPE.properties] = {}
+                self.visual_data[data_name] = {
+                    StockVisualData.TYPE.ax : data,
+                    StockVisualData.TYPE.artists : {},
+                    StockVisualData.TYPE.properties : {}
+                }
         else:
             if axes_name is None:
                 raise ValueError("axes_name must be provided for artist data except for axes data")
@@ -241,7 +249,7 @@ class StockChartPlotter(ABC):
     3. 鼠标悬停显示数据点详细信息
     4. 支持自定义样式和配置
     """
-    def __init__(self, symbol, stock_model, figsize=(14, 10)):
+    def __init__(self, stock_model, figsize=(14, 10)):
         """
         初始化StockChartPlotter
         
@@ -268,7 +276,7 @@ class StockChartPlotter(ABC):
                           ...
                          ]
         """
-        self.symbol = symbol
+        self.symbol = stock_model.ticker_symbol
         self.stock_model = stock_model
         self.stock_data = stock_model.loaded_data.copy()
         self.figsize = figsize
@@ -405,6 +413,78 @@ class StockChartPlotter(ABC):
             # 重绘图形
             self.visual_data.fig.canvas.draw_idle()
     
+    def highlight_peaks_valleys(self, ax_name:str, feature:str,
+                                window=5, 
+                                peak_color='green', 
+                                valley_color='red',
+                                peak_marker='v',
+                                valley_marker='^',
+                                peak_label='Local Highest Point',
+                                valley_label='Local Lowest Point'
+                                ):
+        """
+        标记局部高点和低点
+        
+        参数:
+        ----------
+        window : int
+            用于识别局部极值的窗口大小
+        peak_color : str
+            高点标记颜色
+        valley_color : str
+            低点标记颜色
+        """
+        ax_main = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, ax_name)
+        if ax_main is None:
+            raise ValueError("请先调用create_plot()或show()方法")
+        from StockModel import StockModel
+        if feature not in [n.name for n in StockModel.FEATURE]:
+            raise ValueError(f"{feature} does not exist in stock features!")
+        feature_data = self.stock_data[feature].values
+        
+        # 识别局部高点
+        peaks = []
+        for i in range(window, len(feature_data) - window):
+            if all(feature_data[i] >= feature_data[i-window:i]) and all(feature_data[i] >= feature_data[i+1:i+window+1]):
+                peaks.append(i)
+        
+        # 识别局部低点
+        valleys = []
+        for i in range(window, len(feature_data) - window):
+            if all(feature_data[i] <= feature_data[i-window:i]) and all(feature_data[i] <= feature_data[i+1:i+window+1]):
+                valleys.append(i)
+        
+        # 绘制高点标记
+        if peaks:
+            ax_main.scatter(
+                self.dates_mpl[peaks],
+                feature_data[peaks],
+                marker=peak_marker,  # 向下三角表示高点（因为要下跌）
+                color=peak_color,
+                s=120,
+                zorder=10,
+                edgecolors='white',
+                linewidth=1.5,
+                label=peak_label
+            )
+        
+        # 绘制低点标记
+        if valleys:
+            ax_main.scatter(
+                self.dates_mpl[valleys],
+                feature_data[valleys],
+                marker=valley_marker,  # 向上三角表示低点（因为要上涨）
+                color=valley_color,
+                s=120,
+                zorder=10,
+                edgecolors='white',
+                linewidth=1.5,
+                label=valley_label
+            )
+        
+        ax_main.legend(loc='upper left')
+        self.visual_data.fig.canvas.draw_idle()        
+
     def show(self):
         """显示图表"""
         if self.visual_data.fig is None:

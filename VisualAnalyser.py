@@ -1,7 +1,6 @@
-import math, sys
-from tkinter import StringVar, filedialog, messagebox
+import sys
+from tkinter import StringVar, filedialog, messagebox, IntVar
 import matplotlib
-import pandas as pd
 from AxisRatioCalculator import AxisRatioCalculator
 from StockChartPlotter import PointData
 from PriceVolumePlotter import PriceVolumePlotter, StockVisualData
@@ -11,6 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 from Common.AutoNumber import AutoIndex
 import mplcursors
+from Common.Util import CreateChildWindow
 
 class ElementLayer(AutoIndex):
     MARKER = ()
@@ -37,8 +37,8 @@ class FILE_MENU_COMMAND(AutoIndex):
       seperator_2 = ()
       exit = ()
 
-# class ACTION_MENU_COMMAND(AutoIndex):
-#       show_point_properties = ()
+class ACTION_MENU_COMMAND(AutoIndex):
+      highlight_peaks_and_valleys = ()
 #       show_comparison_2_points = ()
 #       draw_line = ()
 #       seperator_1 = ()
@@ -67,7 +67,7 @@ class PROPERTY_2_POINTS(AutoIndex):
     
 class VisualAnalyser(PriceVolumePlotter):
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, symbol, stock_data, figsize=(14,8)):
+    def __init__(self, stock_model, figsize=(14,8)):
         """
         Docstring for __init__
         two scenarios:
@@ -77,7 +77,7 @@ class VisualAnalyser(PriceVolumePlotter):
         2. create fig and ax inside
         :param figsize: figure size
         """
-        super().__init__(symbol, stock_data, figsize=figsize)
+        super().__init__(stock_model, figsize=figsize)
         self._marker_style = MARKER_STYLE.red_circle
         self._line_style = LINE_STYLE.dashed_line
         self.axis_ratio_calculator = AxisRatioCalculator(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)  )
@@ -172,7 +172,7 @@ class VisualAnalyser(PriceVolumePlotter):
         # Action menu
         self.action_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label='Action', menu=self.action_menu)
-        # self._add_command_to_menu(self.action_menu, ACTION_MENU_COMMAND)
+        self._add_command_to_menu(self.action_menu, ACTION_MENU_COMMAND)
 
     def _add_command_to_menu(self, menu, commands):
         for e in commands:
@@ -180,7 +180,7 @@ class VisualAnalyser(PriceVolumePlotter):
             if e.name.startswith('seperator'):
                 menu.add_separator()
             else:
-                cmd = getattr(self, e.name)
+                cmd = getattr(self, f'on_{e.name}')
                 menu.add_command(label=label_text, 
                                 command=cmd)
 
@@ -378,49 +378,108 @@ class VisualAnalyser(PriceVolumePlotter):
             text.set_text(f'L{text_number}')
         self.fig_canvas.draw()
 
-    def show_point_properties(self):
-        # Create a properties dialog
-        coords = self.last_click_coords
-        if coords:
-            x, y = coords
-            dialog = tk.Toplevel(self.tk_root)
-            dialog.title("Point Properties")
-            dialog.geometry("300x200")
-            
-            tk.Label(dialog, text=f"Coordinates:", font=('Arial', 12, 'bold')).pack()
-            tk.Label(dialog, text=f"x = {x:.6f}").pack()
-            tk.Label(dialog, text=f"y = {y:.6f}").pack()
-            
-            # Add entry to modify values
-            tk.Label(dialog, text="\nNew y value:").pack()
-            new_y_var = tk.StringVar(value=str(y))
-            entry = tk.Entry(dialog, textvariable=new_y_var)
-            entry.pack()
-            
-            def update_point():
-                try:
-                    new_y = float(new_y_var.get())
-                    # Find and update the point if it exists
-                    for artist in self.ax.get_children():
-                        if hasattr(artist, 'get_label') and artist.get_label() == 'Clicked point':
-                            # This is a simplified approach - in reality, you'd need to track the point
-                            pass
-                    print(f"Would update point to y={new_y}")
-                except ValueError:
-                    pass
-            tk.Button(dialog, text="Update", command=update_point).pack(pady=10)
+    def on_highlight_peaks_and_valleys(self):
+        from StockModel import StockModel
+        from plot_style import STYLE, PLOT_ELEMENT
+        textvar = []
+        # Create a highlight peaks and valleys dialog
+        dialog = CreateChildWindow(self.tk_root, 'highlight peaks and valleys',
+                                   modal=False,
+                                   geometry="300x200",
+                                   XClose=True)    
+        frm1 = tk.Frame(dialog)
+        frm1.pack(fill='x', expand=True, pady=5)    
+        tk.Label(frm1, text="ax name:", font=('Arial', 12, 'bold')).pack(side='left', padx=5)
+        ax_names = list(self.visual_data.data.keys())
+        textvar.append(StringVar(dialog, ax_names[0]))
+        ax_name_combo = ttk.Combobox(frm1, state='onlyread', textvariable=textvar[0], values=ax_names)
+        ax_name_combo.pack(side='left', padx=5)
 
-    def open_file(self):
+        frm2 = tk.Frame(dialog)
+        frm2.pack(fill='x', expand=True, pady=(0, 5))
+        tk.Label(frm2, text="Feature").pack(side='left', padx=5)
+        features = [f.name for f in StockModel.FEATURE]
+        textvar.append(StringVar(dialog, features[0]))
+        feature_combo = ttk.Combobox(frm2, textvariable=textvar[1], values=features)
+        feature_combo.pack(side='left', padx=5)
+        
+        frm3 = tk.Frame(dialog)
+        frm3.pack(fill='x', expand=True, pady=(0, 5))
+        tk.Label(frm3, text="Window").pack(side='left', padx=5)
+        textvar.append(IntVar(dialog, 5))
+        window = tk.Entry(frm3, textvariable=textvar[2])
+        window.pack(side='left', padx=5)
+
+        frm4 = tk.Frame(dialog)
+        frm4.pack(fill='x', expand=True, pady=(0, 5))
+        tk.Label(frm4, text="peak color").pack(side='left', padx=5)
+        textvar.append(tk.StringVar(dialog, 'green'))
+        peak_color = tk.Entry(frm4, textvariable=textvar[3])
+        peak_color.pack(side='left', padx=5)
+        tk.Label(frm4, text="peak marker").pack(side='left', padx=5)
+        marker_list = self.plot_styles.get_marker_names()
+        textvar.append(tk.StringVar(frm4, marker_list[3]))
+        peak_marker = ttk.Combobox(frm4, textvariable=textvar[4], values=marker_list)
+        peak_marker.pack(side='left', padx=5)
+
+        frm5 = tk.Frame(dialog)
+        frm5.pack(fill='x', expand=True, pady=(0, 5))
+        tk.Label(frm5, text="valley color").pack(side='left', pady=(0, 5))
+        textvar.append(tk.StringVar(dialog, 'red'))
+        valley_color = tk.Entry(frm5, textvariable=textvar[5])
+        valley_color.pack(side='left', padx=5)
+        tk.Label(frm5, text="valley marker").pack(side='left', padx=5)
+        textvar.append(tk.StringVar(frm5, marker_list[4]))
+        valley_marker = ttk.Combobox(frm4, textvariable=textvar[6], values=marker_list)
+        valley_marker.pack(side='left', padx=5)
+        
+        # def update_point():
+        #     try:
+        #         new_y = float(new_y_var.get())
+        #         # Find and update the point if it exists
+        #         for artist in self.ax.get_children():
+        #             if hasattr(artist, 'get_label') and artist.get_label() == 'Clicked point':
+        #                 # This is a simplified approach - in reality, you'd need to track the point
+        #                 pass
+        #         print(f"Would update point to y={new_y}")
+        #     except ValueError:
+        #         pass
+        frm6 = tk.Frame(dialog)
+        frm6.pack(fill='x', expand=True, pady=(0, 5))
+        tk.Button(frm6, text="OK", command=lambda x=textvar: self.highlight_peaks_valleys(x[0].get(),
+                                                                                          x[1].get(), 
+                                                                                          window=x[2].get(),
+                                                                                          peak_color=x[3].get(),
+                                                                                          peak_marker=self.plot_styles.get_marker(x[4].get()),
+                                                                                          valley_color=x[5].get(),
+                                                                                          valley_marker=self.plot_styles.get_marker(x[6].get()))).pack(anchor='center', pady=10)
+
+    def highlight_peaks_valleys(self, ax_name:str, feature:str,
+                                window=5, 
+                                peak_color='green', 
+                                valley_color='red',
+                                peak_marker='v',
+                                valley_marker='^',
+                                peak_label='Local Highest Point',
+                                valley_label='Local Lowest Point'
+                                ):
+        super().highlight_peaks_valleys(ax_name, feature, window=window, peak_color=peak_color, valley_color=valley_color,
+                                        peak_marker=peak_marker,
+                                        valley_marker=valley_marker,
+                                        peak_label=peak_label,
+                                        valley_label=valley_label)
+
+    def on_open_file(self):
         pass
 
-    def save_image(self):
+    def on_save_image(self):
         if self._plot_file_name:
             self.fig.savefig(self._plot_file_name, dpi=300, bbox_inches='tight')
             messagebox.showinfo("Save", f"Plot saved to:\n{self._plot_file_name}")
         else:
             self.save_image_as()
 
-    def save_image_as(self):
+    def on_save_image_as(self):
         self._plot_file_name = filedialog.asksaveasfilename(
             defaultextension=".png",
             filetypes=[
@@ -434,7 +493,7 @@ class VisualAnalyser(PriceVolumePlotter):
             self.fig.savefig(self._plot_file_name, dpi=300, bbox_inches='tight')
             messagebox.showinfo("Save as", f"Plot saved to:\n{self._plot_file_name}")
 
-    def export_pdf(self):
+    def on_export_pdf(self):
         filename = filedialog.asksaveasfilename(
             defaultextension=".pdf",
             filetypes=[("PDF files", "*.pdf")]
@@ -443,7 +502,7 @@ class VisualAnalyser(PriceVolumePlotter):
             self.fig.savefig(filename, format='pdf', bbox_inches='tight')
             messagebox.showinfo("Export PDF", f"Plot saved to:\n{filename}")
     
-    def exit(self):
+    def on_exit(self):
         sys.exit(0)
 
     def remove_point(self):
@@ -529,7 +588,6 @@ class VisualAnalyser(PriceVolumePlotter):
             tk.Button(dialog, text="Confirm", command=on_delete_point).pack(pady=10)
         create_remove_point_dialog()
 
-
     def clear_all_markers(self):
         for marker in self.layers[ElementLayer.MARKER]:
             if marker:
@@ -607,7 +665,7 @@ class VisualAnalyser(PriceVolumePlotter):
         self.clear_all_markers()
         self.clear_all_lines()
     
-    def references(self):
+    def on_references(self):
         messagebox.showinfo("References", "Plot Analyser\nVersion 1.0")
 
     # def on_closing(self):

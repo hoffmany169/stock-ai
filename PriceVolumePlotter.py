@@ -14,8 +14,8 @@ class PriceVolumePlotter(StockChartPlotter):
         remove_artist = ()
         remove_all_artists = ()
 
-    def __init__(self, symbol, stock_data, figsize=(14, 10)):
-        super().__init__(symbol, stock_data, figsize)
+    def __init__(self, stock_model, figsize=(14, 10)):
+        super().__init__(stock_model, figsize)
 
     def create_plot(self):
         """创建主图表"""
@@ -329,6 +329,21 @@ class PriceVolumePlotter(StockChartPlotter):
             except:
                 # Fallback
                 self.context_menu.post(self.last_click_coords)
+
+    def highlight_peaks_valleys(self, ax_name:str, feature:str,
+                                window=5, 
+                                peak_color='green', 
+                                valley_color='red',
+                                peak_marker='v',
+                                valley_marker='^',
+                                peak_label='Local Highest Point',
+                                valley_label='Local Lowest Point'
+                                ):
+        super().highlight_peaks_valleys(ax_name, feature, window=window, peak_color=peak_color, valley_color=valley_color,
+                                        peak_marker=peak_marker,
+                                        valley_marker=valley_marker,
+                                        peak_label=peak_label,
+                                        valley_label=valley_label)
 
 # ==================== 使用示例 ====================
 import numpy as np

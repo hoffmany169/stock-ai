@@ -5,6 +5,7 @@ class STYLE(AutoIndex):
     line_widths = ()
     alphas = ()
     font_sizes = ()
+    markers = ()
 
 class PLOT_ELEMENT(AutoIndex):
     title = ()
@@ -20,6 +21,8 @@ class PLOT_ELEMENT(AutoIndex):
     axis_label = ()
     annotation = ()
     tick_label = ()
+    peaks = ()
+    valleys = ()
 
 
 class PlotStyle:
@@ -56,6 +59,26 @@ class PlotStyle:
                 'axis_label': 12,
                 'annotation': 10,
                 'tick_label': 10,
+            },
+            'markers' : {
+                'point' : '.',
+                'pixel' : ',',
+                'circle' : 'o',
+                'down_triangle' : 'v',
+                'up triangle' : '^',
+                'left triangle' : '<',
+                'right triangle' : '>',
+                'square' : 's',
+                'pentagon' : 'p',
+                'star' : '*',
+                'hexagon1' : 'h',
+                'hexagon2' : 'H',
+                'plus' : '+',
+                'cross' : 'x',
+                'diamond' : 'D',
+                'thin diamond' : 'd',
+                'vertical bar' : '|',
+                'hyphen' : '_'
             }
         }
 
@@ -70,3 +93,11 @@ class PlotStyle:
                 self.styles[style.name][elem] = value
                 return
         raise ValueError("No style or plot element is found!")
+    
+    def get_marker_names(self)->list:
+        return list(self.styles['markers'].keys())
+    
+    def get_marker(self, name):
+        for n, v in self.styles['markers'].items():
+            if name == n:
+                return v
