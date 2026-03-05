@@ -57,7 +57,9 @@ class StockPredictionGUI:
         self.create_training_tab()
         self.create_selection_tab()
         self.create_visualization_tab()
-        
+        self.feature = 'Close'
+        self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
+        self.feature_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
         # 加载已保存的模型列表
         # self.load_saved_models()
 
@@ -293,32 +295,34 @@ class StockPredictionGUI:
         self.visual_model_combo.pack(side=tk.LEFT, padx=5)
         self.visual_model_combo['values'] = self._processing_stocks
 
-        ttk.Button(control_frame, text="Show Price-Volume Data", command=self.show_raw_data).pack(side=tk.LEFT, padx=5)
+        # set feature shown in chart
+        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
+        # 特征选择下拉框
+        features = [f.name for f in StockModel.FEATURE]
+        self.shown_feature = {'feature 1': StringVar(control_frame, 'Close'), 'operator': StringVar(control_frame, '--'), 'feature 2': StringVar(control_frame, '--')}
+        self.feature1_combo = ttk.Combobox(control_frame, textvariable=self.shown_feature['feature 1'], values=features, width=25)
+        self.feature1_combo.pack(side=tk.LEFT, padx=5)
+
+        self.feature_operator = ttk.Combobox(control_frame, values=['--', '+', '-', '/', 'x'], textvariable=self.shown_feature['operator'], width=25)
+        self.feature_operator.pack(side=tk.LEFT, padx=5)
+
+        self.feature2_combo = ttk.Combobox(control_frame, textvariable=self.shown_feature['feature 2'], values=features, width=25)
+        self.feature2_combo.pack(side=tk.LEFT, padx=5)
+        self.shown_feature['feature 1'].trace_add('write', self.on_change_shown_feature)
 #endregion
 #region feature curve
         control_frame_2 = ttk.Frame(self.visualization_frame)
         control_frame_2.pack(fill=tk.X, padx=5, pady=5)
 
-        ttk.Label(control_frame_2, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
-        # 特征选择下拉框
-        self.shown_feature = {'feature 1': StringVar(control_frame_2, 'Open'), 'operator': StringVar(control_frame_2, '--'), 'feature 2': StringVar(control_frame_2, '--')}
-        self.feature1_combo = ttk.Combobox(control_frame_2, textvariable=self.shown_feature['feature 1'], width=25)
-        self.feature1_combo.pack(side=tk.LEFT, padx=5)
-
-        self.feature_operator = ttk.Combobox(control_frame_2, values=['--', '+', '-', '/', 'x'], textvariable=self.shown_feature['operator'], width=25)
-        self.feature_operator.pack(side=tk.LEFT, padx=5)
-
-        self.feature2_combo = ttk.Combobox(control_frame_2, textvariable=self.shown_feature['feature 2'], width=25)
-        self.feature2_combo.pack(side=tk.LEFT, padx=5)
-        
-        ttk.Button(control_frame, text="Show Feature Curve", command=self.show_feature_curve).pack(side=tk.LEFT, padx=5)
+        ttk.Button(control_frame_2, text="Show Price-Volume Data", command=self.show_raw_data).pack(side=tk.LEFT, padx=5)        
+        ttk.Button(control_frame_2, text="Show Feature Curve", command=self.show_feature_curve).pack(side=tk.LEFT, padx=5)
 #endregion        
         # 图表显示区域
         self.figure_frame = ttk.Frame(self.visualization_frame)
         self.figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        # self.fig, self.ax = plt.subplots(figsize=(10, 6))
-        # self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
-        # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    def on_change_shown_feature(self, *args):
+        self.feature = self.shown_feature['feature 1'].get()
 
     def _upate_feature_combos(self, ticker):
         # 填充特征列表
@@ -712,19 +716,20 @@ class StockPredictionGUI:
         
         from PriceVolumePlotter import PriceVolumePlotter
         stock = self.visual_model_combo.get().strip().upper()
-        self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
         try:
             if stock:
-                stock_model = self.manager.get_stock_model(stock)
-                self.plotter = PriceVolumePlotter(stock_model)
-                self.fig, self.canvas = self.plotter.set_backend_window(self.figure_frame)
-                self.canvas.pack(fill=tk.BOTH, expand=True)
-                self.row_plotter['plotter'] = self.plotter
-                self.row_plotter['fig'] = self.fig
-                self.row_plotter['canvas'] = self.canvas
-                # self.ax = self.fig.get_axes()
-                # self.plotter.show()
-            
+                if self.row_plotter['plotter'] is None:
+                    stock_model = self.manager.get_stock_model(stock)
+                    plotter = PriceVolumePlotter(stock_model)
+                    fig, canvas = plotter.set_backend_window(self.figure_frame)
+                    canvas.pack(fill=tk.BOTH, expand=True)
+                    self.row_plotter['plotter'] = plotter
+                    self.row_plotter['fig'] = fig
+                    self.row_plotter['canvas'] = canvas
+                else:
+                    if self.feature != self.row_plotter['plotter'].feature:
+                        self.row_plotter['plotter'].feature = self.feature
+                        self.row_plotter['plotter'].plot()            
         except Exception as e:
             messagebox.showerror("Error", f"Error displaying data: {str(e)}")
     
@@ -744,77 +749,23 @@ class StockPredictionGUI:
                                             modal=False, XClose=True,
                                             geometry="800x600")            
             stock = self.visual_model_combo.get().strip().upper()
-            self.feature_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
             try:
                 if stock:
-                    stock_model = self.manager.get_stock_model(stock)
-                    self.feature_plotter['plotter'] = VisualAnalyser(stock_model)
-                    local_fig, local_canvas = self.feature_plotter['plotter'].set_backend_window(visual_root)
-                    local_canvas.pack(fill=tk.BOTH, expand=True)
-                    self.feature_plotter['fig'] = local_fig
-                    self.feature_plotter['canvas'] = local_canvas
-                    # local_ax = local_fig.get_axes()
-                    # self.fig = self.visual_analyser.fig
-                    # self.ax = self.fig.get_axes()
-                    # self.canvas = FigureCanvasTkAgg(self.fig, master=self.figure_frame)
-                    # self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)                
-                    # visual_analyser.show()
+                    if self.feature_plotter['plotter'] is None:
+                        stock_model = self.manager.get_stock_model(stock)
+                        self.feature_plotter['plotter'] = VisualAnalyser(stock_model)
+                        local_fig, local_canvas = self.feature_plotter['plotter'].set_backend_window(visual_root)
+                        local_canvas.pack(fill=tk.BOTH, expand=True)
+                        self.feature_plotter['fig'] = local_fig
+                        self.feature_plotter['canvas'] = local_canvas
+                else:
+                    if self.feature != self.feature_plotter['plotter'].feature:
+                        self.feature_plotter['plotter'].feature = self.feature
+                        self.feature_plotter['plotter'].plot()            
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 
         open_feature_analysis(self.figure_frame)
-
-        # feature_name = self.feature_combo.get()
-        # if not feature_name:
-        #     messagebox.showwarning("Warning", "Please select a feature")
-        #     return
-        
-        # try:
-        #     # 获取第一个股票的数据
-        #     stocks = self.manager.get_all_tickers()
-        #     if not stocks:
-        #         self.log_message("No available stock data")
-        #         return
-            
-        #     ticker = stocks[0]
-        #     data = self.manager.tickers[ticker][TICKER.DATA]
-            
-        #     # 查找对应的特征
-        #     selected_feature = None
-        #     for feature in FEATURE:
-        #         if self._stock_features.get_feature_name(feature) == feature_name:
-        #             selected_feature = feature
-        #             break
-            
-        #     if not selected_feature:
-        #         messagebox.showwarning("Warning", "Feature does not exist")
-        #         return
-            
-        #     # 计算特征值
-        #     selector = LSTMModelTrain()
-        #     selector.ticker = self.manager.tickers[ticker]
-        #     selector.preprocess_data()
-            
-        #     # 绘制特征曲线
-        #     self.ax.clear()
-            
-        #     if hasattr(data, selected_feature):
-        #         self.ax.plot(data.index, data[selected_feature], label=feature_name, linewidth=2)
-        #         self.ax.set_title(f"{ticker} {feature_name} Curve")
-        #         self.ax.set_xlabel("Date")
-        #         self.ax.set_ylabel("Feature Value")
-        #         self.ax.legend()
-        #         self.ax.grid(True, alpha=0.3)
-        #     else:
-        #         self.ax.text(0.5, 0.5, "Feature data unavailable", 
-        #                 horizontalalignment='center',
-        #                 verticalalignment='center',
-        #                 transform=self.ax.transAxes)
-            
-        #     self.canvas.draw()
-            
-        # except Exception as e:
-        #     messagebox.showerror("Error", f"Error displaying feature curve: {str(e)}")
         
     def log_message(self, message, target="training"):
         """记录日志消息"""

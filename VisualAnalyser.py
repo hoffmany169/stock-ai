@@ -148,7 +148,8 @@ class VisualAnalyser(PriceVolumePlotter):
         # 计算涨跌颜色
         colors = self.calculate_price_change()
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
-        self.plot_price_chart(ax)
+        self.plot()      
+        # use mplcursors to show points on the curve.  
         self.price_line_cursor = mplcursors.cursor(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 
                                                                                           StockVisualData.AX_PRICE, 
                                                                                           data_name='price_line'),
@@ -164,6 +165,11 @@ class VisualAnalyser(PriceVolumePlotter):
         
         # 调整布局
         plt.tight_layout()
+
+    def plot(self):
+        super().plot()
+        # ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        # self.plot_price_chart(ax. self._feature)
 
     def _create_menu_bar(self):
         self.menubar = tk.Menu(self.parent)
@@ -348,22 +354,22 @@ class VisualAnalyser(PriceVolumePlotter):
                 tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
             create_select_start_end_point_dialog()
 
-    def _draw_line_between_points(self, start_idx, end_idx):
-            if start_idx == end_idx:
-                messagebox.showwarning("Warning", "Start and End points must be different.")
-                return
-            x1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_xdata()[0])
-            y1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_ydata()[0])
-            x2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_xdata()[0])
-            y2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_ydata()[0])
-            artist1 = self.ax.plot([x1, x2], [y1, y2], self.line_style, color='b')
-            visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
-            text_number = len(self.layers[ElementLayer.GUIDELINE]) + 1
-            artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'L{text_number}', 
-                        rotation=visual_angle, verticalalignment='top')
-            self.fig_canvas.draw()
-            self.points_to_line[(start_idx, end_idx)] = len(self.layers[ElementLayer.GUIDELINE])
-            self.layers[ElementLayer.GUIDELINE].append((artist1, artist2, text_number))
+    # def _draw_line_between_points(self, start_idx, end_idx):
+    #         if start_idx == end_idx:
+    #             messagebox.showwarning("Warning", "Start and End points must be different.")
+    #             return
+    #         x1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_xdata()[0])
+    #         y1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_ydata()[0])
+    #         x2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_xdata()[0])
+    #         y2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_ydata()[0])
+    #         artist1 = self.ax.plot([x1, x2], [y1, y2], self.line_style, color='b')
+    #         visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
+    #         text_number = len(self.layers[ElementLayer.GUIDELINE]) + 1
+    #         artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'L{text_number}', 
+    #                     rotation=visual_angle, verticalalignment='top')
+    #         self.fig_canvas.draw()
+    #         self.points_to_line[(start_idx, end_idx)] = len(self.layers[ElementLayer.GUIDELINE])
+    #         self.layers[ElementLayer.GUIDELINE].append((artist1, artist2, text_number))
 
     def update_lines(self):
         for line, text, text_number in self.layers[ElementLayer.GUIDELINE]:
@@ -653,12 +659,12 @@ class VisualAnalyser(PriceVolumePlotter):
         self.layers[ElementLayer.GUIDELINE] = []
         self.fig_canvas.draw()
 
-    def reset_view(self):
-        self.ax.relim()
-        self.ax.autoscale_view()
-        self.fig.canvas.draw()
-        self.clear_all_markers()
-        self.clear_all_lines()
+    # def reset_view(self):
+    #     self.ax.relim()
+    #     self.ax.autoscale_view()
+    #     self.fig.canvas.draw()
+    #     self.clear_all_markers()
+    #     self.clear_all_lines()
     
     def on_references(self):
         messagebox.showinfo("References", "Plot Analyser\nVersion 1.0")

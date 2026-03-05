@@ -37,7 +37,7 @@ class PriceVolumePlotter(StockChartPlotter):
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_VOLUME)
         
-        self.plot([ax_price, ax_volume])
+        self.plot()
         
         # 配置图表格式
         self.format_chart_price(ax_price)
@@ -54,24 +54,27 @@ class PriceVolumePlotter(StockChartPlotter):
         # 调整布局
         plt.tight_layout()
 
-    def plot(self, ax):
+    def plot(self):
         """绘制图表"""
         # 绘制股价图
-        self.plot_price_chart(ax[0])
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        self.plot_price_chart(ax, self._feature)
         
         # 绘制交易量图
-        self.plot_volume_chart(ax[1], self.visual_data.get_stock_visual_data(StockVisualData.TYPE.properties, 'ax_volume', data_name='price_change'))
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_VOLUME)
+        if ax:
+            self.plot_volume_chart(ax, self.visual_data.get_stock_visual_data(StockVisualData.TYPE.properties, 'ax_volume', data_name='price_change'))
         
     
-    def plot_price_chart(self, ax_price):
+    def plot_price_chart(self, ax_price, feature):
         """绘制股价图"""
         # 绘制收盘价折线
         price_line, = ax_price.plot(
             self.dates_mpl, 
-            self.stock_data['Close'],
+            self.stock_data[feature],
             color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
             linewidth=self.plot_styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.price_line),
-            label='Close Price',
+            label=f'{feature} Price',
             zorder=5
         )
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_line, 'price_line', axes_name=StockVisualData.AX_PRICE)

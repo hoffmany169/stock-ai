@@ -147,7 +147,8 @@ class StockVisualData:
             返回指定的数据项内容
         """
         if self.visual_data.get(axes_name) is None:
-            raise ValueError(f"axes_name '{axes_name}' does not exist in visual data")
+            print(f"axes_name '{axes_name}' does not exist in visual data")
+            return None
         if data_type == StockVisualData.TYPE.ax:
             return self.visual_data[axes_name].get(data_type, None)
         else:
@@ -299,9 +300,19 @@ class StockChartPlotter(ABC):
         
         # 将日期转换为matplotlib格式
         self.dates_mpl = mdates.date2num(self.stock_data['Date'])
-        
+
+        # feature used by plotting chart
+        self._feature = 'Close'
+
         # valid fig and ax are available after plot is created.
         self.create_plot()
+
+    @property
+    def feature(self):
+        return self._feature
+    @feature.setter
+    def feature(self, feat):
+        self._feature = feat
 
     # after plot is created, create window controls, e.g. context menu
     def set_backend_window(self, parent):
@@ -337,7 +348,7 @@ class StockChartPlotter(ABC):
         pass
 
     @abstractmethod    
-    def plot(self, ax):
+    def plot(self):
         """绘制股价图"""
         pass
 
@@ -521,7 +532,7 @@ class StockChartPlotter(ABC):
             标记大小
         """
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
-        if self.ax is None:
+        if ax is None:
             raise ValueError("Please, call create_plot() or show() at first.")
         
         if indices is not None:
