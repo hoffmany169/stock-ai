@@ -250,9 +250,12 @@ class VisualAnalyser(PriceVolumePlotter):
         max_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.max_volume)
         vol_perc = Volume / max_volume * 100 if max_volume is None or max_volume > 0 else 0
         range = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
-        # print(f"Selected point: x={sel.target[0]:.2f}, y={sel.target[1]:.2f}, Volume={Volume.iloc[int(sel.target.index)]:.0f}")
-        # sel.annotation.set(ha='left', text=f"Date: {mdates.num2date(sel.target[0]).strftime('%Y-%m-%d')}\nPrice: {sel.target[1]:.2f}\nVolume: {Volume.iloc[int(sel.index)]:.0f}")
-        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume: {self.format_large_numbers(Volume, 0)}({vol_perc:.1f}%)\nHL Range: {range:.0f}")
+        # calculate changed volume
+        changed_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.volume_change, idx) 
+        sym = '↑' if changed_volume > 0 else '↓'
+        if changed_volume < 0:
+            changed_volume = changed_volume * (-1) 
+        sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume:\n ° {self.format_large_numbers(Volume, 0)}\n ° {vol_perc:.1f}%\n ° {sym}{self.format_large_numbers(changed_volume, 0)}\nHL Range: {range:.0f}")
         sel.annotation.get_bbox_patch().set_alpha(0.9)
         # draw selected point marker
         x, y = sel.target

@@ -33,6 +33,7 @@ class StockPredictionGUI:
         self.root = root
         self.root.title("Stock Prediction GUI")
         self.root.geometry("1200x800")
+        self.root.protocol("WM_DELETE_WINDOW", lambda: quit())
         self.Gui_Config_Data = {ConfigEntry.model_save_path.name: 'models',
                                 ConfigEntry.ticker_list.name:['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 
                                                 'NVDA', 'META', 'NFLX', 'INTC', 'AMD',

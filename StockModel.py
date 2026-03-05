@@ -37,6 +37,7 @@ class StockModel:
         max_price = ()
         min_price = ()
         max_volume = ()
+        volume_change = ()
         avg_price = ()
         total_volume = ()
 
@@ -119,6 +120,8 @@ class StockModel:
         self._extend_features[StockModel.ExtendFeature.total_volume] = self._loaded_data['Volume'].sum()
         self._extend_features[StockModel.ExtendFeature.high_low_range] = self._loaded_data['High'] - self._loaded_data['Low']
         self._extend_features[StockModel.ExtendFeature.open_close_range] = self._loaded_data['Open'] - self._loaded_data['Close']
+        self._extend_features[StockModel.ExtendFeature.volume_change] = self._loaded_data['Volume'].diff()
+        # self._extend_features[StockModel.ExtendFeature.volume_change] = self._loaded_data['Volume'].pct_change().fillna(0)
 
     def get_feature_value(self, feature: FEATURE, index:int=None):
         """获取股票特征值"""
@@ -132,7 +135,7 @@ class StockModel:
         """获取股票属性值"""
         if index is not None:
             feature_data = self._extend_features.get(ext_feature, None)
-            if feature_data is not None and hasattr(feature_data, '__len__') and index < len(feature_data):
+            if feature_data is not None and index < len(feature_data):
                 return feature_data.iloc[index]
         return self._extend_features.get(ext_feature, None)
 
