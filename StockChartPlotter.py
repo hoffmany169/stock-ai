@@ -188,15 +188,15 @@ class PointData:
 
     def __init__(self, selection):
         self._x = selection.target[0]
-        self._price = selection.target[1]
+        self._value = selection.target[1]
         self._index = selection.index
         self.date_str = self.get_date_from_x(self._x) ## mdates.num2date(self.x).strftime('%Y-%m-%d')
 
     def __str__(self):
-        return f"Date: {self.date_str}\nPrice: {self._price:.2f}\nIndex: {round(self._index)}"
+        return f"Date: {self.date_str}\nPrice: {self._value:.2f}\nIndex: {round(self._index)}"
 
     def __repr__(self):
-        return f"Date='{self.date_str}' PointData(x='{self._x}', price={self._price:.2f}, index={round(self._index)})"
+        return f"Date='{self.date_str}' PointData(x='{self._x}', price={self._value:.2f}, index={round(self._index)})"
     
     def __eq__(self, other):
         if isinstance(other, PointData):
@@ -212,9 +212,13 @@ class PointData:
         return datetime.strptime(ds, '%Y-%m-%d')
 
     @property
-    def Price(self):
-        return self._price
+    def Value(self):
+        return self._value
     
+    @property
+    def Coordinate(self):
+        return (self._x, self._value)
+
     @property
     def Index(self):
         return self._index
@@ -227,8 +231,8 @@ class PointData:
         if self.date_str == other.date_str:
             return "Same point selected"
         x_diff = other.x - self.x
-        price_diff = other.price - self._price
-        percentage_change = (price_diff / self._price * 100) if self._price != 0 else float('inf')
+        price_diff = other.price - self._value
+        percentage_change = (price_diff / self._value * 100) if self._value != 0 else float('inf')
         tangent = (price_diff / x_diff) if x_diff != 0 else float('inf')
         date_diff = self.get_datetime_from_date_string(other.date_str) - self.get_datetime_from_date_string(self.date_str) # datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
     
@@ -624,7 +628,13 @@ class StockChartPlotter(ABC):
         artist = self.visual_data.remove_stock_visual_data(StockVisualData.TYPE.artists, axes_name, data_name)
         if artist is None:
             return
-        artist.remove()
+        if type(artist) is tuple or type(artist) is list:
+            for art in artist:
+                if art:
+                    art.remove()
+        else:
+            if artist:
+                artist.remove()
         self.visual_data.fig.canvas.draw_idle()
 
     def remove_all_artists(self, ax_name):

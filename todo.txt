@@ -3,4 +3,6 @@
 3. extract High and low point of waves.✓
 4. compare wave ✓
 5. fix clear peaks and valleys ✕
-6. add "clear plot" ✕
+6. add volume info in wave operation ✕
+7. add "clear plot" ✕
+8. draw horizontal line ✓

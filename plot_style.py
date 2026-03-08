@@ -42,6 +42,7 @@ class PlotStyle:
                 'hover_line': '#e74c3c',        # 悬停线颜色
                 'annotation_bg': 'white',       # 注释框背景
                 'grid_color': '#ecf0f1',        # 网格颜色
+                'horizontal_line' : 'purple'
             },
             # 线型配置
             'line_widths': {
@@ -52,6 +53,12 @@ class PlotStyle:
             'alphas': {
                 'volume': 0.7,
                 'hover_line': 0.5,
+            },
+            'line_styles': {
+                'solid_line': '-',
+                'dash_dot_line': '-.',
+                'dotted_line': ':',
+                'dashed_line': '--',
             },
             # 字体大小
             'font_sizes': {
@@ -101,3 +108,8 @@ class PlotStyle:
         for n, v in self.styles['markers'].items():
             if name == n:
                 return v
+            
+    def get_line_style(self, name):
+        for n, l in self.styles['line_styles'].items():
+            if name == n:
+                return l

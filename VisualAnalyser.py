@@ -22,11 +22,15 @@ class CONTEXT_COMMAND(AutoIndex):
     #   zoom_in = ()
     #   zoom_out = ()
     #   seperator_1 = ()
-      set_first_point = ()
-      compare_point = ()
-      seperator_2 = ()
-      wave_begin = ()
-      wave_end = ()
+    set_first_point = ()
+    compare_point = ()
+    seperator_2 = ()
+    wave_begin = ()
+    wave_end = ()
+    seperator_3 = ()
+    draw_horizontal_line = ()
+    remove_horizontal_line = ()
+    
 
 
 class FILE_MENU_COMMAND(AutoIndex):
@@ -330,6 +334,7 @@ class VisualAnalyser(PriceVolumePlotter):
 
                 def close_info():
                     self.remove_highlighted_peaks_valleys(StockVisualData.AX_PRICE, artist_names=art_names)
+                    self.first_wave_point = None
                     CloseChildWindow(top)
 
                 def extract_wave_info(sel1, sel2, win):
@@ -352,46 +357,44 @@ class VisualAnalyser(PriceVolumePlotter):
                     last_value = -1
                     last_diff = None
                     value_percent = []
+                    # calculate percentage of value changes
                     for cur_value in values:
                         if last_value < 0:
                             last_value = cur_value
                             continue
                         else:
                             cur_diff = cur_value - last_value
-                            # print(f'{cur_value} - {last_value}')
                             last_value = cur_value
                             if last_diff is None:
                                 last_diff = cur_diff
                             else:
                                 value_percent.append((cur_diff / last_diff)*(-100 if cur_diff > 0 else 100))
-                                # print(f'{cur_diff} / {last_diff}')
                                 last_diff = cur_diff
                     # create string
                     result = ""
                     if len(value_percent) > 0:
                         for i, v in enumerate(value_percent):
-                            if v > 0:
-                                result += f'{i}.[{v:.1f}%]'
-                            else:
-                                result += f'{i}.[{v:.1f}%]'
-                            result += '\n'
+                            result += f'{i}.[{v:.1f}%]\n'
                     result_var.set(result)
                     top.update()
             create_wave_dialog()
 
+    def on_draw_horizontal_line(self, *args):
+        self.remove_artist(StockVisualData.AX_PRICE, 'horizontal_line')
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        x, y = self.current_point.Coordinate
+        artist1 = ax.axhline(y=y, color='purple', linestyle=self.plot_styles.get_line_style('solid_line'), alpha=0.5, linewidth=1)
+        artist2 = ax.text(0.5, y, f'y = {y:.2f}', 
+                    transform=ax.get_yaxis_transform(),
+                    color='purple', ha='center', va='bottom')
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, (artist1, artist2), 'horizontal_line', StockVisualData.AX_PRICE)
+        self.fig_canvas.draw_idle()
+
+    def on_remove_horizontal_line(self, *args):
+        self.remove_artist(StockVisualData.AX_PRICE, 'horizontal_line')
+
 #endregion context menu
 
-    def draw_horizontal_line(self, coords):
-        if coords:
-            ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
-            x, y = coords
-            artist1 = ax.axhline(y=y, color='purple', linestyle=self.line_style, alpha=0.7, linewidth=2)
-            artist2 = ax.text(0.5, y, f'y = {y:.2f}', 
-                        transform=ax.get_yaxis_transform(),
-                        color='purple', ha='center', va='bottom')
-            self.fig_canvas.draw()
-            self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
-        
     def draw_vertical_line(self, coords):
         if coords:
             ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
