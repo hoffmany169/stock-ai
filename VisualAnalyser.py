@@ -19,15 +19,14 @@ class ElementLayer(AutoIndex):
     ORIGINAL = ()
 
 class CONTEXT_COMMAND(AutoIndex):
-      zoom_in = ()
-      zoom_out = ()
-      seperator_1 = ()
+    #   zoom_in = ()
+    #   zoom_out = ()
+    #   seperator_1 = ()
       set_first_point = ()
       compare_point = ()
       seperator_2 = ()
       wave_begin = ()
-      wave_middle = ()
-      wave_end_compare = ()
+      wave_end = ()
 
 
 class FILE_MENU_COMMAND(AutoIndex):
@@ -228,7 +227,7 @@ class VisualAnalyser(PriceVolumePlotter):
             self.visual_data.fig._last_right_click = (event.xdata, event.ydata, event.inaxes)
             for key, index in self.menu_items.items():
                 # trick here: set key as a default argument to prevent of late binding of variables in lambdas inside a loop!!!
-                self.context_menu.entryconfig(index, command=lambda item=key: getattr(self, item)(self.last_click_coords))
+                self.context_menu.entryconfig(index, command=lambda item=key: getattr(self, f'on_{item}')(self.last_click_coords))
             try:
                 x_tk = self.tk_root.winfo_pointerx()
                 y_tk = self.tk_root.winfo_pointery()
@@ -264,12 +263,29 @@ class VisualAnalyser(PriceVolumePlotter):
         # add it to extras so it is removed on deselection
         sel.extras.append(highlight[0])
 
+#region context menu
+    def on_zoom_in(self, coords):
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        ax.set_xlim(xlim[0]*0.8, xlim[1]*0.8)
+        ax.set_ylim(ylim[0]*0.8, ylim[1]*0.8)
+        self.fig_canvas.draw()
+    
+    def on_zoom_out(self, coords):
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        ax.set_xlim(xlim[0]*1.2, xlim[1]*1.2)
+        ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
+        self.fig_canvas.draw()
+    
     # set selected first point for comparison
-    def set_first_point(self, *args):
+    def on_set_first_point(self, *args):
         self.first_point = self.current_point
 
     # compare current point with the first point and show the result in a dialog
-    def compare_point(self, *args):
+    def on_compare_point(self, *args):
         if self.first_point is None:
             messagebox.showinfo("Info", "Please select the first point before comparing.")
             return
@@ -280,6 +296,90 @@ class VisualAnalyser(PriceVolumePlotter):
                 top = CreateChildWindow(self.tk_root, "Comparison Result", "300x200", XClose=True)
                 tk.Label(top, text=result,justify=tk.LEFT).pack(pady=20, padx=20)
             create_comparison_dialog()
+
+    def on_wave_begin(self, *args):
+        self.first_wave_point = self.current_point
+
+    def on_wave_end(self, *args):
+        if self.first_wave_point is None:
+            messagebox.showinfo("Info", "Please select the wave start-point before comparing.")
+            return
+        else:
+            x0 = self.first_wave_point
+            x1 = self.current_point
+            pk_color = 'limegreen'
+            pk_marker = self.plot_styles.get_marker('plus')
+            vl_color = 'firebrick'
+            vl_marker = self.plot_styles.get_marker('cross')
+            from Common.Util import CreateChildWindow, CloseChildWindow
+            def create_wave_dialog():
+                top = CreateChildWindow(self.tk_root, "Wave Info", "300x300")
+                art_names = ('wave_peaks', 'wave_valleys')
+                frm1 = tk.Frame(top)
+                frm1.pack(fill='x', expand=True, pady=(0, 5))
+                tk.Label(frm1, text="Window").pack(side='left', padx=5)
+                winvar = IntVar(top, 1)
+                window = tk.Entry(frm1, textvariable=winvar)
+                window.pack(side='left', padx=5)
+                result_var = StringVar(top, "")
+                frm2 = tk.Frame(top)
+                frm2.pack(fill='x', expand=True, pady=5)
+                tk.Button(frm2, text="Show Info", command=lambda sel1=x0, sel2=x1, win=winvar.get(): extract_wave_info(sel1, sel2, win)).pack(side='left', padx=(10, 5))
+                tk.Button(frm2, text="Close", command=lambda: close_info()).pack(side='left', padx=(5, 10))
+                tk.Label(top, textvariable=result_var, justify='left').pack(fill='x', expand=True, pady=5)
+
+                def close_info():
+                    self.remove_highlighted_peaks_valleys(StockVisualData.AX_PRICE, artist_names=art_names)
+                    CloseChildWindow(top)
+
+                def extract_wave_info(sel1, sel2, win):
+                    self.remove_highlighted_peaks_valleys(StockVisualData.AX_PRICE, artist_names=art_names)
+                    peaks, valleys = self.highlight_peaks_valleys(StockVisualData.AX_PRICE,
+                                                                    self.feature, 
+                                                                    window=winvar.get(),
+                                                                    peak_color=pk_color,
+                                                                    peak_marker=pk_marker,
+                                                                    valley_color=vl_color,
+                                                                    valley_marker=vl_marker,
+                                                                    artist_names=art_names,
+                                                                    start_date=sel1.Date,
+                                                                    end_date=sel2.Date)
+                    points = peaks + valleys
+                    points.sort()
+                    # print(points)
+                    values = self.stock_data[self.feature].iloc[points]
+                    # dates = self.stock_data['Date'].iloc[points]
+                    last_value = -1
+                    last_diff = None
+                    value_percent = []
+                    for cur_value in values:
+                        if last_value < 0:
+                            last_value = cur_value
+                            continue
+                        else:
+                            cur_diff = cur_value - last_value
+                            # print(f'{cur_value} - {last_value}')
+                            last_value = cur_value
+                            if last_diff is None:
+                                last_diff = cur_diff
+                            else:
+                                value_percent.append((cur_diff / last_diff)*(-100 if cur_diff > 0 else 100))
+                                # print(f'{cur_diff} / {last_diff}')
+                                last_diff = cur_diff
+                    # create string
+                    result = ""
+                    if len(value_percent) > 0:
+                        for i, v in enumerate(value_percent):
+                            if v > 0:
+                                result += f'{i}.[{v:.1f}%]'
+                            else:
+                                result += f'{i}.[{v:.1f}%]'
+                            result += '\n'
+                    result_var.set(result)
+                    top.update()
+            create_wave_dialog()
+
+#endregion context menu
 
     def draw_horizontal_line(self, coords):
         if coords:
@@ -303,22 +403,6 @@ class VisualAnalyser(PriceVolumePlotter):
                         rotation=90, verticalalignment='top')
             self.fig_canvas.draw()
             # self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
-    
-    def zoom_in(self, coords):
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        ax.set_xlim(xlim[0]*0.8, xlim[1]*0.8)
-        ax.set_ylim(ylim[0]*0.8, ylim[1]*0.8)
-        self.fig_canvas.draw()
-    
-    def zoom_out(self, coords):
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        ax.set_xlim(xlim[0]*1.2, xlim[1]*1.2)
-        ax.set_ylim(ylim[0]*1.2, ylim[1]*1.2)
-        self.fig_canvas.draw()
     
     def draw_line(self):
         """
@@ -357,35 +441,6 @@ class VisualAnalyser(PriceVolumePlotter):
                 tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
             create_select_start_end_point_dialog()
 
-    # def _draw_line_between_points(self, start_idx, end_idx):
-    #         if start_idx == end_idx:
-    #             messagebox.showwarning("Warning", "Start and End points must be different.")
-    #             return
-    #         x1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_xdata()[0])
-    #         y1 = float(self.layers[ElementLayer.MARKER][start_idx][0].get_ydata()[0])
-    #         x2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_xdata()[0])
-    #         y2 = float(self.layers[ElementLayer.MARKER][end_idx][0].get_ydata()[0])
-    #         artist1 = self.ax.plot([x1, x2], [y1, y2], self.line_style, color='b')
-    #         visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
-    #         text_number = len(self.layers[ElementLayer.GUIDELINE]) + 1
-    #         artist2 = self.ax.text((x1+x2)/2, (y1+y2)/2, f'L{text_number}', 
-    #                     rotation=visual_angle, verticalalignment='top')
-    #         self.fig_canvas.draw()
-    #         self.points_to_line[(start_idx, end_idx)] = len(self.layers[ElementLayer.GUIDELINE])
-    #         self.layers[ElementLayer.GUIDELINE].append((artist1, artist2, text_number))
-
-    def update_lines(self):
-        for line, text, text_number in self.layers[ElementLayer.GUIDELINE]:
-            xdata = line[0].get_xdata()
-            ydata = line[0].get_ydata()
-            x1, x2 = xdata[0], xdata[1]
-            y1, y2 = ydata[0], ydata[1]
-            visual_angle = self.axis_ratio_calculator.get_visual_angle(x1, y1, x2, y2)
-            text.set_position(((x1+x2)/2, (y1+y2)/2))
-            text.set_rotation(visual_angle)
-            text.set_text(f'L{text_number}')
-        self.fig_canvas.draw()
-
     def on_highlight_peaks_and_valleys(self):
         from StockModel import StockModel
         from plot_style import STYLE, PLOT_ELEMENT
@@ -406,72 +461,55 @@ class VisualAnalyser(PriceVolumePlotter):
         frm2 = tk.Frame(dialog)
         frm2.pack(fill='x', expand=True, pady=(0, 5))
         tk.Label(frm2, text="Feature").pack(side='left', padx=5)
-        features = [f.name for f in StockModel.FEATURE]
-        textvar.append(StringVar(dialog, features[0]))
-        feature_combo = ttk.Combobox(frm2, textvariable=textvar[1], values=features)
-        feature_combo.pack(side='left', padx=5)
+        tk.Label(frm2, text=self.feature).pack(side='left', padx=5)
         
         frm3 = tk.Frame(dialog)
         frm3.pack(fill='x', expand=True, pady=(0, 5))
         tk.Label(frm3, text="Window").pack(side='left', padx=5)
         textvar.append(IntVar(dialog, 5))
-        window = tk.Entry(frm3, textvariable=textvar[2])
+        window = tk.Entry(frm3, textvariable=textvar[1])
         window.pack(side='left', padx=5)
 
         frm4 = tk.Frame(dialog)
         frm4.pack(fill='x', expand=True, pady=(0, 5))
         tk.Label(frm4, text="peak color").pack(side='left', padx=5)
         textvar.append(tk.StringVar(dialog, 'green'))
-        peak_color = tk.Entry(frm4, textvariable=textvar[3])
+        peak_color = tk.Entry(frm4, textvariable=textvar[2])
         peak_color.pack(side='left', padx=5)
         tk.Label(frm4, text="peak marker").pack(side='left', padx=5)
         marker_list = self.plot_styles.get_marker_names()
         textvar.append(tk.StringVar(frm4, marker_list[3]))
-        peak_marker = ttk.Combobox(frm4, textvariable=textvar[4], values=marker_list)
+        peak_marker = ttk.Combobox(frm4, textvariable=textvar[3], values=marker_list)
         peak_marker.pack(side='left', padx=5)
 
         frm5 = tk.Frame(dialog)
         frm5.pack(fill='x', expand=True, pady=(0, 5))
         tk.Label(frm5, text="valley color").pack(side='left', pady=(0, 5))
         textvar.append(tk.StringVar(dialog, 'red'))
-        valley_color = tk.Entry(frm5, textvariable=textvar[5])
+        valley_color = tk.Entry(frm5, textvariable=textvar[4])
         valley_color.pack(side='left', padx=5)
         tk.Label(frm5, text="valley marker").pack(side='left', padx=5)
         textvar.append(tk.StringVar(frm5, marker_list[4]))
-        valley_marker = ttk.Combobox(frm4, textvariable=textvar[6], values=marker_list)
+        valley_marker = ttk.Combobox(frm4, textvariable=textvar[5], values=marker_list)
         valley_marker.pack(side='left', padx=5)
         
         frm6 = tk.Frame(dialog)
         frm6.pack(fill='x', expand=True, pady=(0, 5))
-        tk.Button(frm6, text="OK", command=lambda x=textvar: self.highlight_peaks_valleys(x[0].get(),
-                                                                                          x[1].get(), 
-                                                                                          window=x[2].get(),
-                                                                                          peak_color=x[3].get(),
-                                                                                          peak_marker=self.plot_styles.get_marker(x[4].get()),
-                                                                                          valley_color=x[5].get(),
-                                                                                          valley_marker=self.plot_styles.get_marker(x[6].get()))).pack(anchor='center', pady=10)
+        tk.Button(frm6, text="OK", command=lambda x=textvar: self.show_peaks_valleys(x)).pack(anchor='center', pady=10)
 
-    def highlight_peaks_valleys(self, ax_name:str, feature:str,
-                                window=5, 
-                                peak_color='green', 
-                                valley_color='red',
-                                peak_marker='v',
-                                valley_marker='^',
-                                peak_label='Local Highest Point',
-                                valley_label='Local Lowest Point'
-                                ):
+    def show_peaks_valleys(self, params):
         self.remove_highlighted_peaks_valleys()
-        super().highlight_peaks_valleys(ax_name, feature, window=window, peak_color=peak_color, valley_color=valley_color,
-                                        peak_marker=peak_marker,
-                                        valley_marker=valley_marker,
-                                        peak_label=peak_label,
-                                        valley_label=valley_label)
+        self.highlight_peaks_valleys(params[0].get(),
+                                    self.feature, 
+                                    window=params[1].get(),
+                                    peak_color=params[2].get(),
+                                    peak_marker=self.plot_styles.get_marker(params[3].get()),
+                                    valley_color=params[4].get(),
+                                    valley_marker=self.plot_styles.get_marker(params[5].get()))
+
 
     def on_remove_peaks_and_valleys(self):
         self.remove_highlighted_peaks_valleys()
-
-    def remove_highlighted_peaks_valleys(self):
-        super().remove_highlighted_peaks_valleys()
 
     def on_open_file(self):
         pass
@@ -509,166 +547,6 @@ class VisualAnalyser(PriceVolumePlotter):
     def on_exit(self):
         sys.exit(0)
 
-    def remove_point(self):
-        def create_remove_point_dialog():
-            dialog = tk.Toplevel(self.tk_root)
-            dialog.title("Remove Point Marker")
-            dialog.geometry("300x150")
-            
-            tk.Label(dialog, text="Select Point to Remove:").pack()
-            point_indices = [item[2] for item in self.layers[ElementLayer.MARKER]]
-            point_var = StringVar(value=str(point_indices[0]))
-            point_combo = ttk.Combobox(dialog, values=point_indices, state='readonly', textvariable=point_var)
-            point_combo.pack(pady=5)
-            def on_delete_point():
-                point_idx = point_combo.current()
-                print(f"Deleting point index: {point_idx}")
-                to_deleted_line_idx = []
-                to_deleted_points =None
-                to_deleted_point_idx = -1
-                if 0 <= point_idx < len(self.layers[ElementLayer.MARKER]):
-                    ## remove entry in the points_to_line dict and update accordingly
-                    for points, line_idx in list(self.points_to_line.items()):
-                        if point_idx in points:
-                            # remember to delete this line
-                            to_deleted_line_idx.append(line_idx)
-                            to_deleted_points = points
-                            print(f"Will delete line index: {line_idx} associated with points: {points}")
-                        else:
-                            # update point indices in the keys
-                            new_pnts = tuple(p-1 if p > point_idx else p for p in points)
-                            if new_pnts != points:
-                                self.points_to_line[new_pnts] = self.points_to_line.pop(points)
-                    # remove the point
-                    for i, (artist, artist_idx, idx) in enumerate(self.layers[ElementLayer.MARKER]):
-                        if i == point_idx:
-                            if artist:
-                                artist.remove()
-                            if artist_idx:
-                                artist_idx.remove()
-                            self.layers[ElementLayer.MARKER][i] = None
-                            to_deleted_point_idx = i
-                            self.fig_canvas.draw()
-                        else:
-                            if idx > point_idx:
-                                self.layers[ElementLayer.MARKER][i] = (artist, artist_idx, idx-1)
-                    self.layers[ElementLayer.MARKER].pop(to_deleted_point_idx)
-                    # remove the associated lines
-                    if len(to_deleted_line_idx) > 0:
-                        sorted_line_idx = sorted(to_deleted_line_idx)
-                        # update line indices in points_to_line dict
-                        for points, l_idx in list(self.points_to_line.items()):
-                            decrement = sum(1 for dl_idx in sorted_line_idx if dl_idx < l_idx)
-                            if decrement > 0:
-                                self.points_to_line[points] = l_idx - decrement
-                        # update indices of lines
-                        for i, (line, text, idx) in enumerate(self.layers[ElementLayer.GUIDELINE]):
-                            # update only those lines after the removed line
-                            decrement = sum(1 for dl_idx in sorted_line_idx if dl_idx < idx)
-                            if decrement > 0:
-                                self.layers[ElementLayer.GUIDELINE][i] = (line, text, idx - decrement)
-
-                        # delete item from points_to_line
-                        del self.points_to_line[to_deleted_points]
-                        # remove associated line
-                        for line_idx in to_deleted_line_idx:
-                            line, text, idx = self.layers[ElementLayer.GUIDELINE][line_idx]
-                            if line:
-                                for artist in line:
-                                    if artist:
-                                        artist.remove()
-                            if text:
-                                text.remove()
-                            self.layers[ElementLayer.GUIDELINE][line_idx] = None
-                        # remove None entries
-                        self.layers[ElementLayer.GUIDELINE] = [item for item in self.layers[ElementLayer.GUIDELINE] if item is not None]
-                    self.update_points_marker()
-                    self.update_lines()
-                    self.fig_canvas.draw()
-                    if dialog:
-                        dialog.destroy()
-                else:
-                    messagebox.showwarning("Warning", "Invalid point index.")
-            tk.Button(dialog, text="Confirm", command=on_delete_point).pack(pady=10)
-        create_remove_point_dialog()
-
-    def clear_all_markers(self):
-        for marker in self.layers[ElementLayer.MARKER]:
-            if marker:
-                marker.remove()
-        self.layers[ElementLayer.MARKER].clear()
-        self.fig_canvas.draw()
-
-    def remove_line(self):
-        def create_remove_line_dialog():
-            dialog = tk.Toplevel(self.tk_root)
-            dialog.title("Remove Guideline")
-            dialog.geometry("300x150")
-            
-            tk.Label(dialog, text="Select Line to Remove:").pack()
-            line_indices = [i+1 for i in range(len(self.layers[ElementLayer.GUIDELINE]))]
-            line_var = StringVar(value=str(line_indices[0]))
-            line_combo = ttk.Combobox(dialog, values=line_indices, state='readonly', textvariable=line_var)
-            line_combo.pack(pady=5)
-            remove_points_var = tk.BooleanVar(value=False)
-            tk.Checkbutton(dialog, text="Also remove associated points", variable=remove_points_var).pack()
-            
-            def on_confirm():
-                line_idx = int(line_var.get()) - 1
-                delete_points = []
-                if 0 <= line_idx < len(self.layers[ElementLayer.GUIDELINE]):
-                    # update points_to_line dict
-                    for points, l_idx in list(self.points_to_line.items()):
-                        if l_idx == line_idx:
-                            if remove_points_var.get():
-                                delete_points.extend(points)
-                            # del self.points_to_line[points]
-                        elif l_idx > line_idx:
-                            self.points_to_line[points] = l_idx - 1
-                    line, text = self.layers[ElementLayer.GUIDELINE].pop(line_idx)
-                    if line:
-                        for artist in line:
-                            if artist:
-                                artist.remove()
-                    if text:
-                        text.remove()
-                    if remove_points_var.get():
-                        for points, l_idx in list(self.points_to_line.items()):
-                            if l_idx == line_idx:
-                                for p_idx in points:
-                                    if 0 <= p_idx < len(self.layers[ElementLayer.MARKER]):
-                                        marker, idx = self.layers[ElementLayer.MARKER][p_idx]
-                                        if marker:
-                                            marker.remove()
-                                        if idx:
-                                            idx.remove()
-                                del self.points_to_line[points]
-                    self.update_points_marker()
-                    self.update_lines()
-                    self.fig_canvas.draw()
-                    dialog.destroy()
-                else:
-                    messagebox.showwarning("Warning", "Invalid line index.")
-            
-            tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
-        create_remove_line_dialog()
-
-    def clear_all_lines(self):
-        for line in self.layers[ElementLayer.GUIDELINE]:
-            if line:
-                for artist in line:
-                    if artist:
-                        artist.remove()
-        self.layers[ElementLayer.GUIDELINE] = []
-        self.fig_canvas.draw()
-
-    # def reset_view(self):
-    #     self.ax.relim()
-    #     self.ax.autoscale_view()
-    #     self.fig.canvas.draw()
-    #     self.clear_all_markers()
-    #     self.clear_all_lines()
-    
     def on_references(self):
         messagebox.showinfo("References", "Plot Analyser\nVersion 1.0")
 

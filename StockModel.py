@@ -1,4 +1,6 @@
 from tkinter import messagebox
+import pandas as pd
+import numpy as np
 import yfinance as yf
 from StockDefine import TICKER_DATA_PARAM
 from Common.AutoNumber import AutoIndex
@@ -123,6 +125,7 @@ class StockModel:
         self._extend_features[StockModel.ExtendFeature.volume_change] = self._loaded_data['Volume'].diff()
         # self._extend_features[StockModel.ExtendFeature.volume_change] = self._loaded_data['Volume'].pct_change().fillna(0)
 
+#region stock data operations
     def get_feature_value(self, feature: FEATURE, index:int=None):
         """获取股票特征值"""
         if self._loaded_data is None:
@@ -138,6 +141,36 @@ class StockModel:
             if feature_data is not None and index < len(feature_data):
                 return feature_data.iloc[index]
         return self._extend_features.get(ext_feature, None)
+    
+    def get_data_absolute_index_by_date_range(self, start_date, end_date, window):
+        """获取指定日期范围的股票数据"""
+        if self._loaded_data is None or self._loaded_data.empty:
+            print(f"{self._ticker_symbol} must be loaded at first")
+            return None
+                
+        try:
+            # 转换日期范围
+            if start_date:
+                start_date = pd.to_datetime(start_date)
+                start_idx = np.abs(self._loaded_data['Date'] - start_date).argmin()
+            else:
+                start_idx = 0
+            
+            if end_date:
+                end_date = pd.to_datetime(end_date)
+                end_idx = np.abs(self.loaded_data['Date'] - end_date).argmin()
+            else:
+                end_idx = len(self.loaded_data) - 1
+            
+            # 确保索引有效
+            start_idx = max(window, start_idx)
+            end_idx = min(len(self.loaded_data) - window - 1, end_idx)
+            return (start_idx, end_idx)
+            
+        except Exception as e:
+            print(f"筛选数据失败: {e}")
+            return None
+#endregion stock data operations
 
     def load_historical_data(self, start_date:str=None, end_date:str=None):
         """load historical data for a single ticker from yfinance"""

@@ -8,6 +8,7 @@ from matplotlib.patches import Rectangle
 from plot_style import PlotStyle, PLOT_ELEMENT, STYLE
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Common.AutoNumber import AutoIndex
+from StockModel import StockModel
 
 class StockVisualData:
     class TYPE(AutoIndex):
@@ -186,30 +187,50 @@ class StockVisualData:
 class PointData:
 
     def __init__(self, selection):
-        self.x = selection.target[0]
-        self.price = selection.target[1]
-        self.index = selection.index
-        self.date_str = mdates.num2date(self.x).strftime('%Y-%m-%d')
+        self._x = selection.target[0]
+        self._price = selection.target[1]
+        self._index = selection.index
+        self.date_str = self.get_date_from_x(self._x) ## mdates.num2date(self.x).strftime('%Y-%m-%d')
 
     def __str__(self):
-        return f"Date: {self.date_str}\nPrice: {self.price:.2f}\nIndex: {round(self.index)}"
+        return f"Date: {self.date_str}\nPrice: {self._price:.2f}\nIndex: {round(self._index)}"
 
     def __repr__(self):
-        return f"Date='{self.date_str}' PointData(x='{self.x}', price={self.price:.2f}, index={round(self.index)})"
+        return f"Date='{self.date_str}' PointData(x='{self._x}', price={self._price:.2f}, index={round(self._index)})"
     
     def __eq__(self, other):
         if isinstance(other, PointData):
             return self.date_str == other.date_str
         return False
+
+    @staticmethod
+    def get_date_from_x(x)->str:
+        return mdates.num2date(x).strftime('%Y-%m-%d')
+
+    @staticmethod
+    def get_datetime_from_date_string(ds)->datetime:
+        return datetime.strptime(ds, '%Y-%m-%d')
+
+    @property
+    def Price(self):
+        return self._price
+    
+    @property
+    def Index(self):
+        return self._index
+    
+    @property
+    def Date(self):
+        return self.date_str
     
     def compare_with(self, other, to_string=False) -> str|dict:
         if self.date_str == other.date_str:
             return "Same point selected"
         x_diff = other.x - self.x
-        price_diff = other.price - self.price
-        percentage_change = (price_diff / self.price * 100) if self.price != 0 else float('inf')
+        price_diff = other.price - self._price
+        percentage_change = (price_diff / self._price * 100) if self._price != 0 else float('inf')
         tangent = (price_diff / x_diff) if x_diff != 0 else float('inf')
-        date_diff = datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
+        date_diff = self.get_datetime_from_date_string(other.date_str) - self.get_datetime_from_date_string(self.date_str) # datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
     
         result = {
             'price_diff': price_diff,
@@ -239,8 +260,8 @@ class PointData:
         if feature in stock_data.columns:
             date_diff = datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
             feature_column = stock_data[feature].fillna(0)  # Ensure feature column has no NaN values
-            for d in range(0, other.index - self.index + 1):
-                current_index = self.index + d
+            for d in range(0, other.index - self._index + 1):
+                current_index = self._index + d
                 sum_value += feature_column.iloc[int(current_index)]
             return f"Days:{date_diff.days}\nsum_value: {sum_value:.2f}"
         return ""
@@ -283,7 +304,7 @@ class StockChartPlotter(ABC):
         """
         self.symbol = stock_model.ticker_symbol
         self.stock_model = stock_model
-        self.stock_data = stock_model.loaded_data.copy()
+        self.stock_data = stock_model.loaded_data
         self.figsize = figsize
         self.visual_data = StockVisualData()
         self.plot_styles = PlotStyle()
@@ -441,8 +462,10 @@ class StockChartPlotter(ABC):
                                 peak_marker='v',
                                 valley_marker='^',
                                 peak_label='Local Highest Point',
-                                valley_label='Local Lowest Point'
-                                ):
+                                valley_label='Local Lowest Point',
+                                artist_names=('peaks', 'valleys'),
+                                start_date: str|None=None,
+                                end_date:str|None=None):
         """
         标记局部高点和低点
         
@@ -463,18 +486,8 @@ class StockChartPlotter(ABC):
             raise ValueError(f"{feature} does not exist in stock features!")
         feature_data = self.stock_data[feature].values
         
-        # 识别局部高点
-        peaks = []
-        for i in range(window, len(feature_data) - window):
-            if all(feature_data[i] >= feature_data[i-window:i]) and all(feature_data[i] >= feature_data[i+1:i+window+1]):
-                peaks.append(i)
-        
-        # 识别局部低点
-        valleys = []
-        for i in range(window, len(feature_data) - window):
-            if all(feature_data[i] <= feature_data[i-window:i]) and all(feature_data[i] <= feature_data[i+1:i+window+1]):
-                valleys.append(i)
-        
+        peaks, valleys = self.find_peaks_valleys(feature, window, start_date=start_date, end_date=end_date)
+
         # 绘制高点标记
         if peaks:
             artist1 = ax_main.scatter(
@@ -484,7 +497,7 @@ class StockChartPlotter(ABC):
                         color=peak_color,
                         s=120,
                         zorder=10,
-                        edgecolors='white',
+                        # edgecolors='white',
                         linewidth=1.5,
                         label=peak_label
                     )
@@ -498,21 +511,56 @@ class StockChartPlotter(ABC):
                         color=valley_color,
                         s=120,
                         zorder=10,
-                        edgecolors='white',
+                        # edgecolors='white',
                         linewidth=1.5,
                         label=valley_label
                     )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist1, 'peaks', axes_name=StockVisualData.AX_PRICE)
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist2, 'valleys', axes_name=StockVisualData.AX_PRICE)
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist1, artist_names[0], axes_name=StockVisualData.AX_PRICE)
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist2, artist_names[1], axes_name=StockVisualData.AX_PRICE)
         ax_main.legend(loc='upper left')
         if self.parent is None:
             self.visual_data.fig.canvas.draw_idle()
         else:
             self.tk_root.update()
+        return (peaks, valleys)
 
-    def remove_highlighted_peaks_valleys(self):
-        self.remove_artist(StockVisualData.AX_PRICE, 'peaks')
-        self.remove_artist(StockVisualData.AX_PRICE, 'valleys')
+    def find_peaks_valleys(self,
+                           feature,
+                           window=2,
+                           start_date=None,
+                           end_date=None):
+        if feature not in [f.name for f in StockModel.FEATURE]:
+            return None
+
+        start_idx, end_idx = self.stock_model.get_data_absolute_index_by_date_range(start_date, end_date, window)
+        feature_data = self.stock_data[feature]
+        if len(feature_data) <= window:
+            print("Window size is too big")
+            return None
+        # 仅在指定范围内识别局部高点
+        peaks = []
+        for i in range(start_idx, end_idx + 1):
+            # 检查是否为局部高点
+            left_window = feature_data.iloc[max(0, i-window):i]
+            right_window = feature_data.iloc[i+1:min(len(feature_data), i+window+1)]
+            
+            if len(left_window) > 0 and len(right_window) > 0:
+                if feature_data.iloc[i] >= np.max(left_window) and feature_data.iloc[i] >= np.max(right_window):
+                    peaks.append(i)
+
+        valleys = []
+        for i in range(start_idx, end_idx + 1):
+            left_window = feature_data.iloc[max(0, i-window):i]
+            right_window = feature_data.iloc[i+1:min(len(feature_data), i+window+1)]
+            
+            if len(left_window) > 0 and len(right_window) > 0:
+                if feature_data.iloc[i] <= np.min(left_window) and feature_data.iloc[i] <= np.min(right_window):
+                    valleys.append(i)
+        return (peaks, valleys)
+
+    def remove_highlighted_peaks_valleys(self, ax_name=StockVisualData.AX_PRICE, artist_names=('peaks', 'valleys')):
+        self.remove_artist(ax_name, artist_names[0])
+        self.remove_artist(ax_name, artist_names[1])
 
     def add_custom_markers(self, name, indices=None, dates=None, marker='^', color='red', size=100):
         """
