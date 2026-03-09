@@ -7,6 +7,7 @@ from Common.AutoNumber import AutoIndex
 
 
 class StockModel:
+    Models_Path = 'models'
     class INTERVAL(AutoIndex):
         ONE_MINUT = ()
         TWO_MINUTS = ()
@@ -44,7 +45,7 @@ class StockModel:
         total_volume = ()
 
     Interval = ['1m','2m','5m','15m','30m','60m','90m','1h','1d','5d','1wk','1mo','3mo']
-    def __init__(self, ticker_symbol, load_data=None, start_date=None, end_date=None):
+    def __init__(self, ticker_symbol, load_data=None, start_date=None, end_date=None, interval='1d'):
         self._ticker_symbol = ticker_symbol
         self._start_date = '2024-01-01' if start_date is None else start_date
         self._end_date = '2025-12-31' if end_date is None else end_date
@@ -55,6 +56,7 @@ class StockModel:
         self._interval = '1d'
         self._feature_functions = None
         self._extend_features = {}
+        self._model_path = f'{self.Models_Path}/{ticker_symbol}'
         if load_data is not None:
             self._extracted_features()
 
@@ -93,6 +95,12 @@ class StockModel:
             self._loaded_data = data
             self._extracted_features()
 
+    @property
+    def model_save_path(self):
+        return self._model_path
+    @model_save_path.setter
+    def model_save_path(self, path):
+        self._model_path = path
 
     @property
     def model(self):
@@ -187,6 +195,7 @@ class StockModel:
             self._loaded_data = yf.Ticker(self._ticker_symbol).history(start=self._start_date, end=self._end_date)
             print(f"Loaded history data of ticker [{self._ticker_symbol}]")
             self._extracted_features()
+            self.save_model_data_to_disk()
             return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbol}: {e}")
@@ -213,6 +222,7 @@ class StockModel:
                                 # threads=True    # 使用多线程
                                 )
             self._extracted_features()
+            self.save_model_data_to_disk()
             return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbolicker}: {e}")
@@ -220,9 +230,22 @@ class StockModel:
                                  f"Error downloading data for {self.ticker_symbolticker}: {e}")
             return False
 
-    def load_model_data_from_disk(self, data_dir):
+    def save_model_data_to_disk(self):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
+        data_dir = self._model_path
+        mio = ModelSaverLoader(data_dir,
+                               ticker_symbol=self._ticker_symbol)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, self._loaded_data)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, self.create_ticker_parameters())
+        if self.model is not None:
+            mio.set_model_train_data(MODEL_TRAIN_DATA.model, self._model)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
+
+    def load_model_data_from_disk(self):
+        from ModelIO import ModelSaverLoader
+        from StockDefine import MODEL_TRAIN_DATA
+        data_dir = self._model_path
         mio = ModelSaverLoader(data_dir, 
                                ticker_symbol=self._ticker_symbol,
                                save=False)

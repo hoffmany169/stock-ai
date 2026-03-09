@@ -83,7 +83,8 @@ class ModelSaverLoader:
                 parts = base_name.split('_')
                 print(parts)
                 self._ticker_symbol = parts[0]
-                self._directory = directory
+                self._directory = directory.split(base_name)[0]
+                print(f"ticker: {self._ticker_symbol}, directory: {self._directory}")
             else:
                 if ticker_symbol not in directory:
                     raise ValueError("No ticker symbol is found in directory.")

@@ -591,7 +591,7 @@ class StockPredictionGUI:
                             mt.features = features
                             sm = self.manager.get_stock_model(ticker)
                             # create folder structure for saving data and save loaded data
-                            save_path = self._cur_config[ConfigEntry.model_save_path.name]
+                            save_path = os.path.join(self._cur_config[ConfigEntry.model_save_path.name], ticker)
                             mio = ModelSaverLoader(save_path, ticker)
                             ticker_data = self.manager.get_stock_model(ticker).loaded_data
                             mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, ticker_data)

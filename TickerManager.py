@@ -109,41 +109,45 @@ class TickerManager:
             start_str = str(self.start_date)
             end_str = str(self.end_date)
             
-            # 使用更稳定的下载方式
-            all_data = yf.download(
-                tickers, 
-                start=start_str, 
-                end=end_str, 
-                group_by='ticker',
-                progress=True,  # 显示进度
-                timeout=60,     # 延长超时时间
-                threads=True    # 使用多线程
-            )
-            
-            print(f"下载完成，数据形状: {all_data.shape}")
-            
-            # 处理数据
-            for ticker in tickers:
-                try:
-                    if ticker in all_data:
-                        data_num = len(all_data[ticker])
-                        if data_num > 1:
-                            # create stock model object if download is successful
-                            self.add_ticker(ticker)
-                            sm = self.get_stock_model(ticker)
-                            sm.loaded_data = all_data[ticker]
-                            sm.start_date = start_str
-                            sm.end_date = end_str
-                            print(f"{ticker}: 成功加载 {len(all_data[ticker])} 条数据")
-                            continue
-                    # 尝试单独下载
-                    print(f"{ticker}: 批量下载失败，尝试单独下载...")
-                    if not self.single_load_ticker_data(ticker, start_str, end_str):
+            if len(tickers) > 1:
+                # 使用更稳定的下载方式
+                all_data = yf.download(
+                    tickers, 
+                    start=start_str, 
+                    end=end_str, 
+                    group_by='ticker',
+                    progress=True,  # 显示进度
+                    timeout=60,     # 延长超时时间
+                    threads=True    # 使用多线程
+                )
+                print(f"下载完成，数据形状: {all_data.shape}")
+                # 处理数据
+                for ticker in tickers:
+                    try:
+                        if ticker in all_data:
+                            data_num = len(all_data[ticker])
+                            if data_num > 1:
+                                # create stock model object if download is successful
+                                self.add_ticker(ticker)
+                                sm = self.get_stock_model(ticker)
+                                sm.loaded_data = all_data[ticker]
+                                sm.start_date = start_str
+                                sm.end_date = end_str
+                                print(f"{ticker}: 成功加载 {len(all_data[ticker])} 条数据")
+                                continue
+                        # 尝试单独下载
+                        print(f"{ticker}: 批量下载失败，尝试单独下载...")
+                        if not self.single_load_ticker_data(ticker, start_str, end_str):
+                            no_data.append(ticker)
+                    except Exception as e:
+                        print(f"{ticker}: 处理失败 - {str(e)}")
                         no_data.append(ticker)
-                except Exception as e:
-                    print(f"{ticker}: 处理失败 - {str(e)}")
-                    no_data.append(ticker)
-                    continue
+                        continue
+            else:
+                sm = StockModel(tickers[0], start_date=start_str, end_date=end_str)
+                sm.download_ticker_data()
+                self.add_ticker(ticker)
+            
         except Exception as e:
             print(f"批量下载失败: {str(e)}")
             print("尝试逐个下载...")
@@ -157,16 +161,15 @@ class TickerManager:
 
     def single_load_ticker_data(self, ticker, start_date, end_date):
         try:
-            self.add_ticker(ticker)
             sm = self.get_stock_model(ticker)
             ret = sm.load_historical_data(start_date, end_date)
             
             if ret:
                 print(f"{ticker}: 成功单独下载 {len(sm.loaded_data)} 条数据")
+                self.add_ticker(ticker)
                 return True
             else:
                 print(f"{ticker}: 无数据")
-                self.remove_ticker(ticker)
                 return False
         except Exception as e:
             print(f"{ticker}: 下载失败 - {str(e)}")
@@ -183,13 +186,11 @@ class TickerManager:
                     mt.features = self._stock_features
             mt.process_train_data()
     
-    def save_train_data(self, ticker_symbol, path):
+    def save_train_data(self, ticker_symbol):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
         import os
-        save_path = path
-        if path is None:
-            save_path = TickerManager.DefaultSaveDataDirectory
+        save_path = os.path.join(TickerManager.DefaultSaveDataDirectory, ticker_symbol)
         mio = ModelSaverLoader(save_path,
                                 ticker_symbol)
         sm = self.get_stock_model(ticker_symbol)
