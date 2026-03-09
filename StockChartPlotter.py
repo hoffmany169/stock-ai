@@ -493,7 +493,7 @@ class StockChartPlotter(ABC):
         peaks, valleys = self.find_peaks_valleys(feature, window, start_date=start_date, end_date=end_date)
 
         # 绘制高点标记
-        if peaks:
+        if peaks and len(peaks) > 0:
             artist1 = ax_main.scatter(
                         self.dates_mpl[peaks],
                         feature_data[peaks],
@@ -505,9 +505,10 @@ class StockChartPlotter(ABC):
                         linewidth=1.5,
                         label=peak_label
                     )
+            self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist1, artist_names[0], axes_name=StockVisualData.AX_PRICE)
         
         # 绘制低点标记
-        if valleys:
+        if valleys and len(valleys) > 0:
             artist2 = ax_main.scatter(
                         self.dates_mpl[valleys],
                         feature_data[valleys],
@@ -519,8 +520,7 @@ class StockChartPlotter(ABC):
                         linewidth=1.5,
                         label=valley_label
                     )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist1, artist_names[0], axes_name=StockVisualData.AX_PRICE)
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist2, artist_names[1], axes_name=StockVisualData.AX_PRICE)
+            self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, artist2, artist_names[1], axes_name=StockVisualData.AX_PRICE)
         ax_main.legend(loc='upper left')
         if self.parent is None:
             self.visual_data.fig.canvas.draw_idle()
@@ -549,8 +549,12 @@ class StockChartPlotter(ABC):
             right_window = feature_data.iloc[i+1:min(len(feature_data), i+window+1)]
             
             if len(left_window) > 0 and len(right_window) > 0:
-                if feature_data.iloc[i] >= np.max(left_window) and feature_data.iloc[i] >= np.max(right_window):
-                    peaks.append(i)
+                if i == end_idx: # treat last point as a valid point
+                    if feature_data.iloc[i] >= np.max(left_window):
+                        peaks.append(i)
+                else:
+                    if feature_data.iloc[i] >= np.max(left_window) and feature_data.iloc[i] >= np.max(right_window):
+                        peaks.append(i)
 
         valleys = []
         for i in range(start_idx, end_idx + 1):
@@ -558,8 +562,12 @@ class StockChartPlotter(ABC):
             right_window = feature_data.iloc[i+1:min(len(feature_data), i+window+1)]
             
             if len(left_window) > 0 and len(right_window) > 0:
-                if feature_data.iloc[i] <= np.min(left_window) and feature_data.iloc[i] <= np.min(right_window):
-                    valleys.append(i)
+                if i == end_idx: # treat last point as a valid point
+                    if feature_data.iloc[i] <= np.min(left_window):
+                        valleys.append(i)
+                else:
+                    if feature_data.iloc[i] <= np.min(left_window) and feature_data.iloc[i] <= np.min(right_window):
+                        valleys.append(i)
         return (peaks, valleys)
 
     def remove_highlighted_peaks_valleys(self, ax_name=StockVisualData.AX_PRICE, artist_names=('peaks', 'valleys')):

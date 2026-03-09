@@ -359,12 +359,12 @@ class VisualAnalyser(PriceVolumePlotter):
                     # print(points)
                     values = self.stock_data[self.feature].iloc[points]
                     # dates = self.stock_data['Date'].iloc[points]
-                    last_value = -1
+                    last_value = None
                     last_diff = None
                     value_percent = []
                     # calculate percentage of value changes
                     for cur_value in values:
-                        if last_value < 0:
+                        if last_value is None:
                             last_value = cur_value
                             continue
                         else:
@@ -372,14 +372,16 @@ class VisualAnalyser(PriceVolumePlotter):
                             last_value = cur_value
                             if last_diff is None:
                                 last_diff = cur_diff
+                                print(cur_diff)
                             else:
                                 value_percent.append((cur_diff / last_diff)*(-100 if cur_diff > 0 else 100))
                                 last_diff = cur_diff
+                                print(cur_diff)
                     # create string
                     result = ""
                     if len(value_percent) > 0:
                         for i, v in enumerate(value_percent):
-                            result += f'{i}.[{v:.1f}%]\n'
+                            result += f'{i+1}.[{v:.1f}%]\n'
                     result_var.set(result)
                     top.update()
             create_wave_dialog()
