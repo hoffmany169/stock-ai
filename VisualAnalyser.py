@@ -30,6 +30,10 @@ class CONTEXT_COMMAND(AutoIndex):
     seperator_3 = ()
     draw_horizontal_line = ()
     remove_horizontal_line = ()
+    seperator_4 = ()
+    first_trend_point = ()
+    draw_trend_line = ()
+    remove_trend_line = ()
     
 
 
@@ -91,6 +95,7 @@ class VisualAnalyser(PriceVolumePlotter):
         self._real_time_search = True # default is True
         self.current_point = None
         self.first_point = None
+        self.first_trend_point = None
 
     def set_backend_window(self, parent):
         super().set_backend_window(parent)
@@ -393,6 +398,40 @@ class VisualAnalyser(PriceVolumePlotter):
     def on_remove_horizontal_line(self, *args):
         self.remove_artist(StockVisualData.AX_PRICE, 'horizontal_line')
 
+    def on_first_trend_point(self, *args):
+        self.first_trend_point = self.current_point
+
+    def on_draw_trend_line(self, *args):
+        """
+        Docstring for draw_line
+        Visual angle = arctan(Data slope × (y_scale / x_scale))
+             = arctan(Data slope / Aspect_ratio)
+        """
+        from plot_style import STYLE, PLOT_ELEMENT
+        if self.first_trend_point is None:
+            messagebox.showwarning("Trend Line", "Please, add starting trend point at first")
+            return
+        coord1 = self.first_trend_point.Coordinate
+        coord2 = self.current_point.Coordinate
+        if coord1 == coord2:
+            messagebox.showwarning("Warning", "Start and End points must be different.")
+        else:
+            self.remove_artist(StockVisualData.AX_PRICE, 'trend_line')
+            ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+            if ax is None:
+                messagebox.showerror("Plot Trend Line", "Invalid ax")
+                return
+            line = ax.axline(coord1, coord2, 
+                             linestyle=self.plot_styles.get_line_style('solid_line'),
+                             alpha = self.plot_styles.get_setting(STYLE.alphas, PLOT_ELEMENT.trend_line),
+                             linewidth=self.plot_styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.trend_line),
+                             color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_up if coord2[1] > coord1[1] else PLOT_ELEMENT.price_down))
+            
+            self.fig_canvas.draw_idle()
+            self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, line, 'trend_line', StockVisualData.AX_PRICE)
+
+    def on_remove_trend_line(self, *args):
+        self.remove_artist(StockVisualData.AX_PRICE, 'trend_line')
 #endregion context menu
 
     def draw_vertical_line(self, coords):
@@ -407,43 +446,6 @@ class VisualAnalyser(PriceVolumePlotter):
             self.fig_canvas.draw()
             # self.layers[ElementLayer.GUIDELINE].append((artist1, artist2))
     
-    def draw_line(self):
-        """
-        Docstring for draw_line
-        Visual angle = arctan(Data slope × (y_scale / x_scale))
-             = arctan(Data slope / Aspect_ratio)
-        """
-        if len(self.layers[ElementLayer.MARKER]) >= 2:
-            point_num = len(self.layers[ElementLayer.MARKER])
-            first_points_idx = [i for i in range(1, point_num+1)]
-            second_points_idx = [i for i in range(1, point_num+1)]
-            def create_select_start_end_point_dialog():
-                dialog = tk.Toplevel(self.tk_root)
-                dialog.title("Select Start and End Points")
-                dialog.geometry("300x200")
-                
-                tk.Label(dialog, text="Select Start Point:").pack()
-                start_var = StringVar(value=str(first_points_idx[0]))
-                start_combo = ttk.Combobox(dialog, values=first_points_idx, state='readonly', textvariable=start_var)
-                start_combo.pack(pady=5)
-                
-                tk.Label(dialog, text="Select End Point:").pack()
-                end_var = StringVar(value=str(second_points_idx[0]))
-                end_combo = ttk.Combobox(dialog, values=second_points_idx, state='readonly', textvariable=end_var)
-                end_combo.pack(pady=5)
-                
-                def on_confirm():
-                    start_idx = int(start_var.get()) - 1
-                    end_idx = int(end_var.get()) - 1
-                    if start_idx != end_idx:
-                        self._draw_line_between_points(start_idx, end_idx)
-                        dialog.destroy()
-                    else:
-                        messagebox.showwarning("Warning", "Start and End points must be different.")
-                
-                tk.Button(dialog, text="Confirm", command=on_confirm).pack(pady=10)
-            create_select_start_end_point_dialog()
-
     def on_highlight_peaks_and_valleys(self):
         from StockModel import StockModel
         from plot_style import STYLE, PLOT_ELEMENT

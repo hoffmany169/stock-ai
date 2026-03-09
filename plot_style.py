@@ -11,6 +11,7 @@ class PLOT_ELEMENT(AutoIndex):
     title = ()
     price_line = ()
     hover_line = ()
+    trend_line = ()
     price_up = ()
     price_down = ()
     volume = ()
@@ -42,17 +43,19 @@ class PlotStyle:
                 'hover_line': '#e74c3c',        # 悬停线颜色
                 'annotation_bg': 'white',       # 注释框背景
                 'grid_color': '#ecf0f1',        # 网格颜色
-                'horizontal_line' : 'purple'
+                'horizontal_line' : 'purple',
             },
             # 线型配置
             'line_widths': {
                 'price_line': 2,
                 'hover_line': 1,
+                'trend_line': 2,
             },
             # 透明度
             'alphas': {
                 'volume': 0.7,
                 'hover_line': 0.5,
+                'trend_line': 0.5,
             },
             'line_styles': {
                 'solid_line': '-',
