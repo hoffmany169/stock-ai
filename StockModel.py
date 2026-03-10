@@ -7,7 +7,6 @@ from Common.AutoNumber import AutoIndex
 
 
 class StockModel:
-    Models_Path = 'models'
     class INTERVAL(AutoIndex):
         ONE_MINUT = ()
         TWO_MINUTS = ()
@@ -45,7 +44,12 @@ class StockModel:
         total_volume = ()
 
     Interval = ['1m','2m','5m','15m','30m','60m','90m','1h','1d','5d','1wk','1mo','3mo']
-    def __init__(self, ticker_symbol, load_data=None, start_date=None, end_date=None, interval='1d'):
+    def __init__(self, ticker_symbol,
+                 load_data=None,
+                 start_date=None,
+                 end_date=None,
+                 model_save_root_path='models',
+                 interval='1d'):
         self._ticker_symbol = ticker_symbol
         self._start_date = '2024-01-01' if start_date is None else start_date
         self._end_date = '2025-12-31' if end_date is None else end_date
@@ -56,7 +60,8 @@ class StockModel:
         self._interval = '1d'
         self._feature_functions = None
         self._extend_features = {}
-        self._model_path = f'{self.Models_Path}/{ticker_symbol}'
+        self._interval = interval
+        self._model_save_path = f'{model_save_root_path}/{ticker_symbol}'
         if load_data is not None:
             self._extracted_features()
 
@@ -97,10 +102,10 @@ class StockModel:
 
     @property
     def model_save_path(self):
-        return self._model_path
+        return self._model_save_path
     @model_save_path.setter
     def model_save_path(self, path):
-        self._model_path = path
+        self._model_save_path = path
 
     @property
     def model(self):
@@ -233,7 +238,7 @@ class StockModel:
     def save_model_data_to_disk(self):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
-        data_dir = self._model_path
+        data_dir = self._model_save_path
         mio = ModelSaverLoader(data_dir,
                                ticker_symbol=self._ticker_symbol)
         mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, self._loaded_data)

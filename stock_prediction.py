@@ -40,7 +40,6 @@ class StockPredictionGUI:
                                                 'BABA', 'JD', 'PDD', 'BIDU', 'NTES'],}
         self._gui_config_file_name = 'gui.cfg' # json file
         # 初始化股票列表
-        self._processing_stocks = []  # 存储股票代码的列表        
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -68,11 +67,6 @@ class StockPredictionGUI:
     @property
     def reload_data(self):
         return self._reload_data
-
-    @property
-    def processing_stocks(self):
-        """获取所有选中的股票"""
-        return self._processing_stocks.copy()
 #endregion properties
 
     def on_tab_change(self, event):
@@ -88,7 +82,7 @@ class StockPredictionGUI:
         # print(f"Tab gewechselt zu: {tab_text}")
         # print(f"Index of current tab: {index}")
         if index == 2: # visual tab
-            self.visual_model_combo["values"] = self._processing_stocks
+            self.visual_model_combo["values"] = self.manager.processing_tickers
             self.visual_model_combo.current(0)
             self.visual_model_combo.update
 
@@ -294,7 +288,7 @@ class StockPredictionGUI:
         ttk.Label(control_frame, text="Select Model:").pack(side=tk.LEFT, padx=(20,5))
         self.visual_model_combo = ttk.Combobox(control_frame, width=25)
         self.visual_model_combo.pack(side=tk.LEFT, padx=5)
-        self.visual_model_combo['values'] = self._processing_stocks
+        self.visual_model_combo['values'] = self.manager.processing_tickers
 
         # set feature shown in chart
         ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
@@ -393,7 +387,6 @@ class StockPredictionGUI:
             if models_dir != self._cur_config[ConfigEntry.model_save_path.name]:
                 self._cur_config[ConfigEntry.model_save_path.name] = models_dir
             self.manager.process_load_train_data(chosen_path)
-            self._processing_stocks = list(set(self._processing_stocks + self.manager.get_ticker_list()))
             self.update_stock_listbox(from_disk=True)
 
     def add_stock(self, selected:str):
@@ -421,7 +414,7 @@ class StockPredictionGUI:
                 return
             
             # 检查是否已存在
-            if stock in self._processing_stocks:
+            if stock in self.manager.processing_tickers:
                 messagebox.showinfo("Hint", f"{stock} exists already!")
                 return
             
@@ -433,7 +426,7 @@ class StockPredictionGUI:
                     return
             
             # 添加到内部列表
-            self._processing_stocks.append(stock)
+            self.manager.add_ticker(stock)
             
             # 更新Listbox显示
             self.update_stock_listbox()
@@ -485,12 +478,11 @@ class StockPredictionGUI:
         
         # 获取选中的股票代码
         index = selection[0]
-        stock = self._processing_stocks[index]
+        stock = self.stock_listbox.get(index)
         
         # 确认删除
         if messagebox.askyesno("Confirmation", f"Are you sure you want to delete stock '{stock}'?"):
             # 从内部列表删除
-            self._processing_stocks.pop(index)
             if stock in self.manager.tickers:
                 # remove it also from stock manager
                 self.manager.remove_ticker(stock)
@@ -502,15 +494,10 @@ class StockPredictionGUI:
             self._reload_data = True
     
     def clear_all_stocks(self):
-        """清空所有股票"""
-        if not self._processing_stocks:
-            messagebox.showinfo("Info", "List of stocks is already empty")
-            return
-        
+        """清空所有股票"""        
         if messagebox.askyesno("Confirmation", f"Are you sure you want to clear all {len(self._processing_stocks)} stocks?"):
             # 清空内部列表
             self.manager.clear_all()
-            self._processing_stocks.clear()
             
             # 更新Listbox显示
             self.update_stock_listbox()
@@ -523,14 +510,14 @@ class StockPredictionGUI:
         """更新Listbox显示"""
         # 清空Listbox
         self.stock_listbox.delete(0, tk.END)
-        
-        # 添加所有股票
-        for i, stock in enumerate(self._processing_stocks):
-            if from_disk: # add start_date and end_date
-                sm = self.manager.get_stock_model(stock)
-                self.stock_listbox.insert(tk.END, f"{i}. [{stock}]: {sm.start_date} - {sm.end_date}")
-            else:
-                self.stock_listbox.insert(tk.END, f"{i}. [{stock}]")
+        if len(self.manager.processing_tickers) > 0:
+            # 添加所有股票
+            for i, stock in enumerate(self.manager.processing_tickers):
+                if from_disk: # add start_date and end_date
+                    sm = self.manager.get_stock_model(stock)
+                    self.stock_listbox.insert(tk.END, f"{i}. [{stock}]: {sm.start_date} - {sm.end_date}")
+                else:
+                    self.stock_listbox.insert(tk.END, f"{i}. [{stock}]")
         # 更新状态显示
         self.update_status()
 
@@ -552,7 +539,7 @@ class StockPredictionGUI:
     def start_loading_ticker_data_from_markt(self):
         # 在新线程中运行训练，避免GUI冻结
         features = self._stock_features.get_features()
-        thread = threading.Thread(target=self.run_loading_ticker_data, args=(self._processing_stocks, features))
+        thread = threading.Thread(target=self.run_loading_ticker_data, args=(self.manager.processing_tickers, features))
         thread.daemon = True
         thread.start()    
 
@@ -628,7 +615,7 @@ class StockPredictionGUI:
 
     def start_training(self):
         """开始训练模型"""
-        if not self._processing_stocks:
+        if len(self.manager.processing_tickers) == 0:
             messagebox.showwarning("Warning", "Please add stocks first")
             return
                 
@@ -642,7 +629,7 @@ class StockPredictionGUI:
             return
         
         # 在新线程中运行训练，避免GUI冻结
-        thread = threading.Thread(target=self.run_training, args=(self._processing_stocks, features, lookback))
+        thread = threading.Thread(target=self.run_training, args=(self.manager.processing_tickers, features, lookback))
         thread.daemon = True
         thread.start()    
 

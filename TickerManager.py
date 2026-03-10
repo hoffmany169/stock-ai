@@ -6,6 +6,10 @@ import pandas as pd
 from StockDefine import FEATURE, TICKER, StockFeature
 from StockModel import StockModel
 from ModelTrainLSTM import LSTMModelTrain
+from Common.AutoNumber import AutoIndex
+class TickerData(AutoIndex):
+    stock_model = ()
+    ltsm_model_train = ()
 
 class TickerManager:
     DefaultSaveDataDirectory = r'./models'
@@ -19,6 +23,7 @@ class TickerManager:
     def set_save_data_directory(dir):
         TickerManager.DefaultSaveDataDirectory = dir
 
+#region properties
     @property
     def start_date(self):
         return self._start_date
@@ -40,8 +45,13 @@ class TickerManager:
     def stock_features(self, feats):
         self._stock_features = feats
 
-    def get_ticker_list(self):
+    @property
+    def processing_tickers(self):
         return list(self.tickers.keys())
+#endregion properties
+
+    # def get_ticker_list(self):
+    #     return list(self.tickers.keys())
 
     def add_ticker(self, ticker_symbol):
         """Add a ticker to the manager."""
@@ -50,13 +60,18 @@ class TickerManager:
             return
         print(f'Adding Stock: [{ticker_symbol}]')
         sm = StockModel(ticker_symbol)
-        self.tickers[ticker_symbol] = LSTMModelTrain(sm, self._stock_features)
+        self.tickers[ticker_symbol][TickerData.stock_model] = sm
+        self.tickers[ticker_symbol][TickerData.stock_model] = LSTMModelTrain(sm, self._stock_features)
 
-    def remove_ticker(self, ticker):
+    def remove_ticker(self, ticker:str|int):
         """Remove a ticker from the manager."""
-        if ticker not in self.tickers:
+        if type(ticker) is int: # index of ticker
+            rmv_ticker = self.processing_tickers[ticker]
+        else:
+            rmv_ticker = ticker
+        if rmv_ticker not in self.tickers:
             return
-        self.tickers.pop(ticker, None)
+        return self.tickers.pop(rmv_ticker, None)
 
     def clear_all(self):
         self.tickers.clear()
@@ -70,11 +85,11 @@ class TickerManager:
             # ticker symbol
             for ticker_symbol, m in self.tickers.items():
                 if ticker == ticker_symbol:
-                    return m.stock_model
+                    return self.tickers[ticker_symbol][TickerData.stock_model]
         elif type(ticker) is int:
             for i, ticker_symbol in enumerate(self.get_all_tickers()):
                 if i == ticker:
-                    return self.tickers[ticker_symbol].stock_model
+                    return self.tickers[ticker_symbol][TickerData.stock_model]
         else:
             raise ValueError("Data type of ticker is not supported!")
 
@@ -83,11 +98,11 @@ class TickerManager:
             # ticker symbol
             for ticker_symbol, m in self.tickers.items():
                 if ticker == ticker_symbol:
-                    return m
+                    return self.tickers[ticker_symbol][TickerData.ltsm_model_train]
         elif type(ticker) is int:
             for i, ticker_symbol in enumerate(self.get_all_tickers()):
                 if i == ticker:
-                    return self.tickers[ticker_symbol]
+                    return self.tickers[ticker_symbol][TickerData.ltsm_model_train]
         else:
             raise ValueError("Data type of ticker is not supported!")
 
@@ -190,17 +205,16 @@ class TickerManager:
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
         import os
+
+        sm = self.get_stock_model(ticker_symbol)
+        sm.save_model_data_to_disk()
         save_path = os.path.join(TickerManager.DefaultSaveDataDirectory, ticker_symbol)
         mio = ModelSaverLoader(save_path,
                                 ticker_symbol)
-        sm = self.get_stock_model(ticker_symbol)
         ss = self.get_LSTM_model_train(ticker_symbol)
-        mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, sm.loaded_data)
-        mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, sm.create_ticker_parameters())
-        mio.set_model_train_data(MODEL_TRAIN_DATA.model, sm.model)
+        # mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
         mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
         mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, ss.create_model_parameters())
-        mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
         mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, ss.train_history)
         mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.performance)
         mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, ss.get_model_summary())
