@@ -31,6 +31,8 @@ class StockVisualData:
         #                      ...
         self._fig = fig
         self.visual_data = {}
+        # instance of mplcursors
+        self.curve_cursor = None
 
     @property
     def fig(self):
@@ -438,6 +440,14 @@ class StockChartPlotter(ABC):
         
         # 连接鼠标离开事件
         fig.canvas.mpl_connect("axes_leave_event", self.on_leave)
+
+    def on_add(self, sel):
+        """event callback for mplcursors.connect("add", callback)"""
+        pass
+
+    def on_remove(self, sel):
+        """event callback for mplcursors.connect("remove", callback)"""
+        pass
 
     def on_leave(self, event):
         """鼠标离开图表区域事件处理"""

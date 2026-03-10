@@ -31,8 +31,13 @@ class LSTMModelTrain:
         self._performance = None
         self._train_params = {}
         self._train_history = None
+        self._model_is_trained = False
 
 #region properties
+    @property
+    def is_model_trained(self):
+        return self._model_is_trained
+    
     @property
     def stock_model(self):
         return self._stock_model
@@ -269,6 +274,8 @@ class LSTMModelTrain:
     def save_model_train_data_to_disk(self):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
+        if not self._model_is_trained:
+            return
         mio = ModelSaverLoader(self._stock_model.model_save_path,
                                self._stock_model.ticker_symbol)
         mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)

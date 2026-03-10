@@ -158,13 +158,13 @@ class VisualAnalyser(PriceVolumePlotter):
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
         self.plot()      
         # use mplcursors to show points on the curve.  
-        self.price_line_cursor = mplcursors.cursor(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 
-                                                                                          StockVisualData.AX_PRICE, 
-                                                                                          data_name='price_line'),
-                                                   hover=2) # Transient hover mode: the annotation appears when the mouse is near a point and disappears when the mouse moves away, with a delay of 2 seconds before disappearing. This mode is useful for providing information about points without requiring a click, while also ensuring that the annotation does not linger on the screen for too long.
-        self.price_line_cursor.connect("add", self.on_add)
+        self.curve_cursor = mplcursors.cursor(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 
+                                                                                     StockVisualData.AX_PRICE, 
+                                                                                     data_name='price_line'),
+                                              hover=2) # Transient hover mode: the annotation appears when the mouse is near a point and disappears when the mouse moves away, with a delay of 2 seconds before disappearing. This mode is useful for providing information about points without requiring a click, while also ensuring that the annotation does not linger on the screen for too long.
+        self.curve_cursor.connect("add", self.on_add)
         # disable remove event to prevent right-click conflict with hover event, as they may trigger at the same time when user right-clicks on a point, which can cause the context menu to not show up
-        self.price_line_cursor.connect("remove", None)
+        self.curve_cursor.connect("remove", None)
         # 配置图表格式
         self.format_chart_price(ax)
         

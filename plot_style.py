@@ -97,7 +97,7 @@ class PlotStyle:
             if element.name == elem:
                 return value
             
-    def set_setting(self, style:STYLE, element:PLOT_ELEMENT, value:str):
+    def set_setting(self, style:STYLE, element:PLOT_ELEMENT, value):
         for elem in self.styles[style.name].keys():
             if element.name == elem:
                 self.styles[style.name][elem] = value

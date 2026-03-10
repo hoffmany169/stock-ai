@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <diagram program="umlet" version="15.1">
   <help_text>Space for diagram notes</help_text>
-  <zoom_level>9</zoom_level>
+  <zoom_level>8</zoom_level>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>621</x>
-      <y>27</y>
-      <w>189</w>
-      <h>153</h>
+      <x>400</x>
+      <y>16</y>
+      <w>168</w>
+      <h>136</h>
     </coordinates>
     <panel_attributes>&lt;&lt;GUI&gt;&gt;
 Package::StockPredictionGUI
@@ -27,10 +27,10 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>621</x>
-      <y>252</y>
-      <w>306</w>
-      <h>252</h>
+      <x>400</x>
+      <y>216</y>
+      <w>272</w>
+      <h>224</h>
     </coordinates>
     <panel_attributes>&lt;&lt;model&gt;&gt;
 Package::TikerManager
@@ -54,10 +54,10 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>693</x>
-      <y>585</y>
-      <w>234</w>
-      <h>414</h>
+      <x>464</x>
+      <y>512</y>
+      <w>208</w>
+      <h>368</h>
     </coordinates>
     <panel_attributes>&lt;&lt;algorithm&gt;&gt;
 Package::SelectStockLTSM
@@ -85,6 +85,8 @@ Package::SelectStockLTSM
 +evaluate_model():None
 +save_ticker_model_data():None
 +predict():None
++ load_model_train_data_to_disk():None
++ save_model_train_data_to_disk():None
 --
 Responsibilities
 -- train model
@@ -94,10 +96,10 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>216</x>
-      <y>396</y>
-      <w>369</w>
-      <h>423</h>
+      <x>40</x>
+      <y>312</y>
+      <w>328</w>
+      <h>400</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
 Package::StockModel
@@ -126,6 +128,8 @@ Package::StockModel
 +load_model_data_from_disk():None
 +create_ticker_parameters():None
 +assign_ticker_params_from_loading(ticker_data:dict):None
++ save_model_data_to_disk():None
++ load_model_data_from_disk():None
 --
 Responsibilities
 -- stock model data
@@ -135,10 +139,10 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>207</x>
-      <y>27</y>
-      <w>252</w>
-      <h>207</h>
+      <x>32</x>
+      <y>16</y>
+      <w>224</w>
+      <h>184</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
 Package::StockFeature
@@ -160,21 +164,21 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>396</x>
-      <y>324</y>
-      <w>243</w>
-      <h>90</h>
+      <x>200</x>
+      <y>280</y>
+      <w>216</w>
+      <h>48</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
-    <additional_attributes>250.0;10.0;10.0;10.0;10.0;80.0</additional_attributes>
+    <additional_attributes>250.0;10.0;10.0;10.0;10.0;40.0</additional_attributes>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>657</x>
-      <y>171</y>
-      <w>27</w>
-      <h>99</h>
+      <x>432</x>
+      <y>144</y>
+      <w>24</w>
+      <h>88</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>10.0;90.0;10.0;10.0</additional_attributes>
@@ -182,10 +186,10 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>216</x>
-      <y>846</y>
-      <w>405</w>
-      <h>189</h>
+      <x>40</x>
+      <y>744</y>
+      <w>360</w>
+      <h>168</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
 Package::ModelSaverLoader
@@ -206,22 +210,22 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>576</x>
-      <y>729</y>
-      <w>126</w>
-      <h>135</h>
+      <x>360</x>
+      <y>608</y>
+      <w>112</w>
+      <h>152</h>
     </coordinates>
     <panel_attributes>lt=&lt;..
 m2=get saved data</panel_attributes>
-    <additional_attributes>40.0;130.0;40.0;10.0;10.0;10.0</additional_attributes>
+    <additional_attributes>40.0;170.0;40.0;10.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>450</x>
-      <y>72</y>
-      <w>189</w>
-      <h>27</h>
+      <x>248</x>
+      <y>56</y>
+      <w>168</w>
+      <h>24</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>10.0;10.0;190.0;10.0</additional_attributes>
@@ -229,10 +233,10 @@ m2=get saved data</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>711</x>
-      <y>171</y>
-      <w>108</w>
-      <h>99</h>
+      <x>480</x>
+      <y>144</y>
+      <w>96</w>
+      <h>88</h>
     </coordinates>
     <panel_attributes>lt=&lt;..
 m1=get_features()</panel_attributes>
@@ -241,10 +245,10 @@ m1=get_features()</panel_attributes>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>972</x>
-      <y>27</y>
-      <w>198</w>
-      <h>207</h>
+      <x>712</x>
+      <y>16</y>
+      <w>176</w>
+      <h>184</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
 PriceVolumePlotter
@@ -265,10 +269,10 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>684</x>
-      <y>837</y>
-      <w>27</w>
-      <h>27</h>
+      <x>456</x>
+      <y>736</y>
+      <w>24</w>
+      <h>24</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
     <additional_attributes>10.0;10.0;10.0;10.0</additional_attributes>
@@ -276,10 +280,10 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>801</x>
-      <y>495</y>
-      <w>27</w>
-      <h>108</h>
+      <x>560</x>
+      <y>432</y>
+      <w>24</w>
+      <h>96</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
     <additional_attributes>10.0;10.0;10.0;100.0</additional_attributes>
@@ -287,10 +291,10 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>1206</x>
-      <y>27</y>
-      <w>315</w>
-      <h>576</h>
+      <x>920</x>
+      <y>16</y>
+      <w>280</w>
+      <h>512</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
 StockChartPlotter
@@ -338,10 +342,10 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1161</x>
-      <y>36</y>
-      <w>63</w>
-      <h>27</h>
+      <x>880</x>
+      <y>24</y>
+      <w>56</w>
+      <h>24</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;-</panel_attributes>
     <additional_attributes>50.0;10.0;10.0;10.0</additional_attributes>
@@ -349,10 +353,10 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>972</x>
-      <y>279</y>
-      <w>198</w>
-      <h>324</h>
+      <x>712</x>
+      <y>240</y>
+      <w>176</w>
+      <h>288</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
 VisualAnalyser
@@ -368,10 +372,10 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1053</x>
-      <y>225</y>
-      <w>27</w>
-      <h>72</h>
+      <x>784</x>
+      <y>192</y>
+      <w>24</w>
+      <h>64</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;-</panel_attributes>
     <additional_attributes>10.0;10.0;10.0;60.0</additional_attributes>
@@ -379,10 +383,10 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>801</x>
-      <y>99</y>
-      <w>189</w>
-      <h>27</h>
+      <x>560</x>
+      <y>80</y>
+      <w>168</w>
+      <h>24</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>190.0;10.0;10.0;10.0</additional_attributes>
@@ -390,12 +394,134 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>801</x>
-      <y>126</y>
-      <w>189</w>
-      <h>225</h>
+      <x>560</x>
+      <y>104</y>
+      <w>168</w>
+      <h>200</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
     <additional_attributes>190.0;230.0;160.0;230.0;160.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>368</x>
+      <y>784</y>
+      <w>112</w>
+      <h>32</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;..
+m2=get saved data</panel_attributes>
+    <additional_attributes>40.0;10.0;120.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>712</x>
+      <y>752</y>
+      <w>296</w>
+      <h>168</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;class&gt;&gt;
+PlotStyle
+--
+-styles:dict
+--
++get_setting(style:STYLE, element:str):any
++set_setting(style:STYLE, element:str, value:any):None
++get_marker_names():list
++get_marker(name:str):str
++get_line_style(name:str):str
+--
+Responsibilities
+-- Resp1
+-- Resp2</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>848</x>
+      <y>520</y>
+      <w>232</w>
+      <h>248</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;290.0;10.0;40.0;270.0;40.0;270.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>976</x>
+      <y>568</y>
+      <w>176</w>
+      <h>152</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;class&gt;&gt;
+StockVisualData
+--
+-visual_data:dict
+-fig:fig
+--
++add_stock_visual_data():None
++set_stock_visual_data():None
++get_stock_visual_data():any
++remove_stock_visual_data():any
+--
+Responsibilities
+-- save visual data from plotter</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>1080</x>
+      <y>752</y>
+      <w>296</w>
+      <h>240</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;class&gt;&gt;
+PointData
+--
+-x:double
+-value:double
+-index:int
+-date_str:str
+--
++get_date_from_x(x:double):str static
++get_datetime_from_date_string(ds:str):datetime static
++compare_with(other:PointData, to_string:bool):str|dict
++compare_feature_value(other:PointData, 
+                       stock_data:StockModel,
+                       feature:str):str
++sum_feature_value(other:PointData, 
+                   stock_data:StockModel, 
+                   feature:str):str
+--
+Responsibilities
+-- inteprete data from selection of mplcursors</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1056</x>
+      <y>520</y>
+      <w>24</w>
+      <h>64</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>10.0;60.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>1056</x>
+      <y>520</y>
+      <w>200</w>
+      <h>248</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>230.0;290.0;230.0;40.0;10.0;40.0;10.0;10.0</additional_attributes>
   </element>
 </diagram>
