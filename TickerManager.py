@@ -234,23 +234,15 @@ class TickerManager:
         """
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
-        mio = ModelSaverLoader(data_dir,
-                                save=False)
-        self.add_ticker(mio.ticker_symbol)
-        sm = self.get_stock_model(mio.ticker_symbol)
-        ss = self.get_LSTM_model_train(mio.ticker_symbol)
-        result = mio.load_train_data()
-        if result[MODEL_TRAIN_DATA.ticker_data]:
-            sm.loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data)
-        if result[MODEL_TRAIN_DATA.ticker_data_params]:
-            data_params = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data_params)
-            sm.assign_ticker_params_from_loading(data_params)
-        if result[MODEL_TRAIN_DATA.model]:
-            sm.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
-        if result[MODEL_TRAIN_DATA.scaler]:
-            ss.scaler = mio.get_model_train_data(MODEL_TRAIN_DATA.scaler)
-        if result[MODEL_TRAIN_DATA.parameters]:
-            ss.assign_parameters_from_loading(mio.get_model_train_data(MODEL_TRAIN_DATA.parameters))
+        models_dir, ticker_symbol = self._parse_models_directory(data_dir)
+        # mio = ModelSaverLoader(data_dir,
+        #                         save=False)
+        self.add_ticker(ticker_symbol)
+        sm = self.get_stock_model(ticker_symbol)
+        sm.model_save_path = data_dir
+        sm.load_model_data_from_disk()
+        ss = self.get_LSTM_model_train(ticker_symbol)
+        ss.load_model_train_data_to_disk()
         
     def select_stocks(self, start_date, end_date, lookback=60, selction_threshold=0.7):
         """

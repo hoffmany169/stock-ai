@@ -387,7 +387,7 @@ class StockChartPlotter(ABC):
         """获取鼠标离开信息"""
         pass
 
-    def format_large_numbers(self, x, pos):
+    def format_large_numbers(self, x, pos)->str:
         """格式化大数字显示（如1000显示为1K）"""
         if x >= 1e9:
             return f'{x/1e9:.1f}B'
@@ -432,6 +432,8 @@ class StockChartPlotter(ABC):
         """添加交互功能"""
         # 连接鼠标移动hover事件
         fig = self.visual_data.fig
+        if fig is None:
+            return
         fig.canvas.mpl_connect("motion_notify_event", self.on_hover)
         
         # 连接鼠标离开事件

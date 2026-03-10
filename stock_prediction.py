@@ -370,11 +370,15 @@ class StockPredictionGUI:
         return chosen_path
 
     def _parse_models_directory(self, directory):
+        # parse ticker name
+        base_name = os.path.basename(directory)
+        parts = base_name.split('_')
+        print(parts)
+        ticker_symbol = parts[0]
         # parse parent directory
-        parts = directory.split(os.sep)
-        models_directory = os.sep.join(parts[:-1])
-        print(f"MIO Directory: {models_directory}")
-        return models_directory
+        parent_directory = directory.split(base_name)[0]
+        print(f"ticker: {ticker_symbol}, directory: {parent_directory}")
+        return (parent_directory, ticker_symbol)
 
     def start_loading_ticker_data(self, selected:str):
         if selected.endswith('Markt'):
@@ -383,9 +387,8 @@ class StockPredictionGUI:
         elif selected.endswith('Disk'):
             # loading data from disk
             chosen_path = self._open_select_directory()
-            models_dir = self._parse_models_directory(chosen_path)
-            if models_dir != self._cur_config[ConfigEntry.model_save_path.name]:
-                self._cur_config[ConfigEntry.model_save_path.name] = models_dir
+            # if models_dir != self._cur_config[ConfigEntry.model_save_path.name]:
+            #     self._cur_config[ConfigEntry.model_save_path.name] = models_dir
             self.manager.process_load_train_data(chosen_path)
             self.update_stock_listbox(from_disk=True)
 
