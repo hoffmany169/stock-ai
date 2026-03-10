@@ -576,64 +576,6 @@ class StockChartPlotter(ABC):
         self.remove_artist(ax_name, artist_names[0])
         self.remove_artist(ax_name, artist_names[1])
 
-    def add_custom_markers(self, name, indices=None, dates=None, marker='^', color='red', size=100):
-        """
-        在特定位置添加自定义标记
-        
-        参数:
-        ----------
-        indices : list
-            要标记的数据点索引列表
-        dates : list
-            或者用日期列表指定要标记的点
-        marker : str
-            标记样式 ('^' 向上三角, 'v' 向下三角, 'o' 圆形, 's' 方形, '*' 星形)
-        color : str
-            标记颜色
-        size : int
-            标记大小
-        """
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
-        if ax is None:
-            raise ValueError("Please, call create_plot() or show() at first.")
-        
-        if indices is not None:
-            # 使用索引标记
-            x_coords = self.dates_mpl[indices]
-            y_coords = self.stock_data['Close'].iloc[indices]
-        elif dates is not None:
-            # 使用日期标记
-            date_indices = []
-            for date in dates:
-                # 找到最接近的日期索引
-                date_num = mdates.date2num(pd.to_datetime(date))
-                idx = np.abs(self.dates_mpl - date_num).argmin()
-                date_indices.append(idx)
-            
-            x_coords = self.dates_mpl[date_indices]
-            y_coords = self.stock_data['Close'].iloc[date_indices]
-        else:
-            raise ValueError("必须提供indices或dates参数")
-        
-        # 绘制标记
-        markers = ax.scatter(
-            x_coords, 
-            y_coords,
-            marker=marker,
-            color=color,
-            s=size,  # 标记大小
-            zorder=10,  # 确保标记显示在最上层
-            edgecolors='white',
-            linewidth=1,
-            label=f'Markers ({marker})'
-        )
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE, markers, name, StockVisualData.AX_PRICE)
-        # 更新图例
-        ax.legend(loc='upper left')
-        
-        if self.fig is not None:
-            self.fig.canvas.draw_idle()
-
     def remove_artist(self, axes_name, data_name):
         artist = self.visual_data.remove_stock_visual_data(StockVisualData.TYPE.artists, axes_name, data_name)
         if artist is None:
@@ -681,30 +623,6 @@ class StockChartPlotter(ABC):
         self.visual_data.fig.savefig(filename, dpi=dpi, bbox_inches='tight')
         print(f"图表已保存为: {filename}")
     
-    def set_custom_colors(self, price_up=None, price_down=None, 
-                          volume_up=None, volume_down=None):
-        """设置自定义颜色
-        
-        参数:
-        ----------
-        price_up : str
-            股价上涨颜色
-        price_down : str
-            股价下跌颜色
-        volume_up : str
-            上涨交易量颜色
-        volume_down : str
-            下跌交易量颜色
-        """
-        if price_up:
-            self.plot_styles.set_setting(STYLE.colors, PLOT_ELEMENT.price_up, price_up)
-        if price_down:
-            self.plot_styles.set_setting(STYLE.colors, PLOT_ELEMENT.price_down, price_down)
-        if volume_up:
-            self.plot_styles.set_setting(STYLE.colors, PLOT_ELEMENT.volume_up, volume_up)
-        if volume_down:
-            self.plot_styles.set_setting(STYLE.colors, PLOT_ELEMENT.volume_down, volume_down)
-
     def create_context_menu_commands(self):
         pass
 

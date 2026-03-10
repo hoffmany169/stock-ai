@@ -245,10 +245,6 @@ class VisualAnalyser(PriceVolumePlotter):
                 # Fallback
                 self.context_menu.post(self.last_click_coords)
             
-    def dummy_command(self):
-        """Placeholder - will be replaced"""
-        print("This dummy_command")
-
     def on_add(self, sel):
         from StockModel import StockModel
         self.current_point = PointData(sel)

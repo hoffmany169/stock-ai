@@ -5,8 +5,8 @@
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>468</x>
-      <y>18</y>
+      <x>621</x>
+      <y>27</y>
       <w>189</w>
       <h>153</h>
     </coordinates>
@@ -27,8 +27,8 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>468</x>
-      <y>198</y>
+      <x>621</x>
+      <y>252</y>
       <w>306</w>
       <h>252</h>
     </coordinates>
@@ -54,9 +54,9 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>828</x>
-      <y>18</y>
-      <w>225</w>
+      <x>693</x>
+      <y>585</y>
+      <w>234</w>
       <h>414</h>
     </coordinates>
     <panel_attributes>&lt;&lt;algorithm&gt;&gt;
@@ -94,8 +94,8 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>63</x>
-      <y>387</y>
+      <x>216</x>
+      <y>396</y>
       <w>369</w>
       <h>423</h>
     </coordinates>
@@ -135,8 +135,8 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>54</x>
-      <y>18</y>
+      <x>207</x>
+      <y>27</y>
       <w>252</w>
       <h>207</h>
     </coordinates>
@@ -160,30 +160,30 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>207</x>
-      <y>270</y>
-      <w>279</w>
-      <h>135</h>
+      <x>396</x>
+      <y>324</y>
+      <w>243</w>
+      <h>90</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
-    <additional_attributes>290.0;10.0;10.0;10.0;10.0;130.0</additional_attributes>
+    <additional_attributes>250.0;10.0;10.0;10.0;10.0;80.0</additional_attributes>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>315</x>
-      <y>108</y>
-      <w>171</w>
-      <h>126</h>
+      <x>657</x>
+      <y>171</y>
+      <w>27</w>
+      <h>99</h>
     </coordinates>
     <panel_attributes>lt=&lt;-</panel_attributes>
-    <additional_attributes>170.0;120.0;10.0;120.0;10.0;10.0;170.0;10.0</additional_attributes>
+    <additional_attributes>10.0;90.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>63</x>
-      <y>837</y>
+      <x>216</x>
+      <y>846</y>
       <w>405</w>
       <h>189</h>
     </coordinates>
@@ -206,8 +206,8 @@ Responsibilities
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>423</x>
-      <y>720</y>
+      <x>576</x>
+      <y>729</y>
       <w>126</w>
       <h>135</h>
     </coordinates>
@@ -218,8 +218,8 @@ m2=get saved data</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>297</x>
-      <y>63</y>
+      <x>450</x>
+      <y>72</y>
       <w>189</w>
       <h>27</h>
     </coordinates>
@@ -229,79 +229,128 @@ m2=get saved data</panel_attributes>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>558</x>
-      <y>162</y>
+      <x>711</x>
+      <y>171</y>
       <w>108</w>
-      <h>54</h>
+      <h>99</h>
     </coordinates>
     <panel_attributes>lt=&lt;..
 m1=get_features()</panel_attributes>
-    <additional_attributes>10.0;10.0;10.0;40.0</additional_attributes>
+    <additional_attributes>10.0;10.0;10.0;90.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>792</x>
-      <y>747</y>
-      <w>306</w>
-      <h>171</h>
+      <x>972</x>
+      <y>27</y>
+      <w>198</w>
+      <h>207</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
-PlotLayer
+PriceVolumePlotter
 --
--plot_layer_data:dict{(type:PLOT_TYPE):(data: ChainData)}
---
-+get_layer_data(type:PLOT_TYPE):ChainData
-+add_layer_data(type:PLOT_TYPE, data:Node):bool
-+remove_layer_data(type:PLOT_TYPE, index:int):bool
-+clear_layer_data(type:PLOT_TYPE):None
-+clear_all_layer_data(None):None
-+plot(None):bool
---
-Responsibilities
--- management of PlotLayer</panel_attributes>
-    <additional_attributes/>
-  </element>
-  <element>
-    <id>UMLClass</id>
-    <coordinates>
-      <x>1134</x>
-      <y>747</y>
-      <w>297</w>
-      <h>171</h>
-    </coordinates>
-    <panel_attributes>&lt;&lt;class&gt;&gt;
-PlotData
---
--plot_data:dict{(LayerName:str):(data: ChainData)}
---
-+get_layer(LayerName:str):ChainData
-+add_layer(LayerName:str, data:Node):bool
-+remove_layer(LayerName:str, index:int):bool
-+clear_layer(LayerName:str):None
-+clear_all_layers(None):None
-+plot(None):bool
+- plot_price_chart(): None
+- plot_volume_chart(): None
+- add_mouse_hover_event():None
+- on_hover_info():None
+- on_leave_info():None
+- add_moving_average():None
+- create_context_menu_commands():None
+- on_right_click():None
 --
 Responsibilities
--- manage plot data</panel_attributes>
+-- plot data and analyse data visually</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1269</x>
-      <y>594</y>
-      <w>99</w>
-      <h>171</h>
+      <x>684</x>
+      <y>837</y>
+      <w>27</w>
+      <h>27</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
-    <additional_attributes>90.0;170.0;90.0;10.0;10.0;10.0</additional_attributes>
+    <additional_attributes>10.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>801</x>
+      <y>495</y>
+      <w>27</w>
+      <h>108</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;100.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
+      <x>1206</x>
+      <y>27</y>
+      <w>315</w>
+      <h>576</h>
+    </coordinates>
+    <panel_attributes>&lt;&lt;class&gt;&gt;
+StockChartPlotter
+--
+- symbol:str
+- stock_model:StockModel
+- stock_data:DataFrame
+- figsize:tuple[int, int]
+- visual_data:StockVisualData
+- plot_styles:PlotStyle
+- parent: tkWidget
+- fig_canvas: tkWidget
+- tk_root: tkWidget
+- dates_mpl:NDArray
+- feature:str # current feature of curve
+--
+/- create_plot():None/
+/+ plot():None/
+/- on_hover_info(*args):None/
+/- on_leave_info(*args):None/
++ create_context_menu_commands():None
++ dummy_command():None
+- calculate_price_change(column_1:str, column_2:str)
++ set_backend_window
++ format_large_numbers(x:double, pos:int):str
++ format_chart_price(ax:AX):None
++ format_chart_bar(ax:AX):None
++ add_mouse_hover_event():None
++ plot_data(LayerName:str):None
++ on_leave(event:Event):None
++ on_hover(event:Event):None
++ on_right_click():None
++ highlight_peaks_valleys():None
++ find_peaks_valleys():tuple(peaks:list, valleys:list)
++ remove_highlighted_peaks_valleys():None
++ remove_artist():None
++ remove_all_artists():None
++ show():None
++ save():None
+--
+Responsibilities
+-- implement plotter basic functions</panel_attributes>
+    <additional_attributes/>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
       <x>1161</x>
-      <y>189</y>
+      <y>36</y>
+      <w>63</w>
+      <h>27</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>50.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>UMLClass</id>
+    <coordinates>
+      <x>972</x>
+      <y>279</y>
       <w>198</w>
       <h>324</h>
     </coordinates>
@@ -317,65 +366,36 @@ Responsibilities
     <additional_attributes/>
   </element>
   <element>
-    <id>UMLClass</id>
-    <coordinates>
-      <x>936</x>
-      <y>585</y>
-      <w>342</w>
-      <h>90</h>
-    </coordinates>
-    <panel_attributes>&lt;&lt;interface&gt;&gt;
-IPlotData
---
---
-/+ plot(None):bool/
---
-Responsibilities
--- Interface for plot data</panel_attributes>
-    <additional_attributes/>
-  </element>
-  <element>
     <id>Relation</id>
     <coordinates>
-      <x>954</x>
-      <y>666</y>
-      <w>171</w>
-      <h>99</h>
-    </coordinates>
-    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
-    <additional_attributes>170.0;10.0;170.0;60.0;10.0;60.0;10.0;90.0</additional_attributes>
-  </element>
-  <element>
-    <id>Relation</id>
-    <coordinates>
-      <x>1098</x>
-      <y>666</y>
-      <w>189</w>
-      <h>99</h>
-    </coordinates>
-    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
-    <additional_attributes>10.0;10.0;10.0;60.0;190.0;60.0;190.0;90.0</additional_attributes>
-  </element>
-  <element>
-    <id>Relation</id>
-    <coordinates>
-      <x>819</x>
-      <y>270</y>
+      <x>1053</x>
+      <y>225</y>
       <w>27</w>
-      <h>27</h>
+      <h>72</h>
     </coordinates>
-    <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
-    <additional_attributes>10.0;10.0;10.0;10.0</additional_attributes>
+    <panel_attributes>lt=&lt;&lt;-</panel_attributes>
+    <additional_attributes>10.0;10.0;10.0;60.0</additional_attributes>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>765</x>
-      <y>270</y>
-      <w>81</w>
+      <x>801</x>
+      <y>99</y>
+      <w>189</w>
       <h>27</h>
     </coordinates>
-    <panel_attributes>lt=&lt;&lt;&lt;&lt;&lt;-</panel_attributes>
-    <additional_attributes>10.0;10.0;70.0;10.0</additional_attributes>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>190.0;10.0;10.0;10.0</additional_attributes>
+  </element>
+  <element>
+    <id>Relation</id>
+    <coordinates>
+      <x>801</x>
+      <y>126</y>
+      <w>189</w>
+      <h>225</h>
+    </coordinates>
+    <panel_attributes>lt=&lt;-</panel_attributes>
+    <additional_attributes>190.0;230.0;160.0;230.0;160.0;10.0;10.0;10.0</additional_attributes>
   </element>
 </diagram>
