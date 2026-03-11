@@ -291,7 +291,7 @@ Responsibilities
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>920</x>
+      <x>992</x>
       <y>16</y>
       <w>280</w>
       <h>512</h>
@@ -336,7 +336,8 @@ StockChartPlotter
 + save():None
 --
 Responsibilities
--- implement plotter basic functions</panel_attributes>
+-- implement plotter basic functions
+group=group-0</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
@@ -344,11 +345,11 @@ Responsibilities
     <coordinates>
       <x>880</x>
       <y>24</y>
-      <w>56</w>
+      <w>128</w>
       <h>24</h>
     </coordinates>
     <panel_attributes>lt=&lt;&lt;-</panel_attributes>
-    <additional_attributes>50.0;10.0;10.0;10.0</additional_attributes>
+    <additional_attributes>140.0;10.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
@@ -356,17 +357,33 @@ Responsibilities
       <x>712</x>
       <y>240</y>
       <w>176</w>
-      <h>288</h>
+      <h>304</h>
     </coordinates>
     <panel_attributes>&lt;&lt;class&gt;&gt;
 VisualAnalyser
 --
-- plot_data: PlotData
+-current_point:selection
+-first_point:selection
+-first_trend_point:selection
 --
-+ plot_data(LayerName:str):None
++set_legend():None
++set_labels():None
++on_set_first_point():None
++on_compare_point():None
++on_wave_begin():None
++on_wave_end():None
++on_draw_horizontal_line():None
++on_remove_horizontal_line():None
++on_draw_trend_line():None
++on_remove_trend_line():None
++on_highlight_peaks_and_valleys():None
++show_peaks_valleys():None
++on_remove_peaks_and_valleys():None
+
 --
 Responsibilities
--- plot data and analyse data visually</panel_attributes>
+-- plot data and analyse 
+   data visually</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
@@ -417,7 +434,7 @@ m2=get saved data</panel_attributes>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>712</x>
+      <x>784</x>
       <y>752</y>
       <w>296</w>
       <h>168</h>
@@ -435,25 +452,27 @@ PlotStyle
 --
 Responsibilities
 -- Resp1
--- Resp2</panel_attributes>
+-- Resp2
+group=group-0</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>848</x>
+      <x>920</x>
       <y>520</y>
       <w>232</w>
       <h>248</h>
     </coordinates>
-    <panel_attributes>lt=&lt;-</panel_attributes>
+    <panel_attributes>lt=&lt;-
+group=group-0</panel_attributes>
     <additional_attributes>10.0;290.0;10.0;40.0;270.0;40.0;270.0;10.0</additional_attributes>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>976</x>
-      <y>568</y>
+      <x>1048</x>
+      <y>576</y>
       <w>176</w>
       <h>152</h>
     </coordinates>
@@ -469,13 +488,14 @@ StockVisualData
 +remove_stock_visual_data():any
 --
 Responsibilities
--- save visual data from plotter</panel_attributes>
+-- save visual data from plotter
+group=group-0</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>UMLClass</id>
     <coordinates>
-      <x>1080</x>
+      <x>1152</x>
       <y>752</y>
       <w>296</w>
       <h>240</h>
@@ -499,29 +519,32 @@ PointData
                    feature:str):str
 --
 Responsibilities
--- inteprete data from selection of mplcursors</panel_attributes>
+-- inteprete data from selection of mplcursors
+group=group-0</panel_attributes>
     <additional_attributes/>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1056</x>
+      <x>1128</x>
       <y>520</y>
       <w>24</w>
-      <h>64</h>
+      <h>72</h>
     </coordinates>
-    <panel_attributes>lt=&lt;-</panel_attributes>
-    <additional_attributes>10.0;60.0;10.0;10.0</additional_attributes>
+    <panel_attributes>lt=&lt;-
+group=group-0</panel_attributes>
+    <additional_attributes>10.0;70.0;10.0;10.0</additional_attributes>
   </element>
   <element>
     <id>Relation</id>
     <coordinates>
-      <x>1056</x>
+      <x>1128</x>
       <y>520</y>
       <w>200</w>
       <h>248</h>
     </coordinates>
-    <panel_attributes>lt=&lt;-</panel_attributes>
+    <panel_attributes>lt=&lt;-
+group=group-0</panel_attributes>
     <additional_attributes>230.0;290.0;230.0;40.0;10.0;40.0;10.0;10.0</additional_attributes>
   </element>
 </diagram>

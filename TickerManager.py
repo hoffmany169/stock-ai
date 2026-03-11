@@ -1,3 +1,4 @@
+import os
 from tkinter import messagebox
 import ModelTrainLSTM
 import yfinance as yf
@@ -13,11 +14,12 @@ class TickerData(AutoIndex):
 
 class TickerManager:
     DefaultSaveDataDirectory = r'./models'
-    def __init__(self, start_date = None, end_date = None, features:list=[]):
+    def __init__(self, start_date = None, end_date = None, features:list=[], interval='1d'):
         self.tickers = {}
         self._start_date = start_date
         self._end_date = end_date
         self._stock_features = features
+        self._interval = interval
 
     @staticmethod
     def set_save_data_directory(dir):
@@ -46,6 +48,13 @@ class TickerManager:
         self._stock_features = feats
 
     @property
+    def interval(self):
+        return self._interval
+    @interval.setter
+    def interval(self, intvl):
+        self._interval = intvl
+
+    @property
     def processing_tickers(self):
         return list(self.tickers.keys())
 #endregion properties
@@ -59,9 +68,11 @@ class TickerManager:
             print(f"Ticker [{ticker_symbol}] is added already.")
             return
         print(f'Adding Stock: [{ticker_symbol}]')
+        self.tickers[ticker_symbol] = {}
         sm = StockModel(ticker_symbol)
+        # initialize stock model and lstm model train
         self.tickers[ticker_symbol][TickerData.stock_model] = sm
-        self.tickers[ticker_symbol][TickerData.stock_model] = LSTMModelTrain(sm, self._stock_features)
+        self.tickers[ticker_symbol][TickerData.ltsm_model_train] = LSTMModelTrain(sm, self._stock_features)
 
     def remove_ticker(self, ticker:str|int):
         """Remove a ticker from the manager."""
@@ -208,21 +219,33 @@ class TickerManager:
 
         sm = self.get_stock_model(ticker_symbol)
         sm.save_model_data_to_disk()
-        save_path = os.path.join(TickerManager.DefaultSaveDataDirectory, ticker_symbol)
-        mio = ModelSaverLoader(save_path,
-                                ticker_symbol)
+        # save_path = os.path.join(TickerManager.DefaultSaveDataDirectory, ticker_symbol)
+        # mio = ModelSaverLoader(save_path,
+        #                         ticker_symbol)
         ss = self.get_LSTM_model_train(ticker_symbol)
+        ss.save_model_train_data_to_disk()
         # mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
-        mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
-        mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, ss.create_model_parameters())
-        mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, ss.train_history)
-        mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.performance)
-        mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, ss.get_model_summary())
-        mio.save_train_data()
+        # mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
+        # mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, ss.create_model_parameters())
+        # mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, ss.train_history)
+        # mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.performance)
+        # mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, ss.get_model_summary())
+        # mio.save_train_data()
 
     def process_save_train_data(self, path):
         for ticker in self.get_all_tickers():
             self.save_train_data(ticker, path)
+
+    def _parse_models_directory(self, directory):
+        # parse ticker name
+        base_name = os.path.basename(directory)
+        parts = base_name.split('_')
+        print(parts)
+        ticker_symbol = parts[0]
+        # parse parent directory
+        parent_directory = directory.split(base_name)[0]
+        print(f"ticker: {ticker_symbol}, directory: {parent_directory}")
+        return (parent_directory, ticker_symbol)
 
     def process_load_train_data(self, data_dir):
         """

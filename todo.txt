@@ -6,3 +6,7 @@
 6. add volume info in wave operation ✕
 7. add "clear plot" ✕
 8. draw horizontal line ✓
+9. not setting start_date after adding stock and starting loading data from markt ✕
+10. after adding stock, starting loading data from disk ✕
+11. remove don't work. ✕
+12. clear raw data plot ✕

@@ -201,6 +201,8 @@ class StockModel:
             print(f"Loaded history data of ticker [{self._ticker_symbol}]")
             self._extracted_features()
             self.save_model_data_to_disk()
+            # add index as a column
+            self._loaded_data['Date'] = self._loaded_data.index
             return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbol}: {e}")
@@ -228,6 +230,8 @@ class StockModel:
                                 )
             self._extracted_features()
             self.save_model_data_to_disk()
+            # add index as a column
+            self._loaded_data['Date'] = self._loaded_data.index
             return True
         except Exception as e:
             print(f"Error downloading data for {self.ticker_symbolicker}: {e}")
@@ -235,11 +239,16 @@ class StockModel:
                                  f"Error downloading data for {self.ticker_symbolticker}: {e}")
             return False
 
+    # add index as a column
+    def add_date_column(self):
+        self._loaded_data['Date'] = self._loaded_data.index
+
     def save_model_data_to_disk(self):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
-        data_dir = self._model_save_path
-        mio = ModelSaverLoader(data_dir,
+        import os
+        self.model_save_path = os.path.join(self._model_save_path, f'{self.start_date}_{self.end_date}')
+        mio = ModelSaverLoader(self._model_save_path,
                                ticker_symbol=self._ticker_symbol)
         mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, self._loaded_data)
         mio.save_train_data(MODEL_TRAIN_DATA.ticker_data)
@@ -252,8 +261,7 @@ class StockModel:
     def load_model_data_from_disk(self):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
-        data_dir = self._model_save_path
-        mio = ModelSaverLoader(data_dir, 
+        mio = ModelSaverLoader(self._model_save_path, 
                                ticker_symbol=self._ticker_symbol,
                                save=False)
         result = mio.load_train_data()

@@ -551,7 +551,8 @@ class StockPredictionGUI:
             # 添加股票
             for stock in stocks:
                 self.manager.add_ticker(stock)
-            
+                self.manager.get_stock_model(stock).interval = self.interval_var.get()
+                self.manager.get_LSTM_model_train(stock).features = features
             # 加载数据
             self.log_message("Loading stock data...")
             # 在单独的线程中运行数据加载
@@ -565,23 +566,24 @@ class StockPredictionGUI:
                     # 检查数据是否加载成功
                     for ticker in stocks:
                         if ticker in self.manager.tickers:
-                            mt = self.manager.get_LSTM_model_train(ticker)
-                            # set features for the model
-                            mt.features = features
                             sm = self.manager.get_stock_model(ticker)
+                            sm.save_model_data_to_disk()
+                            sm.add_date_column() # in order to show plot correctly
+                            mt = self.manager.get_LSTM_model_train(ticker)
+                            mt.save_model_train_data_to_disk()
                             # create folder structure for saving data and save loaded data
-                            save_path = os.path.join(self._cur_config[ConfigEntry.model_save_path.name], ticker)
-                            mio = ModelSaverLoader(save_path, ticker)
-                            ticker_data = self.manager.get_stock_model(ticker).loaded_data
-                            mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, ticker_data)
-                            mio.save_train_data(MODEL_TRAIN_DATA.ticker_data)
-                            mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, sm.create_ticker_parameters())
-                            mio.save_train_data(MODEL_TRAIN_DATA.ticker_data_params)
+                            # save_path = os.path.join(self._cur_config[ConfigEntry.model_save_path.name], ticker)
+                            # mio = ModelSaverLoader(save_path, ticker)
+                            # ticker_data = self.manager.get_stock_model(ticker).loaded_data
+                            # mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, ticker_data)
+                            # mio.save_train_data(MODEL_TRAIN_DATA.ticker_data)
+                            # mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, sm.create_ticker_parameters())
+                            # mio.save_train_data(MODEL_TRAIN_DATA.ticker_data_params)
                             # keep directory into stock model
-                            self.manager.get_stock_model(ticker).ticker_directory = mio.directory
+                            # self.manager.get_stock_model(ticker).ticker_directory = mio.directory
                     self.log_message("Loading Ticker Data is successful.")
                     messagebox.showinfo("Load Ticker Data",
-                                            f"Loading Ticker Data is successful. All data are saved in directory [{save_path}]")
+                                            f"Loading Ticker Data is successful. All data are saved in directory [{sm.model_save_path}]")
                 except Exception as e:
                     error_msg = f"Failure to load data: {str(e)}"
                     self.root.after(0, self.handle_loading_error, error_msg)            

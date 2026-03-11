@@ -275,6 +275,7 @@ class LSTMModelTrain:
     def save_model_train_data_to_disk(self):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
+        import os
         if not self._model_is_trained:
             return
         mio = ModelSaverLoader(self._stock_model.model_save_path,

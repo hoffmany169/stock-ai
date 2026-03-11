@@ -93,6 +93,8 @@ class ModelSaverLoader:
             data.to_csv(file, compression='zip')
             print(f"✓ 原始数据已保存至: {file}")
             return True
+        from tkinter import messagebox
+        messagebox.showwarning("Saving Ticker Data", "Downloaded ticker data is empty!")
         return False
 
     def _save_ticker_data_params(self):
