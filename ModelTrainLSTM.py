@@ -265,7 +265,8 @@ class LSTMModelTrain:
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
         mio = ModelSaverLoader(self._stock_model.model_save_path,
-                               self._stock_model.ticker_symbol)
+                               self._stock_model.ticker_symbol,
+                               save=False)
         if mio.load_train_data(MODEL_TRAIN_DATA.scaler):
             self._scaler = mio.get_model_train_data(MODEL_TRAIN_DATA.scaler)
         if mio.load_train_data(MODEL_TRAIN_DATA.parameters):

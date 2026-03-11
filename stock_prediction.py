@@ -369,17 +369,6 @@ class StockPredictionGUI:
         print("Open ", chosen_path)
         return chosen_path
 
-    def _parse_models_directory(self, directory):
-        # parse ticker name
-        base_name = os.path.basename(directory)
-        parts = base_name.split('_')
-        print(parts)
-        ticker_symbol = parts[0]
-        # parse parent directory
-        parent_directory = directory.split(base_name)[0]
-        print(f"ticker: {ticker_symbol}, directory: {parent_directory}")
-        return (parent_directory, ticker_symbol)
-
     def start_loading_ticker_data(self, selected:str):
         if selected.endswith('Markt'):
             # loading data from yfinance

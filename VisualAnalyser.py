@@ -88,13 +88,12 @@ class VisualAnalyser(PriceVolumePlotter):
         :param figsize: figure size
         """
         super().__init__(stock_model, figsize=figsize)
-        self._marker_style = MARKER_STYLE.red_circle
-        self._line_style = LINE_STYLE.dashed_line
         self.axis_ratio_calculator = AxisRatioCalculator(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)  )
         # if activate real-time search
-        self._real_time_search = True # default is True
         self.current_point = None
+        # first point for comparing points
         self.first_point = None
+        # first point for trend line
         self.first_trend_point = None
 
     def set_backend_window(self, parent):
@@ -106,46 +105,6 @@ class VisualAnalyser(PriceVolumePlotter):
         self._create_menu_bar()
         self._create_context_menu_commands()
                 
-#region # properties
-    @property
-    def real_time_search(self):
-        return self._real_time_search
-    @real_time_search.setter
-    def real_time_search(self, value):
-        if type(value) == bool:
-            self._real_time_search = value
-
-    @property
-    def marker_style(self):
-        if self._marker_style == MARKER_STYLE.green_cross:
-            return 'g+'
-        elif self._marker_style == MARKER_STYLE.blue_triangle:
-            return 'b^'
-        else:
-            return 'ro' # default
-
-    @marker_style.setter
-    def marker_style(self, marker):
-        if type(marker) == MARKER_STYLE:
-            self._marker_style = marker
-
-    @property
-    def line_style(self):
-        if self._line_style == LINE_STYLE.solid_line:
-            return '-'        #  solid line style
-        elif self._line_style == LINE_STYLE.dash_dot_line:
-            return '-.'       #  dash-dot line style
-        elif self._line_style == LINE_STYLE.dotted_line:
-            return ':'        #  dotted line style
-        else:
-            return '--'       #  default: dashed line style
-    
-    @line_style.setter
-    def line_style(self, line):
-        if type(line) == LINE_STYLE:
-            self._line_style = line
-#endregion # properties
-
     def create_plot(self):
         # 绘制收盘价折线
         fig, ax = plt.subplots(figsize=self.figsize)
@@ -268,7 +227,6 @@ class VisualAnalyser(PriceVolumePlotter):
         # add it to extras so it is removed on deselection
         sel.extras.append(highlight[0])
 
-#region context menu
     def on_zoom_in(self, coords):
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         xlim = ax.get_xlim()
@@ -352,7 +310,6 @@ class VisualAnalyser(PriceVolumePlotter):
                                                                     end_date=sel2.Date)
                     points = peaks + valleys
                     points.sort()
-                    # print(points)
                     values = self.stock_data[self.feature].iloc[points]
                     # dates = self.stock_data['Date'].iloc[points]
                     last_value = None
@@ -368,11 +325,9 @@ class VisualAnalyser(PriceVolumePlotter):
                             last_value = cur_value
                             if last_diff is None:
                                 last_diff = cur_diff
-                                print(cur_diff)
                             else:
                                 value_percent.append((cur_diff / last_diff)*(-100 if cur_diff > 0 else 100))
                                 last_diff = cur_diff
-                                print(cur_diff)
                     # create string
                     result = ""
                     if len(value_percent) > 0:
@@ -430,7 +385,6 @@ class VisualAnalyser(PriceVolumePlotter):
 
     def on_remove_trend_line(self, *args):
         self.remove_artist(StockVisualData.AX_PRICE, 'trend_line')
-#endregion context menu
 
     def draw_vertical_line(self, coords):
         if coords:
@@ -558,7 +512,7 @@ class VisualAnalyser(PriceVolumePlotter):
     #         plt.close(self.fig)
     #         self.root.quit()
     #         self.root.destroy()
-#endregion
+#endregion event
 
 import numpy as np
 def main(type):

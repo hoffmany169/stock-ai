@@ -252,7 +252,7 @@ class StockModel:
     def load_model_data_from_disk(self):
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
-        data_dir = self._model_path
+        data_dir = self._model_save_path
         mio = ModelSaverLoader(data_dir, 
                                ticker_symbol=self._ticker_symbol,
                                save=False)

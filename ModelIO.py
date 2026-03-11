@@ -39,7 +39,7 @@ class ModelSaverLoader:
                         MODEL_TRAIN_DATA.performance.name: 'performance.json',
                         MODEL_TRAIN_DATA.readme.name: 'README.md', 
                         MODEL_TRAIN_DATA.model_summary.name: 'model_summary.txt'}
-    def __init__(self, directory, ticker_symbol=None, save=True):
+    def __init__(self, directory, ticker_symbol, save=True):
         """
         Docstring for __init__
         
@@ -48,12 +48,15 @@ class ModelSaverLoader:
         :param ticker_symbol: str
         :param save: save mode or load mode
         """
+        if ticker_symbol is None or directory is None:
+            raise ValueError("None Argument: Cannot create instance of ModelSaverLoader.")
         self._save_model_mode = save
-        self._directory = None
-        self._ticker_symbol = None
+        self._directory = directory
+        self._ticker_symbol = ticker_symbol
         self._model_train_data = dict(zip([t for t in MODEL_TRAIN_DATA], [None]*len(MODEL_TRAIN_DATA)))
         self._model_io_functions = dict(zip([t for t in MODEL_TRAIN_DATA], [None]*len(MODEL_TRAIN_DATA)))
-        self._init(directory, ticker_symbol)
+        self._init_model_functions()
+        self.readme_content = ''
 
     @property
     def save_model_mode(self):
@@ -63,35 +66,7 @@ class ModelSaverLoader:
         if self._save_model_mode == state:
             return
         self._save_model_mode = state
-        self._init()
-
-    def _init(self, directory=None, ticker_symbol=None):
-        if directory is None and ticker_symbol is None:
-            self._init_model_functions()
-            return
-        if self._save_model_mode:
-            # in this case, directory is a parent directory, in which ticker data will be saved
-            if ticker_symbol is None:
-                raise ValueError("Ticker symbol is not set in saving mode.")
-            self._ticker_symbol = ticker_symbol
-            self.timestamp = datetime.now().strftime('%Y%m%d_%H')
-            self._directory = os.path.join(directory, f'{ticker_symbol}_{self.timestamp}')
-        else: # in this case, directory is where ticker data are saved
-            if ticker_symbol is None:
-                # parse ticker name
-                base_name = os.path.basename(directory)
-                parts = base_name.split('_')
-                print(parts)
-                self._ticker_symbol = parts[0]
-                self._directory = directory.split(base_name)[0]
-                print(f"ticker: {self._ticker_symbol}, directory: {self._directory}")
-            else:
-                if ticker_symbol not in directory:
-                    raise ValueError("No ticker symbol is found in directory.")
-                self._ticker_symbol = ticker_symbol
-                self._directory = directory
         self._init_model_functions()
-        self.readme_content = ''
 
     @property
     def ticker_symbol(self):
@@ -102,8 +77,6 @@ class ModelSaverLoader:
         return self._directory
 
     def _init_model_functions(self):
-        if self._directory is None:
-            raise ValueError("Directory is not initialized!")
         # initialize functions
         for data_type in MODEL_TRAIN_DATA:
             if self._save_model_mode:
