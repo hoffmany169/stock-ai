@@ -60,8 +60,7 @@ class StockPredictionGUI:
         self.feature = 'Close'
         self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
         self.feature_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
-        # 加载已保存的模型列表
-        # self.load_saved_models()
+        self.added_stock_num = 0
 
 #region properties
     @property
@@ -146,7 +145,8 @@ class StockPredictionGUI:
         
         # 股票列表框
         self.stock_listbox = tk.Listbox(list_frame, height=10, width=25,
-                                    selectmode=tk.EXTENDED)  # 允许多选
+                                    selectmode=tk.SINGLE,
+                                    activestyle='underline')  # 允许多选
         self.stock_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         # 滚动条
@@ -374,6 +374,9 @@ class StockPredictionGUI:
             # loading data from yfinance
             self.start_loading_ticker_data_from_markt()
         elif selected.endswith('Disk'):
+            if self.added_stock_num > 0:
+                messagebox.showinfo("Load Stock", "Stock has been added and must be loaded from markt at first!")
+                return
             # loading data from disk
             chosen_path = self._open_select_directory()
             # if models_dir != self._cur_config[ConfigEntry.model_save_path.name]:
@@ -383,13 +386,13 @@ class StockPredictionGUI:
 
     def add_stock(self, selected:str):
         """添加股票代码"""
-        if selected.startswith('Open'):
+        if selected.startswith('Open'): # add stock from stock info dialog
             from StockInfo import StockInfo 
             StockInfo(self.training_frame)
         else:
-            if selected.startswith('Add'):
+            if selected.startswith('Add'): # add stock from GUI directly
                 stock = self.stock_combo.get().strip().upper()
-            else:
+            else: # from event "selected_stock" returned from stock info dialog
                 stock = selected
                 # add new stock into current config
                 if stock not in self._cur_config[ConfigEntry.ticker_list.name]:
@@ -437,6 +440,7 @@ class StockPredictionGUI:
             if stock not in self._cur_config[ConfigEntry.ticker_list.name]:
                 self._cur_config[ConfigEntry.ticker_list.name].append(stock)
                 self.save_gui_config() # update gui.cfg on disk
+            self.added_stock_num += 1
             
     def quick_check_stock_exists(self, symbol):
         """快速检查股票代码是否存在"""
@@ -463,24 +467,29 @@ class StockPredictionGUI:
         """从列表中删除选中的股票"""
         # 获取选中的项目
         selection = self.stock_listbox.curselection()
-        
         if not selection:
             messagebox.showwarning("Warning", "Please select a stock to delete")
             return
-        
+        if len(selection) == 0:
+            messagebox.showinfo("Remove Stock", "A stock must be chosen!")
+            return
+                
         # 获取选中的股票代码
         index = selection[0]
-        stock = self.stock_listbox.get(index)
+        stock_line = self.stock_listbox.get(index)
+        stock = self._get_stock_symbol_from_listbox_line(stock_line)
         
         # 确认删除
         if messagebox.askyesno("Confirmation", f"Are you sure you want to delete stock '{stock}'?"):
             # 从内部列表删除
+            ret = None
             if stock in self.manager.tickers:
                 # remove it also from stock manager
-                self.manager.remove_ticker(stock)
-            # 更新Listbox显示
-            self.update_stock_listbox()
-            
+                ret = self.manager.remove_ticker(stock)
+            if ret:
+                # 更新Listbox显示
+                self.update_stock_listbox()
+                            
             # 记录日志
             self.log_message(f"Deleted stock: {stock}")
             self._reload_data = True
@@ -513,6 +522,12 @@ class StockPredictionGUI:
         # 更新状态显示
         self.update_status()
 
+    def _get_stock_symbol_from_listbox_line(self, line:str):
+        parts = line.split('[')
+        symbol = parts[1].split(']')
+        print(f"Got symbol from line of list box: {symbol[0]}")
+        return symbol[0]
+
     def update_status(self):
         """更新状态信息"""
         # 这里可以添加状态栏更新逻辑
@@ -541,18 +556,22 @@ class StockPredictionGUI:
         try:
             # 获取年份并转换为日期
             start_date, end_date = self.train_date_picker.get()
+            if start_date is None or end_date is None:
+                messagebox.showerror("Select Date", "Valid Date must be chosen!")
+                return
             
             self.log_message(f"Training Period: {start_date} to {end_date}")
 
             # 初始化管理器
             self.manager.start_date = start_date
             self.manager.end_date = end_date
-            
+            new_stocks = []
             # 添加股票
             for stock in stocks:
-                self.manager.add_ticker(stock)
-                self.manager.get_stock_model(stock).interval = self.interval_var.get()
-                self.manager.get_LSTM_model_train(stock).features = features
+                if self.manager.add_ticker(stock):
+                    self.manager.get_stock_model(stock).interval = self.interval_var.get()
+                    self.manager.get_LSTM_model_train(stock).features = features
+                    new_stocks.append(stock)
             # 加载数据
             self.log_message("Loading stock data...")
             # 在单独的线程中运行数据加载
@@ -568,22 +587,12 @@ class StockPredictionGUI:
                         if ticker in self.manager.tickers:
                             sm = self.manager.get_stock_model(ticker)
                             sm.save_model_data_to_disk()
-                            sm.add_date_column() # in order to show plot correctly
                             mt = self.manager.get_LSTM_model_train(ticker)
                             mt.save_model_train_data_to_disk()
-                            # create folder structure for saving data and save loaded data
-                            # save_path = os.path.join(self._cur_config[ConfigEntry.model_save_path.name], ticker)
-                            # mio = ModelSaverLoader(save_path, ticker)
-                            # ticker_data = self.manager.get_stock_model(ticker).loaded_data
-                            # mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, ticker_data)
-                            # mio.save_train_data(MODEL_TRAIN_DATA.ticker_data)
-                            # mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, sm.create_ticker_parameters())
-                            # mio.save_train_data(MODEL_TRAIN_DATA.ticker_data_params)
-                            # keep directory into stock model
-                            # self.manager.get_stock_model(ticker).ticker_directory = mio.directory
+                            self.added_stock_num -= 1
+                            messagebox.showinfo("Load Ticker Data",
+                                                    f"Loading Ticker Data is successful. All data are saved in directory [{sm.model_save_path}]")
                     self.log_message("Loading Ticker Data is successful.")
-                    messagebox.showinfo("Load Ticker Data",
-                                            f"Loading Ticker Data is successful. All data are saved in directory [{sm.model_save_path}]")
                 except Exception as e:
                     error_msg = f"Failure to load data: {str(e)}"
                     self.root.after(0, self.handle_loading_error, error_msg)            
@@ -592,7 +601,7 @@ class StockPredictionGUI:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor() as executor:
                 # Schedule the function to run
-                future = executor.submit(load_data_thread, stocks)
+                future = executor.submit(load_data_thread, new_stocks)
                 # result() blocks until the thread finishes and returns the value
                 result = future.result()
                 if len(result) > 0:

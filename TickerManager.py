@@ -66,22 +66,26 @@ class TickerManager:
         """Add a ticker to the manager."""
         if ticker_symbol in self.tickers:
             print(f"Ticker [{ticker_symbol}] is added already.")
-            return
+            return False
         print(f'Adding Stock: [{ticker_symbol}]')
         self.tickers[ticker_symbol] = {}
         sm = StockModel(ticker_symbol)
         # initialize stock model and lstm model train
         self.tickers[ticker_symbol][TickerData.stock_model] = sm
         self.tickers[ticker_symbol][TickerData.ltsm_model_train] = LSTMModelTrain(sm, self._stock_features)
-
+        return True
+    
     def remove_ticker(self, ticker:str|int):
         """Remove a ticker from the manager."""
         if type(ticker) is int: # index of ticker
-            rmv_ticker = self.processing_tickers[ticker]
+            if ticker >= 0 and ticker < len(self.processing_tickers):
+                rmv_ticker = self.processing_tickers[ticker]
+            else:
+                return None
         else:
             rmv_ticker = ticker
         if rmv_ticker not in self.tickers:
-            return
+            return None
         return self.tickers.pop(rmv_ticker, None)
 
     def clear_all(self):

@@ -194,7 +194,6 @@ class ModelSaverLoader:
         try:
             if os.path.exists(file):
                 self._model_train_data[MODEL_TRAIN_DATA.ticker_data] = pd.read_csv(file, compression='zip', index_col=0, parse_dates=True)
-                self._model_train_data[MODEL_TRAIN_DATA.ticker_data]['Date'] = self._model_train_data[MODEL_TRAIN_DATA.ticker_data].index
                 print(f"✓ 股票数据已加载")
                 return True
             else:
