@@ -121,6 +121,10 @@ class StockModel:
     @ticker_directory.setter
     def ticker_directory(self, dir):
         self._ticker_directory_on_disk = dir
+
+    @property
+    def is_data_loaded(self)->bool:
+        return (self._loaded_data is not None)
 #endregion properties
 
     def _extracted_features(self):
@@ -235,9 +239,9 @@ class StockModel:
             self.save_model_data_to_disk()
             return True
         except Exception as e:
-            print(f"Error downloading data for {self.ticker_symbolicker}: {e}")
+            print(f"Error downloading data for {self.ticker_symbol}: {e}")
             messagebox.showerror("Data Download Error",
-                                 f"Error downloading data for {self.ticker_symbolticker}: {e}")
+                                 f"Error downloading data for {self.ticker_symbol}: {e}")
             return False
 
     # add index as a column

@@ -121,8 +121,9 @@ class TickerManager:
         else:
             raise ValueError("Data type of ticker is not supported!")
 
-    def load_ticker_data(self):
-        tickers = self.ticker_list
+    def load_ticker_data(self, tickers:list, start_date:str, end_date:str, features, interval:str):
+        self.start_date = start_date
+        self.end_date = end_date
         no_data = []
         
         if not tickers:
@@ -152,58 +153,67 @@ class TickerManager:
                 )
                 print(f"下载完成，数据形状: {all_data.shape}")
                 # 处理数据
+                batch_download_result = True
                 for ticker in tickers:
                     try:
                         if ticker in all_data:
                             data_num = len(all_data[ticker])
                             if data_num > 1:
                                 # create stock model object if download is successful
-                                self.add_ticker(ticker)
                                 sm = self.get_stock_model(ticker)
+                                sm.interval = interval
                                 sm.loaded_data = all_data[ticker]
                                 sm.start_date = start_str
                                 sm.end_date = end_str
+                                sm.save_model_data_to_disk()
+                                self.get_LSTM_model_train(ticker).features = features
                                 print(f"{ticker}: 成功加载 {len(all_data[ticker])} 条数据")
-                                continue
-                        # 尝试单独下载
-                        print(f"{ticker}: 批量下载失败，尝试单独下载...")
-                        if not self.single_load_ticker_data(ticker, start_str, end_str):
-                            no_data.append(ticker)
+                            else:
+                                batch_download_result = False
+                        else:
+                            batch_download_result = False
+                        if batch_download_result == False:
+                            batch_download_result = True # reset
+                            print(f"{ticker}: 批量下载失败，尝试单独下载...")
+                            sm = self.get_stock_model(ticker)
+                            sm.load_historical_data(start_str, end_str)
+                            if len(sm.loaded_data) <= 1:
+                                raise ValueError("Error:", "Downloading data from markt fails")
                     except Exception as e:
                         print(f"{ticker}: 处理失败 - {str(e)}")
                         no_data.append(ticker)
                         continue
             else:
-                sm = StockModel(tickers[0], start_date=start_str, end_date=end_str)
+                sm = self.get_stock_model(ticker)
                 sm.download_ticker_data()
-                self.add_ticker(ticker)
-            
         except Exception as e:
             print(f"批量下载失败: {str(e)}")
             print("尝试逐个下载...")
             
             # 方法2: 逐个下载
             for ticker in tickers:
-                if not self.single_load_ticker_data(ticker, start_str, end_str):
+                sm = self.get_stock_model(ticker)
+                sm.download_ticker_data(self.start_date, self.end_date)
+                if len(sm.loaded_data) <= 1:
                     no_data.append(ticker)
         print(f"\n下载完成: {len(tickers) - len(no_data)}/{len(tickers)} 个股票数据下载成功")
         return no_data
 
-    def single_load_ticker_data(self, ticker, start_date, end_date):
-        try:
-            sm = self.get_stock_model(ticker)
-            ret = sm.load_historical_data(start_date, end_date)
+    # def single_load_ticker_data(self, ticker, start_date, end_date):
+    #     try:
+    #         sm = self.get_stock_model(ticker)
+    #         ret = sm.load_historical_data(start_date, end_date)
             
-            if ret:
-                print(f"{ticker}: 成功单独下载 {len(sm.loaded_data)} 条数据")
-                self.add_ticker(ticker)
-                return True
-            else:
-                print(f"{ticker}: 无数据")
-                return False
-        except Exception as e:
-            print(f"{ticker}: 下载失败 - {str(e)}")
-            return False
+    #         if ret:
+    #             print(f"{ticker}: 成功单独下载 {len(sm.loaded_data)} 条数据")
+    #             self.add_ticker(ticker)
+    #             return True
+    #         else:
+    #             print(f"{ticker}: 无数据")
+    #             return False
+    #     except Exception as e:
+    #         print(f"{ticker}: 下载失败 - {str(e)}")
+    #         return False
 
     def process_train_model(self, lookback=60):
         for ticker in self.ticker_list:

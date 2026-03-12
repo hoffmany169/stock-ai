@@ -552,8 +552,8 @@ class StockPredictionGUI:
         thread.start()    
 
     def run_loading_ticker_data(self, stocks, features):
-        self.log_message(f"Start loading: {len(stocks)} stocks")
-        self.log_message(f"Stock list: {', '.join(stocks)}")
+        self.log_message(f"Start loading: {len(self.adding_stock_list)} stocks")
+        self.log_message(f"Stock list: {', '.join(self.adding_stock_list)}")
         try:
             # 获取年份并转换为日期
             start_date, end_date = self.train_date_picker.get()
@@ -564,32 +564,31 @@ class StockPredictionGUI:
             self.log_message(f"Training Period: {start_date} to {end_date}")
 
             # 初始化管理器
-            self.manager.start_date = start_date
-            self.manager.end_date = end_date
+            # self.manager.start_date = start_date
+            # self.manager.end_date = end_date
             # 添加股票
-            for stock in stocks:
-                self.manager.get_stock_model(stock).interval = self.interval_var.get()
-                self.manager.get_LSTM_model_train(stock).features = features
+            # for stock in self.adding_stock_list:
+            #     self.manager.get_stock_model(stock).interval = self.interval_var.get()
+            #     self.manager.get_LSTM_model_train(stock).features = features
             # 加载数据
-            self.log_message(f"Loading stock data [{','.join(self.adding_stock_list)}]...")
+            self.log_message(f"Loading stock data [{','.join(stocks)}]...")
             # 在单独的线程中运行数据加载
             def load_data_thread(stocks):
-                from ModelIO import ModelSaverLoader
-                from StockDefine import MODEL_TRAIN_DATA
                 try:
                     # 直接调用修复后的方法
-                    no_data = self.manager.load_ticker_data()
+                    no_data = self.manager.load_ticker_data(stocks, start_date, end_date, features, self.interval_var.get())
                     
                     # 检查数据是否加载成功
-                    for ticker in stocks:
-                        if ticker in self.manager.tickers:
-                            sm = self.manager.get_stock_model(ticker)
-                            sm.save_model_data_to_disk()
-                            mt = self.manager.get_LSTM_model_train(ticker)
-                            mt.save_model_train_data_to_disk()
-                            self.adding_stock_list.pop(0)
-                            messagebox.showinfo("Load Ticker Data",
-                                                    f"Loading Ticker Data is successful. All data are saved in directory [{sm.model_save_path}]")
+                    # while len(self.adding_stock_list) > 0:
+                    #     ticker = self.adding_stock_list.pop()
+                    #     if ticker in self.manager.tickers:
+                    #         sm = self.manager.get_stock_model(ticker)
+                    #         sm.save_model_data_to_disk()
+                    #         mt = self.manager.get_LSTM_model_train(ticker)
+                    #         mt.save_model_train_data_to_disk()
+                    #         self.adding_stock_list.pop(0)
+                    #         messagebox.showinfo("Load Ticker Data",
+                    #                                 f"Loading Ticker Data is successful. All data are saved in directory [{sm.model_save_path}]")
                     self.log_message("Loading Ticker Data is successful.")
                 except Exception as e:
                     error_msg = f"Failure to load data: {str(e)}"
@@ -603,7 +602,13 @@ class StockPredictionGUI:
                 # result() blocks until the thread finishes and returns the value
                 result = future.result()
                 if len(result) > 0:
-                    print(f'Failure downloaded stocks: {result}') 
+                    print(f'Failure downloaded stocks: {result}')
+                    # keep not downloaded tickers in self.adding_stock_list
+                    for i, t in enumerate(self.adding_stock_list):
+                        if t not in result:
+                            self.adding_stock_list.pop(i)
+                else:
+                    self.adding_stock_list.clear()
         except Exception as e:
             self.log_message(f"Error during training: {str(e)}")
             messagebox.showerror("Error", f"Error during training: {str(e)}")
@@ -716,9 +721,12 @@ class StockPredictionGUI:
                     self.row_plotter['fig'] = fig
                     self.row_plotter['canvas'] = canvas
                 else:
-                    if self.feature != self.row_plotter['plotter'].feature:
-                        self.row_plotter['plotter'].feature = self.feature
-                        self.row_plotter['plotter'].plot()            
+                    stock_model = self.manager.get_stock_model(stock)
+                    if stock != stock_model.ticker_symbol:
+                        # create new plotter
+                        self.row_plotter['plotter'] = PriceVolumePlotter(stock_model)
+                        self.row_plotter['plotter'].feature  = self.feature
+                        # self.row_plotter['plotter'].plot()            
         except Exception as e:
             messagebox.showerror("Error", f"Error displaying data: {str(e)}")
     
