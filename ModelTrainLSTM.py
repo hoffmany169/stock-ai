@@ -267,10 +267,12 @@ class LSTMModelTrain:
         mio = ModelSaverLoader(self._stock_model.model_save_path,
                                self._stock_model.ticker_symbol,
                                save=False)
-        if mio.load_train_data(MODEL_TRAIN_DATA.scaler):
+        result = mio.load_train_data(MODEL_TRAIN_DATA.for_ltsm_train)
+        if result[MODEL_TRAIN_DATA.scaler]:
             self._scaler = mio.get_model_train_data(MODEL_TRAIN_DATA.scaler)
-        if mio.load_train_data(MODEL_TRAIN_DATA.parameters):
+        if result[MODEL_TRAIN_DATA.parameters]:
             self.assign_parameters_from_loading(mio.get_model_train_data(MODEL_TRAIN_DATA.parameters))
+        return result
         
     def save_model_train_data_to_disk(self):
         from ModelIO import ModelSaverLoader
@@ -281,17 +283,12 @@ class LSTMModelTrain:
         mio = ModelSaverLoader(self._stock_model.model_save_path,
                                self._stock_model.ticker_symbol)
         mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
-        mio.save_train_data(MODEL_TRAIN_DATA.scaler)
         mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, self.create_model_parameters())
-        mio.save_train_data(MODEL_TRAIN_DATA.parameters)
         mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, self.train_history)
-        mio.save_train_data(MODEL_TRAIN_DATA.train_history)
         mio.set_model_train_data(MODEL_TRAIN_DATA.performance, self.performance)
-        mio.save_train_data(MODEL_TRAIN_DATA.performance)
         mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, self.get_model_summary())
-        mio.save_train_data(MODEL_TRAIN_DATA.model_summary)
         mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
-        mio.save_train_data(MODEL_TRAIN_DATA.readme)
+        mio.save_train_data(MODEL_TRAIN_DATA.for_ltsm_train)
 
     def assign_parameters_from_loading(self, params):
         self._lookback = params[LTSM_MODEL_PARAM.lookback.name]

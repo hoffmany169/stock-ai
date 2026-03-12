@@ -79,6 +79,8 @@ class ModelSaverLoader:
     def _init_model_functions(self):
         # initialize functions
         for data_type in MODEL_TRAIN_DATA:
+            if data_type.value >= MODEL_TRAIN_DATA.for_stock_model.value:
+                break
             if self._save_model_mode:
                 print(f'save function name: _save_{data_type.name}')
                 self._model_io_functions[data_type] = getattr(self, f'_save_{data_type.name}')
@@ -112,7 +114,7 @@ class ModelSaverLoader:
         # 1. 保存Keras模型
         model = self._model_train_data[MODEL_TRAIN_DATA.model]
         if model is None:
-            print("Model object is invalid.")
+            print("Model object is invalid in saving model.")
             return False
         model_name = f"{self._ticker_symbol}{ModelSaverLoader.FILE_NAME_DEFINE[MODEL_TRAIN_DATA.model.name]}"
         model_save_path = os.path.join(self._directory, model_name)
@@ -377,31 +379,58 @@ history.json: 训练历史记录
         if self._save_model_mode == False:
             raise ValueError("This is not saving model MODE")
         os.makedirs(self._directory, exist_ok=True)
+        result = dict(zip([m for m in MODEL_TRAIN_DATA], [False]*(len(MODEL_TRAIN_DATA)-2)))
         if data_type:
-            if callable(self._model_io_functions[data_type]):
-                self._model_io_functions[data_type]()
+            if data_type == MODEL_TRAIN_DATA.for_stock_model:
+                for md in MODEL_TRAIN_DATA:
+                    if md.value < 3:
+                        if callable(self._model_io_functions[md]):
+                            result[md] = self._model_io_functions[md]()
+                return result
+            elif data_type == MODEL_TRAIN_DATA.for_ltsm_train:
+                for md in MODEL_TRAIN_DATA:
+                    if md.value > 2 and md.value < 9 :
+                        if callable(self._model_io_functions[md]):
+                            result[md] = self._model_io_functions[md]()
+                return result
             else:
-                raise ValueError(f"No saving function for [{data_type}]")
+                if callable(self._model_io_functions[data_type]):
+                    return self._model_io_functions[data_type]()
+                else:
+                    raise ValueError(f"No saving function for [{data_type}]")
         else: # save all      
             for data_type in self._model_io_functions.keys():
                 print(f"Saving data {data_type.name} ...")
                 if callable(self._model_io_functions[data_type]):
-                    self._model_io_functions[data_type]()
+                    result[data_type] = self._model_io_functions[data_type]()
                 else:
                     raise ValueError(f"No saving function for [{data_type}]")
+            return result
     
     def load_train_data(self, data_type:MODEL_TRAIN_DATA=None):
         """加载所有组件"""
-        from tensorflow import keras
         if self._save_model_mode:
             raise ValueError("This is not a loading model MODE")
+        result = dict(zip([m for m in MODEL_TRAIN_DATA], [False]*len(MODEL_TRAIN_DATA)))
         if data_type:
-            if callable(self._model_io_functions[data_type]):
-                return self._model_io_functions[data_type]()
+            if data_type == MODEL_TRAIN_DATA.for_stock_model:
+                for md in MODEL_TRAIN_DATA:
+                    if md.value < 3:
+                        if callable(self._model_io_functions[md]):
+                            result[md] = self._model_io_functions[md]()
+                return result
+            elif data_type == MODEL_TRAIN_DATA.for_ltsm_train:
+                for md in MODEL_TRAIN_DATA:
+                    if md.value > 2 and md.value < 9 :
+                        if callable(self._model_io_functions[md]):
+                            result[md] = self._model_io_functions[md]()
+                return result
             else:
-                raise ValueError(f"No loading function for [{data_type}]")
+                if callable(self._model_io_functions[data_type]):
+                    return self._model_io_functions[data_type]()
+                else:
+                    raise ValueError(f"No loading function for [{data_type}]")
         else: ## load all data
-            result = dict(zip([m for m in MODEL_TRAIN_DATA], [False]*len(MODEL_TRAIN_DATA)))
             for data_type in self._model_io_functions.keys():
                 if data_type == MODEL_TRAIN_DATA.readme:
                     break

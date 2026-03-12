@@ -61,6 +61,7 @@ class StockPredictionGUI:
         self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
         self.feature_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
         self.added_stock_num = 0
+        self.adding_stock_list = []
 
 #region properties
     @property
@@ -81,7 +82,7 @@ class StockPredictionGUI:
         # print(f"Tab gewechselt zu: {tab_text}")
         # print(f"Index of current tab: {index}")
         if index == 2: # visual tab
-            self.visual_model_combo["values"] = self.manager.processing_tickers
+            self.visual_model_combo["values"] = self.manager.ticker_list
             self.visual_model_combo.current(0)
             self.visual_model_combo.update
 
@@ -125,9 +126,6 @@ class StockPredictionGUI:
                                    ['Add Atock', 'Open Add Stock'], 
                                     command=self.add_stock)
         self.add_btn.pack(side=tk.LEFT, padx=(0, 5))
-        # add_btn = tk.Button(input_frame, text="Add", 
-        #                 command=self.add_stock, width=6)
-        # add_btn.pack(side=tk.LEFT, padx=(0, 5))
         
         # 删除按钮
         remove_btn = tk.Button(input_frame, text="Remove",
@@ -288,7 +286,7 @@ class StockPredictionGUI:
         ttk.Label(control_frame, text="Select Model:").pack(side=tk.LEFT, padx=(20,5))
         self.visual_model_combo = ttk.Combobox(control_frame, width=25)
         self.visual_model_combo.pack(side=tk.LEFT, padx=5)
-        self.visual_model_combo['values'] = self.manager.processing_tickers
+        self.visual_model_combo['values'] = self.manager.ticker_list
 
         # set feature shown in chart
         ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
@@ -409,7 +407,7 @@ class StockPredictionGUI:
                 return
             
             # 检查是否已存在
-            if stock in self.manager.processing_tickers:
+            if stock in self.manager.ticker_list:
                 messagebox.showinfo("Hint", f"{stock} exists already!")
                 return
             
@@ -420,6 +418,8 @@ class StockPredictionGUI:
                 if not response:
                     return
             
+            self.adding_stock_list.append(stock)
+
             # 添加到内部列表
             self.manager.add_ticker(stock)
             
@@ -493,6 +493,7 @@ class StockPredictionGUI:
             # 记录日志
             self.log_message(f"Deleted stock: {stock}")
             self._reload_data = True
+            self.added_stock_num -= 1
     
     def clear_all_stocks(self):
         """清空所有股票"""        
@@ -511,9 +512,9 @@ class StockPredictionGUI:
         """更新Listbox显示"""
         # 清空Listbox
         self.stock_listbox.delete(0, tk.END)
-        if len(self.manager.processing_tickers) > 0:
+        if len(self.manager.ticker_list) > 0:
             # 添加所有股票
-            for i, stock in enumerate(self.manager.processing_tickers):
+            for i, stock in enumerate(self.manager.ticker_list):
                 if from_disk: # add start_date and end_date
                     sm = self.manager.get_stock_model(stock)
                     self.stock_listbox.insert(tk.END, f"{i}. [{stock}]: {sm.start_date} - {sm.end_date}")
@@ -546,7 +547,7 @@ class StockPredictionGUI:
     def start_loading_ticker_data_from_markt(self):
         # 在新线程中运行训练，避免GUI冻结
         features = self._stock_features.get_features()
-        thread = threading.Thread(target=self.run_loading_ticker_data, args=(self.manager.processing_tickers, features))
+        thread = threading.Thread(target=self.run_loading_ticker_data, args=(self.adding_stock_list, features))
         thread.daemon = True
         thread.start()    
 
@@ -565,15 +566,12 @@ class StockPredictionGUI:
             # 初始化管理器
             self.manager.start_date = start_date
             self.manager.end_date = end_date
-            new_stocks = []
             # 添加股票
             for stock in stocks:
-                if self.manager.add_ticker(stock):
-                    self.manager.get_stock_model(stock).interval = self.interval_var.get()
-                    self.manager.get_LSTM_model_train(stock).features = features
-                    new_stocks.append(stock)
+                self.manager.get_stock_model(stock).interval = self.interval_var.get()
+                self.manager.get_LSTM_model_train(stock).features = features
             # 加载数据
-            self.log_message("Loading stock data...")
+            self.log_message(f"Loading stock data [{','.join(self.adding_stock_list)}]...")
             # 在单独的线程中运行数据加载
             def load_data_thread(stocks):
                 from ModelIO import ModelSaverLoader
@@ -589,7 +587,7 @@ class StockPredictionGUI:
                             sm.save_model_data_to_disk()
                             mt = self.manager.get_LSTM_model_train(ticker)
                             mt.save_model_train_data_to_disk()
-                            self.added_stock_num -= 1
+                            self.adding_stock_list.pop(0)
                             messagebox.showinfo("Load Ticker Data",
                                                     f"Loading Ticker Data is successful. All data are saved in directory [{sm.model_save_path}]")
                     self.log_message("Loading Ticker Data is successful.")
@@ -601,7 +599,7 @@ class StockPredictionGUI:
             from concurrent.futures import ThreadPoolExecutor
             with ThreadPoolExecutor() as executor:
                 # Schedule the function to run
-                future = executor.submit(load_data_thread, new_stocks)
+                future = executor.submit(load_data_thread, stocks)
                 # result() blocks until the thread finishes and returns the value
                 result = future.result()
                 if len(result) > 0:
@@ -618,7 +616,7 @@ class StockPredictionGUI:
 
     def start_training(self):
         """开始训练模型"""
-        if len(self.manager.processing_tickers) == 0:
+        if len(self.manager.ticker_list) == 0:
             messagebox.showwarning("Warning", "Please add stocks first")
             return
                 
@@ -632,7 +630,7 @@ class StockPredictionGUI:
             return
         
         # 在新线程中运行训练，避免GUI冻结
-        thread = threading.Thread(target=self.run_training, args=(self.manager.processing_tickers, features, lookback))
+        thread = threading.Thread(target=self.run_training, args=(self.manager.ticker_list, features, lookback))
         thread.daemon = True
         thread.start()    
 

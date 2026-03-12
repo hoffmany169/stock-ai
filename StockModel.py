@@ -254,12 +254,9 @@ class StockModel:
         mio = ModelSaverLoader(self._model_save_path,
                                ticker_symbol=self._ticker_symbol)
         mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data, self._loaded_data)
-        mio.save_train_data(MODEL_TRAIN_DATA.ticker_data)
         mio.set_model_train_data(MODEL_TRAIN_DATA.ticker_data_params, self.create_ticker_parameters())
-        mio.save_train_data(MODEL_TRAIN_DATA.ticker_data_params)
-        if self.model is not None:
-            mio.set_model_train_data(MODEL_TRAIN_DATA.model, self._model)
-            mio.save_train_data(MODEL_TRAIN_DATA.model)
+        mio.set_model_train_data(MODEL_TRAIN_DATA.model, self._model)
+        mio.save_train_data(MODEL_TRAIN_DATA.for_stock_model)
 
     def load_model_data_from_disk(self):
         from ModelIO import ModelSaverLoader
@@ -267,13 +264,16 @@ class StockModel:
         mio = ModelSaverLoader(self._model_save_path, 
                                ticker_symbol=self._ticker_symbol,
                                save=False)
-        result = mio.load_train_data()
-        if mio.load_train_data(MODEL_TRAIN_DATA.ticker_data):
+        result = mio.load_train_data(MODEL_TRAIN_DATA.for_stock_model)
+        # if mio.load_train_data(MODEL_TRAIN_DATA.ticker_data):
+        # if mio.load_train_data(MODEL_TRAIN_DATA.ticker_data_params):
+        # if mio.load_train_data(MODEL_TRAIN_DATA.model):
+        if result[MODEL_TRAIN_DATA.ticker_data]:
             self._loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data)
-        if mio.load_train_data(MODEL_TRAIN_DATA.ticker_data_params):
+        if result[MODEL_TRAIN_DATA.ticker_data_params]:
             data_params = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data_params)
             self.assign_ticker_params_from_loading(data_params)
-        if mio.load_train_data(MODEL_TRAIN_DATA.model):
+        if result[MODEL_TRAIN_DATA.model]:
             self.model = mio.get_model_train_data(MODEL_TRAIN_DATA.model)
         self._extracted_features()
         return result

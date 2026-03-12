@@ -100,11 +100,13 @@ class LTSM_MODEL_PARAM(AutoIndex):
 class MODEL_TRAIN_DATA(AutoIndex):
     ticker_data = ()
     ticker_data_params = ()
-    model = ()
+    model = ()          # 2
     scaler = ()
     parameters = ()
     readme = ()
     train_history = ()
     performance = ()
-    model_summary = ()
+    model_summary = ()  # 8
+    for_stock_model = ()
+    for_ltsm_train = ()
 

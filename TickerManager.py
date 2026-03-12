@@ -55,7 +55,7 @@ class TickerManager:
         self._interval = intvl
 
     @property
-    def processing_tickers(self):
+    def ticker_list(self):
         return list(self.tickers.keys())
 #endregion properties
 
@@ -78,8 +78,8 @@ class TickerManager:
     def remove_ticker(self, ticker:str|int):
         """Remove a ticker from the manager."""
         if type(ticker) is int: # index of ticker
-            if ticker >= 0 and ticker < len(self.processing_tickers):
-                rmv_ticker = self.processing_tickers[ticker]
+            if ticker >= 0 and ticker < len(self.ticker_list):
+                rmv_ticker = self.ticker_list[ticker]
             else:
                 return None
         else:
@@ -102,7 +102,7 @@ class TickerManager:
                 if ticker == ticker_symbol:
                     return self.tickers[ticker_symbol][TickerData.stock_model]
         elif type(ticker) is int:
-            for i, ticker_symbol in enumerate(self.get_all_tickers()):
+            for i, ticker_symbol in enumerate(self.ticker_list):
                 if i == ticker:
                     return self.tickers[ticker_symbol][TickerData.stock_model]
         else:
@@ -115,14 +115,14 @@ class TickerManager:
                 if ticker == ticker_symbol:
                     return self.tickers[ticker_symbol][TickerData.ltsm_model_train]
         elif type(ticker) is int:
-            for i, ticker_symbol in enumerate(self.get_all_tickers()):
+            for i, ticker_symbol in enumerate(self.ticker_list):
                 if i == ticker:
                     return self.tickers[ticker_symbol][TickerData.ltsm_model_train]
         else:
             raise ValueError("Data type of ticker is not supported!")
 
     def load_ticker_data(self):
-        tickers = self.get_all_tickers()
+        tickers = self.ticker_list
         no_data = []
         
         if not tickers:
@@ -206,7 +206,7 @@ class TickerManager:
             return False
 
     def process_train_model(self, lookback=60):
-        for ticker in self.get_all_tickers():
+        for ticker in self.ticker_list:
             mt = self.get_LSTM_model_train(ticker)
             mt.lookback = lookback
             if mt.features is None or len(mt.features) == 0:
@@ -217,27 +217,13 @@ class TickerManager:
             mt.process_train_data()
     
     def save_train_data(self, ticker_symbol):
-        from ModelIO import ModelSaverLoader
-        from StockDefine import MODEL_TRAIN_DATA
-        import os
-
         sm = self.get_stock_model(ticker_symbol)
         sm.save_model_data_to_disk()
-        # save_path = os.path.join(TickerManager.DefaultSaveDataDirectory, ticker_symbol)
-        # mio = ModelSaverLoader(save_path,
-        #                         ticker_symbol)
         ss = self.get_LSTM_model_train(ticker_symbol)
         ss.save_model_train_data_to_disk()
-        # mio.set_model_train_data(MODEL_TRAIN_DATA.readme, mio.create_readme())
-        # mio.set_model_train_data(MODEL_TRAIN_DATA.scaler, ss.scaler)
-        # mio.set_model_train_data(MODEL_TRAIN_DATA.parameters, ss.create_model_parameters())
-        # mio.set_model_train_data(MODEL_TRAIN_DATA.train_history, ss.train_history)
-        # mio.set_model_train_data(MODEL_TRAIN_DATA.performance, ss.performance)
-        # mio.set_model_train_data(MODEL_TRAIN_DATA.model_summary, ss.get_model_summary())
-        # mio.save_train_data()
 
     def process_save_train_data(self, path):
-        for ticker in self.get_all_tickers():
+        for ticker in self.ticker_list:
             self.save_train_data(ticker, path)
 
     def _parse_models_directory(self, directory):
@@ -282,8 +268,8 @@ class TickerManager:
         """
         print("!! selecting stocks !!")
         selected_stocks = []
-        current_data = yf.download(self.get_all_tickers(), start=start_date, end=end_date, group_by='ticker')
-        for ticker in self.get_all_tickers():
+        current_data = yf.download(self.ticker_list, start=start_date, end=end_date, group_by='ticker')
+        for ticker in self.ticker_list:
             ticker_data = current_data[ticker]
             local_ss = StockModel(ticker, ticker_data)
             # get trained model
