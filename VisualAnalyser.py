@@ -410,7 +410,7 @@ class VisualAnalyser(PriceVolumePlotter):
         frm1 = tk.Frame(dialog)
         frm1.pack(fill='x', expand=True, pady=5)    
         tk.Label(frm1, text="ax name:", font=('Arial', 12, 'bold')).pack(side='left', padx=5)
-        ax_names = list(self.visual_data.data.keys())
+        ax_names = list(self.visual_data.plot_data.keys())
         textvar.append(StringVar(dialog, ax_names[0]))
         ax_name_combo = ttk.Combobox(frm1, state='onlyread', textvariable=textvar[0], values=ax_names)
         ax_name_combo.pack(side='left', padx=5)

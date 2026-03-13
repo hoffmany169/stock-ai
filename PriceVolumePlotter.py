@@ -37,7 +37,6 @@ class PriceVolumePlotter(StockChartPlotter):
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_VOLUME)
         
-        self.plot()
         
         # 配置图表格式
         self.format_chart_price(ax_price)
@@ -53,6 +52,7 @@ class PriceVolumePlotter(StockChartPlotter):
         
         # 调整布局
         plt.tight_layout()
+        self.plot()
 
     def plot(self):
         """绘制图表"""

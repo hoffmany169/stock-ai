@@ -20,15 +20,18 @@ class StockVisualData:
     AX_VOLUME = 'ax_volume'
     def __init__(self, fig=None):
         # 存储图表配置和元素的对象，包含以下属性:
-        # - visual_data: dict {name1: {TYPE.ax : ax1, 
+        # - fig: plot figure
+        # - visual_data: dict {
+        #                      {name1: {TYPE.ax : ax1, 
         #                              TYPE.artists: {artist1 : data, ...}, 
         #                              TYPE.properties: {property1 : data, ...}
-        #                      },
+        #                      ,
         #                      {name2: {TYPE.ax : ax2, 
         #                               TYPE.artists: {artist2 : data, ...},
         #                               TYPE.properties: {property1 : data, ...}
         #                      }
         #                      ...
+        #                      }
         self._fig = fig
         self.visual_data = {}
         # instance of mplcursors
@@ -42,7 +45,7 @@ class StockVisualData:
         self._fig = value
 
     @property
-    def data(self):
+    def plot_data(self):
         return self.visual_data
 
     def add_stock_visual_data(self, data_type:TYPE, data:any, data_name, axes_name=None):
@@ -70,13 +73,13 @@ class StockVisualData:
                 raise ValueError("if data is a list, data_name must be a list, and length of data must be same.")
             if type(data) == list:
                 for i, name in enumerate(data_name):
-                    self.visual_data[name] = {
+                    self.plot_data[name] = {
                         StockVisualData.TYPE.ax : data[i],
                         StockVisualData.TYPE.artists : {}, 
                         StockVisualData.TYPE.properties : {}
                     }
             else:
-                self.visual_data[data_name] = {
+                self.plot_data[data_name] = {
                     StockVisualData.TYPE.ax : data,
                     StockVisualData.TYPE.artists : {},
                     StockVisualData.TYPE.properties : {}
@@ -84,9 +87,9 @@ class StockVisualData:
         else:
             if axes_name is None:
                 raise ValueError("axes_name must be provided for artist data except for axes data")
-            if self.visual_data.get(axes_name) is None:
+            if self.plot_data.get(axes_name) is None:
                 raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
-            self.visual_data[axes_name][data_type][data_name] = data
+            self.plot_data[axes_name][data_type][data_name] = data
         
         # 重绘图表
         if self._fig is not None:
@@ -115,21 +118,21 @@ class StockVisualData:
         if data_type == StockVisualData.TYPE.ax:
             if type(data) == list:
                 for i, name in enumerate(axes_name):
-                    if self.visual_data.get(name) is None:
+                    if self.plot_data.get(name) is None:
                         raise ValueError(f"axes_name '{name}' does not exist in visual_data")
-                    if name in self.visual_data.keys():
-                        self.visual_data[name][data_type] = data[i]
+                    if name in self.plot_data.keys():
+                        self.plot_data[name][data_type] = data[i]
                     else:
                         self.add_stock_visual_data(data_type, data[i], name)
             else:
-                if self.visual_data.get(axes_name) is None:
+                if self.plot_data.get(axes_name) is None:
                     raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
-                if axes_name in self.visual_data.keys():
-                    self.visual_data[axes_name][data_type] = data
+                if axes_name in self.plot_data.keys():
+                    self.plot_data[axes_name][data_type] = data
                 else:
                     self.add_stock_visual_data(data_type, data, axes_name)
         else: 
-            self.visual_data[axes_name][data_type][data_name] = data
+            self.plot_data[axes_name][data_type][data_name] = data
 
     def get_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
         """获取图表中的股票数据
@@ -149,16 +152,16 @@ class StockVisualData:
         any
             返回指定的数据项内容
         """
-        if self.visual_data.get(axes_name) is None:
+        if self.plot_data.get(axes_name) is None:
             print(f"axes_name '{axes_name}' does not exist in visual data")
             return None
         if data_type == StockVisualData.TYPE.ax:
-            return self.visual_data[axes_name].get(data_type, None)
+            return self.plot_data[axes_name].get(data_type, None)
         else:
             if data_name is None:
-                return self.visual_data[axes_name][data_type] # return all artists dict
+                return self.plot_data[axes_name][data_type] # return all artists dict
             else:
-                return self.visual_data[axes_name].get(data_type, {}).get(data_name, None)
+                return self.plot_data[axes_name].get(data_type, {}).get(data_name, None)
 
     def remove_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
         """从图表中移除指定的股票数据
@@ -176,14 +179,14 @@ class StockVisualData:
             数据名称，用于定位具体的数据项
         return: element which is removed
         """
-        if self.visual_data.get(axes_name) is None:
+        if self.plot_data.get(axes_name) is None:
             raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
         if data_type == StockVisualData.TYPE.ax:
-            if axes_name in self.visual_data:
-                return self.visual_data.pop(axes_name)
+            if axes_name in self.plot_data:
+                return self.plot_data.pop(axes_name)
         else:
-            if data_name in self.visual_data[axes_name][data_type]:
-                return self.visual_data[axes_name][data_type].pop(data_name)
+            if data_name in self.plot_data[axes_name][data_type]:
+                return self.plot_data[axes_name][data_type].pop(data_name)
         return None    
 
 class PointData:
@@ -599,14 +602,16 @@ class StockChartPlotter(ABC):
                 artist.remove()
         self.visual_data.fig.canvas.draw_idle()
 
-    def remove_all_artists(self, ax_name):
-        artists = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name)
-        for name in artists.keys():
-            artist = self.visual_data.remove_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name=name)
-            if artist is None:
-                continue
-            artist.remove()
-            print(f"Removed artist: {name}")
+    def remove_all_artists(self):
+        for ax_name in self.visual_data.plot_data.keys():
+            artists = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name)
+            for name in artists.keys():
+                artist = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name=name)
+                if artist is None:
+                    continue
+                artist.remove()
+                print(f"Removed artist: {name}")
+        self.visual_data.plot_data.clear()
         self.visual_data.fig.canvas.draw_idle()
 
     def show(self):

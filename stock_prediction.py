@@ -721,12 +721,14 @@ class StockPredictionGUI:
                     self.row_plotter['fig'] = fig
                     self.row_plotter['canvas'] = canvas
                 else:
+                    self.row_plotter['plotter'].remove_all_artists()
                     stock_model = self.manager.get_stock_model(stock)
-                    if stock != stock_model.ticker_symbol:
-                        # create new plotter
-                        self.row_plotter['plotter'] = PriceVolumePlotter(stock_model)
-                        self.row_plotter['plotter'].feature  = self.feature
-                        # self.row_plotter['plotter'].plot()            
+                    # create new plotter
+                    self.row_plotter['plotter'] = PriceVolumePlotter(stock_model)
+                    fig, canvas = self.row_plotter['plotter'].set_backend_window(self.figure_frame)
+                    canvas.pack(fill=tk.BOTH, expand=True)
+                    self.row_plotter['fig'] = fig
+                    self.row_plotter['canvas'] = canvas
         except Exception as e:
             messagebox.showerror("Error", f"Error displaying data: {str(e)}")
     

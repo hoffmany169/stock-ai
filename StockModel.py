@@ -269,11 +269,9 @@ class StockModel:
                                ticker_symbol=self._ticker_symbol,
                                save=False)
         result = mio.load_train_data(MODEL_TRAIN_DATA.for_stock_model)
-        # if mio.load_train_data(MODEL_TRAIN_DATA.ticker_data):
-        # if mio.load_train_data(MODEL_TRAIN_DATA.ticker_data_params):
-        # if mio.load_train_data(MODEL_TRAIN_DATA.model):
         if result[MODEL_TRAIN_DATA.ticker_data]:
             self._loaded_data = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data)
+            self.add_date_column()
         if result[MODEL_TRAIN_DATA.ticker_data_params]:
             data_params = mio.get_model_train_data(MODEL_TRAIN_DATA.ticker_data_params)
             self.assign_ticker_params_from_loading(data_params)
