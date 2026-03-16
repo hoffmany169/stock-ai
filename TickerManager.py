@@ -57,6 +57,10 @@ class TickerManager:
     @property
     def ticker_list(self):
         return list(self.tickers.keys())
+    
+    @property
+    def ticker_count(self):
+        return len(self.tickers)
 #endregion properties
 
     # def get_ticker_list(self):

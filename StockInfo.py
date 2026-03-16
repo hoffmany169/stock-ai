@@ -4,7 +4,7 @@ from stock_prediction import StockPredictionGUI
 from Common.EventHandler import Event
 
 USA_STOCK = {
-        'AAPL' : 'Aple',
+        'AAPL'  : 'Aple',
         'GOOGL' : 'Google',
         'MSFT'  : 'Microsoft',
         'AMZN'  : 'Amazon',
@@ -92,6 +92,10 @@ from tkinter.scrolledtext import ScrolledText
 from StockEvent import StockEvent
 
 class StockInfo:
+    """
+    StockInfo
+    manage stock information about ticker
+    """
     class PRODUCT_TYPE(AutoIndex):
         indices = ()   #指数
         ger_stock = () #德股
@@ -128,7 +132,7 @@ class StockInfo:
             if StockInfo.get_product_type_by_text(t) == text:
                 return t
 
-    def __init__(self, parent:Widget):
+    def __init__(self, parent:Widget=None):
         self.GermanStockExchangeCodes = dict(zip([c.name for c in StockInfo.SuffixGermanStockExchange],
                                                 StockInfo.GermanStockExchange))
         self.stock_info_file = os.path.join(StockInfo.StockInfoPath, StockInfo.StockInfoFile)
@@ -136,8 +140,9 @@ class StockInfo:
         self.parent = parent
         self.product_index = 0
         self.stock_selected_index = 0
-        self.root = CreateChildWindow(self.parent, 'stock info', modal=True, XClose=True)
-        self.create_gui()
+        if self.parent:
+            self.root = CreateChildWindow(self.parent, 'stock info', modal=True, XClose=True)
+            self.create_gui()
 
     def total_stock_count(self):
         count = 0
@@ -158,9 +163,20 @@ class StockInfo:
                     if s == p.name:
                         self.stock_info_data[p] = stock_info_info[s]
         else:
-            self.stock_info_data = dict(zip([p for p in StockInfo.PRODUCT_TYPE], 
-                                            [INDICES, GER_STOCK, FUTURES, USA_STOCK, HONGKONG]))
+            # reform data
+            product_data = [INDICES, GER_STOCK, FUTURES, USA_STOCK, HONGKONG]
+            for i, p in enumerate(product_data):
+                for s, v in p.items():
+                    product_data[i][s] = {'company':v}
+            self.stock_info_data = dict(zip([p for p in StockInfo.PRODUCT_TYPE], product_data))
             self.save_stock_info()
+
+    def get_stock_info(self, ticker_symbol):
+        for p in self.stock_info_data:
+            for s in self.stock_info_data[p]:
+                if s == ticker_symbol:
+                    return self.stock_info_data[p][s]
+        return None
 
     def update_stock_info(self):
         import threading
@@ -178,10 +194,7 @@ class StockInfo:
                     print(f"Updating info for {stock_code}...")
                     success, result = self.obtain_stock_info(stock_code)
                     if success:
-                        info = ""
-                        for r, v in result.items():
-                            info += f"{r}: {v}\n"
-                        stock_dict[stock_code] = info
+                        stock_dict[stock_code] = result
                     else:
                         print(f"Failed to obtain info for {stock_code}: {result}")
                     print(f"Updated {updated_count}/{count} stocks.")
@@ -262,7 +275,9 @@ class StockInfo:
         key_list_text = self.stock_list.get(self.stock_selected_index).strip()
         parts = key_list_text.split('[')
         key_text = parts[1][:-1]
-        return stock_dict[key_text]
+        info = ''
+        for k,v in stock_dict[key_text].items():
+            info += f'{k} : {v}\n'
 
     def create_gui(self):
         prod = Frame(self.root)

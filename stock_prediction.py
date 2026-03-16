@@ -74,14 +74,13 @@ class StockPredictionGUI:
         notebook = event.widget
         
         # Ermittle den aktuell ausgewählten Tab
-        current_tab = notebook.select()
-        
+        # current_tab = notebook.select()
         # Erhalte den Text des ausgewählten Tabs
-        tab_text = notebook.tab(current_tab, "text")
+        # tab_text = notebook.tab(current_tab, "text")
         index = notebook.index("current")
         # print(f"Tab gewechselt zu: {tab_text}")
         # print(f"Index of current tab: {index}")
-        if index == 1: # visual tab
+        if index == 1 and self.manager.ticker_count > 0: # visual tab
             self.visual_model_combo["values"] = self.manager.ticker_list
             self.visual_model_combo.current(0)
             self.visual_model_combo.update
@@ -284,10 +283,11 @@ class StockPredictionGUI:
         control_frame.pack(fill=tk.X, padx=5, pady=5)
         
         ttk.Label(control_frame, text="Select Model:").pack(side=tk.LEFT, padx=(20,5))
-        self.visual_model_combo = ttk.Combobox(control_frame, width=25)
+        self.visual_stock_var = StringVar(control_frame, "")
+        self.visual_stock_var.trace_add('write', self.update_stock_company_info)
+        self.visual_model_combo = ttk.Combobox(control_frame, width=12, textvariable=self.visual_stock_var)
         self.visual_model_combo.pack(side=tk.LEFT, padx=5)
         self.visual_model_combo['values'] = self.manager.ticker_list
-
         # set feature shown in chart
         ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
         # 特征选择下拉框
@@ -303,6 +303,10 @@ class StockPredictionGUI:
         self.feature2_combo.pack(side=tk.LEFT, padx=5)
         self.shown_feature['feature 1'].trace_add('write', self.on_change_shown_feature)
 #endregion
+        control_frame_1 = ttk.Frame(self.visualization_frame)
+        control_frame_1.pack(fill=tk.X, padx=5, pady=5)
+        self.company_label = ttk.Label(control_frame_1, text="Company", relief="sunken", width=40)
+        self.company_label.pack(fill=tk.X, padx=(5,5))        
 #region feature curve
         control_frame_2 = ttk.Frame(self.visualization_frame)
         control_frame_2.pack(fill=tk.X, padx=5, pady=5)
@@ -314,6 +318,16 @@ class StockPredictionGUI:
         self.figure_frame = ttk.Frame(self.visualization_frame)
         self.figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
+    def update_stock_company_info(self, var, index, mode):
+        from StockInfo import StockInfo
+        if hasattr(self, 'visual_model_combo'):
+            stock = self.visual_model_combo.get().strip().upper()
+            info = StockInfo()
+            result = info.get_stock_info(stock)
+            if result:
+                self.company_label['text'] = result['company']
+
+        
     def on_change_shown_feature(self, *args):
         self.feature = self.shown_feature['feature 1'].get()
 
