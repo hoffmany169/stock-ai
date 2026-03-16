@@ -93,10 +93,10 @@ from StockEvent import StockEvent
 
 class StockInfo:
     class PRODUCT_TYPE(AutoIndex):
-        usa_stock = () #美股
+        indices = ()   #指数
         ger_stock = () #德股
         futures = ()   #期货
-        indices = ()   #指数
+        usa_stock = () #美股
         HongKong = ()  #港股
 
     class SuffixGermanStockExchange(AutoIndex):
@@ -158,7 +158,8 @@ class StockInfo:
                     if s == p.name:
                         self.stock_info_data[p] = stock_info_info[s]
         else:
-            self.stock_info_data = dict(zip([p for p in StockInfo.PRODUCT_TYPE], [USA_STOCK, GER_STOCK, FUTURES, INDICES, HONGKONG]))
+            self.stock_info_data = dict(zip([p for p in StockInfo.PRODUCT_TYPE], 
+                                            [INDICES, GER_STOCK, FUTURES, USA_STOCK, HONGKONG]))
             self.save_stock_info()
 
     def update_stock_info(self):
@@ -293,6 +294,10 @@ class StockInfo:
         scrollbar = Scrollbar(listbox_frame, orient=VERTICAL, command=self.stock_list.yview)
         scrollbar.pack(side=RIGHT, fill=Y)
         self.stock_list.config(yscrollcommand=scrollbar.set)
+        self.product_combo.current(0)
+        self.product_index = 0
+        self.update_stock_listbox(self.product_index)
+
         # right frame of frame 2
         frame2_right = Frame(stock_frame)
         frame2_right.pack(side=LEFT, fill='x', expand=True, padx=10)
