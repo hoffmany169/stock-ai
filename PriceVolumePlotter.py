@@ -65,7 +65,59 @@ class PriceVolumePlotter(StockChartPlotter):
         if ax:
             self.plot_volume_chart(ax, self.visual_data.get_stock_visual_data(StockVisualData.TYPE.properties, 'ax_volume', data_name='price_change'))
         
-    
+    def update_data_dynamically(self, new_stock_model, feature=None):
+        """
+        动态更新数据而不重新创建图形对象（最高效）
+        """
+        from tkinter import messagebox
+        if not new_stock_model.is_data_loaded:
+            messagebox.showwarning("Warning", f"Stock data of {new_stock_model.ticker_symbol} is not loaded, yet!")
+            return
+        # 更新内部数据
+        self.stock_model = new_stock_model
+        self.stock_data = self.stock_model.loaded_data
+        if feature is not None:
+            self._feature = feature
+        # new_dates_mpl = mdates.date2num(self.stock_data['Date'])
+        self.dates_mpl = mdates.date2num(self.stock_data['Date'])
+        
+        # 更新价格线的数据
+        ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
+                                                          StockVisualData.AX_PRICE)
+        price_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists,
+                                                          StockVisualData.AX_PRICE,
+                                                          data_name='price_line')
+        if price_line:
+            price_line.set_data(self.dates_mpl, self.stock_data[self.feature])
+        
+        # 更新x轴范围
+        ax_price.set_xlim(self.dates_mpl[0], self.dates_mpl[-1])
+        
+        # 更新y轴范围
+        y_min = self.stock_data[self.feature].min() * 0.95
+        y_max = self.stock_data[self.feature].max() * 1.05
+        ax_price.set_ylim(y_min, y_max)
+        
+        # 如果有交易量图，也需要更新
+        ax_volume = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
+                                                          StockVisualData.AX_VOLUME)
+        if ax_volume:
+            # 清除旧的柱状图
+            ax_volume.clear()
+            
+            # 重新绘制交易量图
+            volume_colors = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.properties, 
+                                                                   StockVisualData.AX_VOLUME,
+                                                                   'price_change')
+            # self.calculate_price_change()
+            self.plot_volume_chart(ax_volume, volume_colors)
+            
+            # 更新x轴范围
+            ax_volume.set_xlim(self.dates_mpl[0], self.dates_mpl[-1])
+        
+        # 重绘
+        self.fig_canvas.draw_idle()
+
     def plot_price_chart(self, ax_price, feature):
         """绘制股价图"""
         # 绘制收盘价折线

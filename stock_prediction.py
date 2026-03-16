@@ -55,8 +55,8 @@ class StockPredictionGUI:
 
         # 创建标签页
         self.create_training_tab()
-        self.create_selection_tab()
         self.create_visualization_tab()
+        self.create_selection_tab()
         self.feature = 'Close'
         self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
         self.feature_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
@@ -81,7 +81,7 @@ class StockPredictionGUI:
         index = notebook.index("current")
         # print(f"Tab gewechselt zu: {tab_text}")
         # print(f"Index of current tab: {index}")
-        if index == 2: # visual tab
+        if index == 1: # visual tab
             self.visual_model_combo["values"] = self.manager.ticker_list
             self.visual_model_combo.current(0)
             self.visual_model_combo.update
@@ -721,14 +721,8 @@ class StockPredictionGUI:
                     self.row_plotter['fig'] = fig
                     self.row_plotter['canvas'] = canvas
                 else:
-                    self.row_plotter['plotter'].remove_all_artists()
-                    stock_model = self.manager.get_stock_model(stock)
-                    # create new plotter
-                    self.row_plotter['plotter'] = PriceVolumePlotter(stock_model)
-                    fig, canvas = self.row_plotter['plotter'].set_backend_window(self.figure_frame)
-                    canvas.pack(fill=tk.BOTH, expand=True)
-                    self.row_plotter['fig'] = fig
-                    self.row_plotter['canvas'] = canvas
+                    if stock != self.row_plotter['plotter'].ticker_symbol:
+                        self.row_plotter['plotter'].update_data_dynamically(self.manager.get_stock_model(stock))
         except Exception as e:
             messagebox.showerror("Error", f"Error displaying data: {str(e)}")
     

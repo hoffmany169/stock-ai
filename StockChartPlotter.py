@@ -337,12 +337,18 @@ class StockChartPlotter(ABC):
         # valid fig and ax are available after plot is created.
         self.create_plot()
 
+#region properties
     @property
     def feature(self):
         return self._feature
     @feature.setter
     def feature(self, feat):
         self._feature = feat
+
+    @property
+    def ticker_symbol(self):
+        return self.stock_model.ticker_symbol
+#endregion properties
 
     # after plot is created, create window controls, e.g. context menu
     def set_backend_window(self, parent):
