@@ -48,20 +48,39 @@ GER_STOCK = {
 
 FUTURES = {"GC=F"   : 'Gold', #(黄金), 
            "CL=F"   : 'Raw Oil'}  #(原油)
-INDICES = {'^MDAXI' : 'MDAX 50',       # MDAX指数 - 德国中型股指数（包含50家中型公司）
+INDICES = { '^MDAXI' : 'MDAX 50',       # MDAX指数 - 德国中型股指数（包含50家中型公司）
             '^TECDAX': 'TecDAX Techlogie Index',      # TecDAX指数 - 德国科技股指数
             '^SDAXI': 'SDAX',       # SDAX指数 - 德国小型股指数
             '^GDAXIP': 'DAX 30',      # DAX 30指数 - 法兰克福证券交易所主要指数
-            '^CXKAX' : 'Automobil',       # 汽车指数 - 包含德国汽车制造商的指数, 奔驰、宝马、大众
+            '^CXKAX' : 'Automobile K',       # 汽车指数 - 包含德国汽车制造商的指数, 奔驰、宝马、大众
             '^CXPBX' : 'Bank',       # 银行指数 - 包含德国主要银行的指数, 德意志银行、商业银行
-            '^CXKTX' : 'Tech',       # 科技指数 - 包含德国科技公司的指数, 英飞凌、SAP
-            '^CXKIX' : 'Insurance',       # 保险指数 - 包含德国主要保险公司的指数, 安联、慕尼黑再保险
-            '^CXKPX' : 'Industrie',       # 能源指数 - 包含德国主要工业公司的指数, 西门子、DHL、空中客车
             '^CXKCX' : 'Chemie',       # 化工指数 - 包含德国主要化工公司的指数, 巴斯夫、赢创工业、科思创
-            '^CXKDX' : 'Pharma',       # 医药指数 - 包含德国主要医药公司的指数, 默克、拜耳、弗雷森纽斯医疗
-            '^CXKUX' : 'Communication',       # 通信指数 - 包含德国主要通信公司的指数, 德国电信、沃达丰、1&1
-            '^GSPC' : 'SPC 500',        # (标普500), 
-            '^DJI'  : 'Dow Jones'}          # (道琼斯)
+            '^CXKDX' : 'Media K',       
+            '^CXKHX'  : 'Technology', # 科技指数 - 包含德国科技公司的指数, 英飞凌、SAP
+            '^CXKIX' : 'Insurance',       # 保险指数 - 包含德国主要保险公司的指数, 安联、慕尼黑再保险
+            '^CXKLX'  : 'Transp. and Logistic K', # 运输/物流
+            '^CXKNX'  : 'Industrial K', # 工业 # 能源指数 - 包含德国主要工业公司的指数, 西门子、DHL、空中客车
+            '^CXKPX' : 'Pharmas and Healthcare K', # 医药指数 - 包含德国主要医药公司的指数, 默克、拜耳、弗雷森纽斯医疗
+            '^CXKSX'  : 'Software', # 运输/物流
+            '^CXKTX' : 'Telecommunication',       # 通信指数 - 包含德国主要通信公司的指数, 德国电信、沃达丰、1&1
+            '^CXKUX' : 'Utilities',       # 公用事业
+            '^CXKVX'  : 'Finacial Services', # 
+            '^CXKYX'  : 'Consumer K' # 消费
+            }
+ETF = {
+    'DAX.DE' : 'German Market', # 德国整体市场
+    'EXV1.DE' : 'German Bank', # 欧洲/德国银行
+    'EXV2.DE' : 'German Telecommunication', # 欧洲/德国通信
+    'EXV3.DE' : 'German Tech', # 欧洲/德国技术
+    'EXV4.DE' : 'German Medi', # 欧洲/德国健康医疗
+    'EXV5.DE' : 'German Automobiles', # 欧洲/德国工业
+    'EXV6.DE' : 'German basic Resources', # 欧洲/德国
+    'EXV7.DE' : 'German Chemicals', # 欧洲/德国化学
+    'EXV8.DE' : 'German Construction & Materials', # 欧洲/德国银行
+    'EXV9.DE' : 'German Travel and leisure', # Ryanair Holdings plc(包含德国 RWE、E.ON 以及法国、意大利的能源巨头
+    '4N9M.DE'  : 'RealDAXsubsector All Real Estate', # 房地产
+    '4N6V.DE' : 'Energy'
+}
 HONGKONG = {'0700.HK' : 'QQ', # (腾讯), 
             '9988.HK' : 'Ali'}  # (阿里)
 """
@@ -99,6 +118,7 @@ class StockInfo:
     class PRODUCT_TYPE(AutoIndex):
         indices = ()   #指数
         ger_stock = () #德股
+        etf = () # ETF
         futures = ()   #期货
         usa_stock = () #美股
         HongKong = ()  #港股
@@ -164,7 +184,7 @@ class StockInfo:
                         self.stock_info_data[p] = stock_info_info[s]
         else:
             # reform data
-            product_data = [INDICES, GER_STOCK, FUTURES, USA_STOCK, HONGKONG]
+            product_data = [INDICES, GER_STOCK, ETF, FUTURES, USA_STOCK, HONGKONG]
             for i, p in enumerate(product_data):
                 for s, v in p.items():
                     product_data[i][s] = {'company':v}
@@ -278,6 +298,7 @@ class StockInfo:
         info = ''
         for k,v in stock_dict[key_text].items():
             info += f'{k} : {v}\n'
+        return info
 
     def create_gui(self):
         prod = Frame(self.root)
