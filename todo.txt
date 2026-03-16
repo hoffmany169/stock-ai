@@ -15,3 +15,4 @@
 15. update date on button of GUI after loading data from disk ✕
 16. update showing raw plot ✕
 17. update feature plot ✕
+18. repaire stock info ✕

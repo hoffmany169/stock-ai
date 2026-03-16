@@ -24,7 +24,8 @@ class PriceVolumePlotter(StockChartPlotter):
             2, 1, 
             figsize=self.figsize,
             gridspec_kw={'height_ratios': [3, 1]},
-            sharex=True
+            sharex=True,
+            constrained_layout=True  # 添加这个参数保证图形完整显示在窗口中
         )
         if fig is None:
             raise ValueError("fig is None")
@@ -50,6 +51,14 @@ class PriceVolumePlotter(StockChartPlotter):
         self.visual_data.set_stock_visual_data(StockVisualData.TYPE.ax, [ax_price, ax_volume], 
                                                [StockVisualData.AX_PRICE, StockVisualData.AX_VOLUME])
         
+        # Check current toolbar setting， default: toolbar2
+        # current_toolbar = plt.rcParams['toolbar']
+        # print(f"Current toolbar: {current_toolbar}")
+        # List all available rcParams
+        # print(plt.rcParams.keys())        
+        # plt.rcParams['toolbar'] = 'toolmanager'
+        # 手动调整方案，但不工作
+        # plt.subplots_adjust(left=0.2, bottom=0.3, right=0.9, top=0.8)
         # 调整布局
         plt.tight_layout()
         self.plot()
@@ -64,6 +73,7 @@ class PriceVolumePlotter(StockChartPlotter):
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_VOLUME)
         if ax:
             self.plot_volume_chart(ax, self.visual_data.get_stock_visual_data(StockVisualData.TYPE.properties, 'ax_volume', data_name='price_change'))
+        
         
     def update_data_dynamically(self, new_stock_model, feature=None):
         """
@@ -354,12 +364,12 @@ class PriceVolumePlotter(StockChartPlotter):
                 else:
                     self.context_menu.entryconfig(idx, command=lambda: getattr(self, key)())
             try:
-                x_tk = self.root.winfo_pointerx()
-                y_tk = self.root.winfo_pointery()
+                x_tk = self.tk_root.winfo_pointerx()
+                y_tk = self.tk_root.winfo_pointery()
                 self.context_menu.tk_popup(x_tk, y_tk)
             except:
                 # Fallback
-                self.context_menu.post(self.last_click_coords)
+                self.context_menu.post()
 
 # ==================== 使用示例 ====================
 import numpy as np
