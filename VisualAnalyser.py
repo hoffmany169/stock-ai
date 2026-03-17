@@ -133,25 +133,22 @@ class VisualAnalyser(PriceVolumePlotter):
         # 调整布局
         plt.tight_layout()
 
-    # def update_chart(self, new_stock_model):
-    #     """
-    #     清空当前图形并绘制新数据
-    #     """
-    #     # 清空整个坐标轴
-    #     self.clear_all_plot_data()
+    def update_chart(self, new_stock_model):
+        """
+        清空当前图形并绘制新数据
+        """
+        # 清空整个坐标轴
+        self.visual_data.remove_artists(StockVisualData.AX_PRICE)
+        # 更新数据
+        self.stock_model = new_stock_model
+        self.stock_data = new_stock_model.loaded_data
+        self.convert_date_to_matplotlib_format()
         
-    #     # 更新数据
-    #     self.stock_data = new_data
-    #     self.dates_mpl = mdates.date2num(self.stock_data['Date'])
+        # 重新绘制
+        self.plot()
         
-    #     # 重新绘制
-    #     self.plot_price_chart()
-        
-    #     # 重新格式化
-    #     self.format_chart()
-        
-    #     # 重绘
-    #     self.fig.canvas.draw_idle()
+        # 重绘
+        self.fig_canvas.draw_idle()
 
     def plot(self):
         super().plot()

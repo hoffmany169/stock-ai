@@ -163,7 +163,7 @@ class StockVisualData:
             else:
                 return self.plot_data[axes_name].get(data_type, {}).get(data_name, None)
 
-    def remove_stock_visual_data(self, data_type:TYPE, axes_name, data_name=None):
+    def remove_stock_visual_data(self, data_type:TYPE, axes_name, data_name):
         """从图表中移除指定的股票数据
         
         参数:
@@ -182,14 +182,38 @@ class StockVisualData:
         if self.plot_data.get(axes_name) is None:
             raise ValueError(f"axes_name '{axes_name}' does not exist in visual_data")
         if data_type == StockVisualData.TYPE.ax:
-            if axes_name in self.plot_data:
-                return self.plot_data.pop(axes_name)
+            raise ValueError("Remove ax data self, please, use function remove_visual_ax_data")
         else:
             if data_name is None:
                 raise ValueError(f"data name is None. Cannot remove data {data_type.name}")
             if data_name in self.plot_data[axes_name][data_type]:
                 return self.plot_data[axes_name][data_type].pop(data_name)
         return None    
+
+    def remove_artists(self, ax_name, data_name=None):
+        if data_name is None: # remove all artists
+            for name, artist in self.plot_data[ax_name][StockVisualData.TYPE.artists].items():
+                if artist:
+                    artist.remove()
+                    print(f"remove artist: {name}")
+            self.plot_data[ax_name][StockVisualData.TYPE.artists].clear()
+        else: 
+             for name, artist in self.plot_data[ax_name][StockVisualData.TYPE.artists].items():
+                if name == data_name and artist:
+                    artist.remove()
+                    print(f"remove artist: {name}")
+
+    def remove_visual_ax_data(self, ax_name, only_chart=True):
+        for data_type, data in self.plot_data[ax_name].items():
+            if data_type == self.TYPE.ax:
+                if not only_chart:
+                    self.plot_data[ax_name][data_type].clear()
+                    print(f"removed ax data {ax_name}")
+            elif data_type == self.TYPE.artists:
+                self.remove_artists(ax_name)
+            else:
+                self.plot_data[ax_name][data_type].clear()
+                print(f"removed data in {data_type.name}")
 
 class PointData:
 
@@ -327,11 +351,12 @@ class StockChartPlotter(ABC):
         self.tk_root = None 
         
         # 确保日期为datetime格式
-        if not pd.api.types.is_datetime64_any_dtype(self.stock_data['Date']):
-            self.stock_data['Date'] = pd.to_datetime(self.stock_data['Date'])
+        # if not pd.api.types.is_datetime64_any_dtype(self.stock_data['Date']):
+        #     self.stock_data['Date'] = pd.to_datetime(self.stock_data['Date'])
         
-        # 将日期转换为matplotlib格式
-        self.dates_mpl = mdates.date2num(self.stock_data['Date'])
+        # # 将日期转换为matplotlib格式
+        # self.dates_mpl = mdates.date2num(self.stock_data['Date'])
+        self.convert_date_to_matplotlib_format()
 
         # feature used by plotting chart
         self._feature = 'Close'
@@ -351,6 +376,12 @@ class StockChartPlotter(ABC):
     def ticker_symbol(self):
         return self.stock_model.ticker_symbol
 #endregion properties
+
+    def convert_date_to_matplotlib_format(self):
+        # 确保日期为datetime格式
+        if not pd.api.types.is_datetime64_any_dtype(self.stock_data['Date']):
+            self.stock_data['Date'] = pd.to_datetime(self.stock_data['Date'])
+        self.dates_mpl = mdates.date2num(self.stock_data['Date'])
 
     # after plot is created, create window controls, e.g. context menu
     def set_backend_window(self, parent):

@@ -753,22 +753,23 @@ class StockPredictionGUI:
             from VisualAnalyser import VisualAnalyser
             from Common.Util import CreateChildWindow
             visual_root = CreateChildWindow(parent, title='Visual Analysis', 
-                                            modal=False, XClose=True,
+                                            modal=False,
+                                            XClose=True,
                                             geometry="800x600")            
             stock = self.visual_model_combo.get().strip().upper()
             try:
                 if stock:
+                    stock_model = self.manager.get_stock_model(stock)
                     if self.feature_plotter['plotter'] is None:
-                        stock_model = self.manager.get_stock_model(stock)
                         self.feature_plotter['plotter'] = VisualAnalyser(stock_model)
                         local_fig, local_canvas = self.feature_plotter['plotter'].set_backend_window(visual_root)
                         local_canvas.pack(fill=tk.BOTH, expand=True)
                         self.feature_plotter['fig'] = local_fig
                         self.feature_plotter['canvas'] = local_canvas
-                else:
-                    if self.feature != self.feature_plotter['plotter'].feature:
-                        self.feature_plotter['plotter'].feature = self.feature
-                        self.feature_plotter['plotter'].plot()            
+                    else:
+                        if self.feature != self.feature_plotter['plotter'].feature:
+                            self.feature_plotter['plotter'].feature = self.feature
+                        self.feature_plotter['plotter'].update_chart(stock_model)            
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 

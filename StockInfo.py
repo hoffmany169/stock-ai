@@ -77,7 +77,7 @@ ETF = {
     'EXV6.DE' : 'German basic Resources', # 欧洲/德国
     'EXV7.DE' : 'German Chemicals', # 欧洲/德国化学
     'EXV8.DE' : 'German Construction & Materials', # 欧洲/德国银行
-    'EXV9.DE' : 'German Travel and leisure', # Ryanair Holdings plc(包含德国 RWE、E.ON 以及法国、意大利的能源巨头
+    'EXV9.DE' : 'German Travel and leisure', # Ryanair Holdings plc
     '4N9M.DE'  : 'RealDAXsubsector All Real Estate', # 房地产
     '4N6V.DE' : 'Energy'
 }
