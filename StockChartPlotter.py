@@ -185,6 +185,8 @@ class StockVisualData:
             if axes_name in self.plot_data:
                 return self.plot_data.pop(axes_name)
         else:
+            if data_name is None:
+                raise ValueError(f"data name is None. Cannot remove data {data_type.name}")
             if data_name in self.plot_data[axes_name][data_type]:
                 return self.plot_data[axes_name][data_type].pop(data_name)
         return None    
@@ -608,17 +610,31 @@ class StockChartPlotter(ABC):
                 artist.remove()
         self.visual_data.fig.canvas.draw_idle()
 
-    def remove_all_artists(self):
-        for ax_name in self.visual_data.plot_data.keys():
-            artists = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name)
-            for name in artists.keys():
-                artist = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name=name)
-                if artist is None:
-                    continue
-                artist.remove()
-                print(f"Removed artist: {name}")
-        self.visual_data.plot_data.clear()
+    def remove_all_artists(self, ax_name):
+        artists = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name)
+        for name in artists.keys():
+            artist = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, ax_name, data_name=name)
+            if artist is None:
+                continue
+            artist.remove()
+            print(f"Removed artist: {name}")
+        # keep data structure
+        self.visual_data.plot_data[ax_name]['artists'].clear()
         self.visual_data.fig.canvas.draw_idle()
+
+    def clear_all_plot_data(self):
+        """清空所有图形对象"""
+        # 移除价格线
+        for ax_name, ax in self.visual_data.plot_data.items():
+            print(f"removing all ax {ax_name}")
+            for name, values in ax.items():
+                print(f"- removing {name}")
+                if len(values) == 0:
+                    continue
+                if name == 'artists':
+                    self.remove_all_artists(ax_name)
+                else:
+                    self.visual_data.plot_data[ax_name][name].clear()
 
     def show(self):
         """显示图表"""
@@ -640,8 +656,18 @@ class StockChartPlotter(ABC):
         """
         if self.visual_data.fig is None:
             self.create_plot()
+
+         # 确保布局正确再保存
+        self.visual_data.fig.tight_layout()
         
-        self.visual_data.fig.savefig(filename, dpi=dpi, bbox_inches='tight')
+        # 保存时使用bbox_inches='tight'
+        self.visual_data.fig.savefig(
+            filename, 
+            dpi=dpi, 
+            bbox_inches='tight',
+            pad_inches=0.1  # 添加一点内边距
+        )       
+        # self.visual_data.fig.savefig(filename, dpi=dpi, bbox_inches='tight')
         print(f"图表已保存为: {filename}")
     
     def create_context_menu_commands(self):
@@ -654,3 +680,158 @@ class StockChartPlotter(ABC):
         """右键点击事件处理，显示上下文菜单"""
         pass
     
+    def diagnose_and_fix_layout(self, fig):
+        """诊断并修复布局问题"""
+        
+        print("=" * 50)
+        print("布局诊断")
+        print("=" * 50)
+        
+        # 获取当前布局信息
+        try:
+            # 尝试使用tight_layout
+            print("\n尝试使用 tight_layout...")
+            fig.tight_layout()
+            print("✅ tight_layout 应用成功")
+        except Exception as e:
+            print(f"❌ tight_layout 失败: {e}")
+        
+        # 获取当前边距
+        try:
+            bbox = fig.get_tightbbox()
+            print(f"\n当前图形边界: {bbox}")
+        except:
+            pass
+        
+        # 显示当前边距设置
+        print(f"\n当前边距设置:")
+        print(f"  left: {fig.subplotpars.left}")
+        print(f"  bottom: {fig.subplotpars.bottom}")
+        print(f"  right: {fig.subplotpars.right}")
+        print(f"  top: {fig.subplotpars.top}")
+        print(f"  hspace: {fig.subplotpars.hspace}")
+        print(f"  wspace: {fig.subplotpars.wspace}")
+        
+        # 提供修复建议
+        print("\n修复建议:")
+        print("1. 使用 fig.tight_layout()")
+        print("2. 使用 fig.subplots_adjust() 手动调整")
+        print("3. 创建图形时使用 constrained_layout=True")
+        print("4. 保存时使用 bbox_inches='tight'")
+        
+        print("\n示例手动调整:")
+        print("fig.subplots_adjust(left=0.1, bottom=0.1, right=0.95, top=0.95)")
+        
+        return fig
+
+    # # 使用示例
+    # fig, ax = plt.subplots()
+    # ax.plot([1, 2, 3], [1, 2, 3])
+    # ax.set_title('测试标题', fontsize=20)
+    # ax.set_xlabel('X轴标签', fontsize=15)
+    # ax.set_ylabel('Y轴标签', fontsize=15)
+
+    # # 诊断并修复
+    # fig = diagnose_and_fix_layout(fig)
+
+    # plt.show()
+
+    @staticmethod
+    def diagnose_matplotlib_toolbar(self):
+        """诊断matplotlib工具栏问题"""
+        import matplotlib
+        
+        print("=" * 50)
+        print("MATPLOTLIB 工具栏诊断")
+        print("=" * 50)
+        
+        # 1. 检查版本
+        print(f"\n1. Matplotlib版本: {matplotlib.__version__}")
+        
+        # 2. 检查后端
+        backend = matplotlib.get_backend()
+        print(f"\n2. 当前后端: {backend}")
+        
+        # 3. 检查工具栏设置
+        toolbar_setting = plt.rcParams.get('toolbar', '未设置')
+        print(f"\n3. 工具栏设置: {toolbar_setting}")
+        
+        # 4. 检查交互模式
+        is_interactive = plt.isinteractive()
+        print(f"\n4. 交互模式: {'开启' if is_interactive else '关闭'}")
+        
+        # 5. 检查是否在IPython环境中
+        try:
+            from IPython import get_ipython
+            ip = get_ipython()
+            if ip is not None:
+                print(f"\n5. 运行环境: IPython ({ip.__class__.__name__})")
+                if 'ZMQInteractiveShell' in str(type(ip)):
+                    print("   - 这是Jupyter notebook/实验室环境")
+                    print("   - 建议使用 %matplotlib qt 或 %matplotlib widget")
+            else:
+                print(f"\n5. 运行环境: 标准Python ({sys.executable})")
+        except ImportError:
+            print(f"\n5. 运行环境: 标准Python ({sys.executable})")
+        
+        # 6. 检查可用后端
+        print(f"\n6. 可用后端:")
+        for backend_name in matplotlib.rcsetup.all_backends:
+            if 'Agg' not in backend_name:  # 只显示交互式后端
+                print(f"   - {backend_name}")
+        
+        # 7. 测试创建图形
+        print(f"\n7. 测试创建图形...")
+        try:
+            # 尝试设置工具栏
+            plt.rcParams['toolbar'] = 'toolbar2'
+            
+            fig, ax = plt.subplots()
+            ax.plot([1, 2, 3], [1, 2, 3])
+            
+            # 检查是否有工具栏
+            canvas = fig.canvas
+            if hasattr(canvas, 'toolbar'):
+                toolbar = canvas.toolbar
+                if toolbar is not None:
+                    print(f"   ✅ 工具栏存在: {type(toolbar).__name__}")
+                    print(f"   - 工具栏可见: {getattr(toolbar, 'visible', 'N/A')}")
+                else:
+                    print("   ❌ 工具栏对象为None")
+            else:
+                print("   ❌ canvas没有toolbar属性")
+                print(f"   canvas类型: {type(canvas).__name__}")
+            
+            plt.close(fig)
+            
+        except Exception as e:
+            print(f"   ❌ 创建图形时出错: {e}")
+        
+        print("\n" + "=" * 50)
+        print("诊断完成")
+        print("=" * 50)
+
+    ########### 运行诊断 ###########
+    # diagnose_matplotlib_toolbar()
+
+    # # 提供修复建议
+    # print("\n🔧 修复建议:")
+    # print("-" * 30)
+    # print("1. 如果使用非交互式后端，在代码开头添加:")
+    # print("   import matplotlib")
+    # print("   matplotlib.use('Qt5Agg')  # 或 'TkAgg'")
+    # print("   import matplotlib.pyplot as plt")
+    # print()
+    # print("2. 如果在Jupyter中，使用:")
+    # print("   %matplotlib qt  # 弹出独立窗口")
+    # print("   # 或")
+    # print("   %matplotlib widget  # 安装ipympl后在notebook内交互")
+    # print()
+    # print("3. 如果在PyCharm中:")
+    # print("   取消 Settings -> Tools -> Python Scientific -> Show plots in toolwindow")
+    # print()
+    # print("4. 检查matplotlib安装:")
+    # print("   pip install --upgrade matplotlib")
+    # print("   # 对于Qt支持:")
+    # print("   pip install pyqt5  # 或 pyside2")
+

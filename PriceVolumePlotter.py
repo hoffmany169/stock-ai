@@ -19,7 +19,7 @@ class PriceVolumePlotter(StockChartPlotter):
 
     def create_plot(self):
         """创建主图表"""
-        # 创建图形和坐标轴
+        # 创建图形和坐标轴,使用constrained_layout（最简单）
         fig, (ax_price, ax_volume) = plt.subplots(
             2, 1, 
             figsize=self.figsize,
@@ -29,6 +29,8 @@ class PriceVolumePlotter(StockChartPlotter):
         )
         if fig is None:
             raise ValueError("fig is None")
+        # 3. 最后再微调
+        # self.fig.subplots_adjust(left=0.08, bottom=0.1, right=0.95, top=0.95)
         self.visual_data.fig = fig
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.ax, 
                                                [ax_price, ax_volume],

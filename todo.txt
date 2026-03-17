@@ -16,3 +16,4 @@
 16. update showing raw plot ✕
 17. update feature plot ✕
 18. repaire stock info ✕
+19. add callback function in CreateChildWindow(), then clear plot can be called. ✕
