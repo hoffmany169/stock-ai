@@ -118,13 +118,6 @@ class VisualAnalyser(PriceVolumePlotter):
         self.plot()      
         # use mplcursors to show points on the curve.  
         self.switch_mplcursors(ax, on=True)
-        # self.curve_cursor = mplcursors.cursor(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists, 
-        #                                                                              StockVisualData.AX_PRICE, 
-        #                                                                              data_name='price_line'),
-        #                                       hover=2) 
-        # self.curve_cursor.connect("add", self.on_add)
-        # # disable remove event to prevent right-click conflict with hover event, as they may trigger at the same time when user right-clicks on a point, which can cause the context menu to not show up
-        # self.curve_cursor.connect("remove", None)
         # 配置图表格式
         self.format_chart_price(ax)
         
