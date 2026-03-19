@@ -769,7 +769,7 @@ class StockPredictionGUI:
                     else:
                         if self.feature != self.feature_plotter['plotter'].feature:
                             self.feature_plotter['plotter'].feature = self.feature
-                        self.feature_plotter['plotter'].update_chart(stock_model)            
+                        self.feature_plotter['plotter'].update_chart(stock_model, self.feature)            
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 

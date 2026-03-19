@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import mplcursors
 from matplotlib.patches import Rectangle
 from plot_style import PlotStyle, PLOT_ELEMENT, STYLE
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -202,6 +203,7 @@ class StockVisualData:
                 if name == data_name and artist:
                     artist.remove()
                     print(f"remove artist: {name}")
+                    self.plot_data[ax_name][StockVisualData.TYPE.artists][name] = None
 
     def remove_visual_ax_data(self, ax_name, only_chart=True):
         for data_type, data in self.plot_data[ax_name].items():
@@ -214,6 +216,11 @@ class StockVisualData:
             else:
                 self.plot_data[ax_name][data_type].clear()
                 print(f"removed data in {data_type.name}")
+
+    def clear_ax(self, ax_name):
+        ax = self.get_stock_visual_data(self.TYPE.ax, ax_name)
+        if ax:
+            ax.clear()
 
 class PointData:
 
@@ -361,6 +368,8 @@ class StockChartPlotter(ABC):
         # feature used by plotting chart
         self._feature = 'Close'
 
+        # mplcursors interactive
+        self.ax_cursor = None
         # valid fig and ax are available after plot is created.
         self.create_plot()
 
@@ -394,6 +403,17 @@ class StockChartPlotter(ABC):
         # We'll create the menu dynamically each time. add event to figure's canvas        
         self.fig_canvas.mpl_connect('button_press_event', self.on_right_click)
         return (self.visual_data.fig, self.tk_root) # root is canvas of parent figure
+
+    def switch_mplcursors(self, ax, on:bool, hover_opt:int=2):
+        # hover_opt: 2 - Transient hover mode: the annotation appears when the mouse is near a point and disappears when the mouse moves away, with a delay of 2 seconds before disappearing. This mode is useful for providing information about points without requiring a click,
+        #                while also ensuring that the annotation does not linger on the screen for too long.
+        self.ax_cursor = mplcursors.cursor(ax, hover=hover_opt)
+        if on:
+            self.ax_cursor.connect("add", self.on_add)
+            self.ax_cursor.connect("remove", self.on_remove)
+        else:
+            self.ax_cursor.disconnect("add", self.on_add)
+            self.ax_cursor.disconnect("remove", self.on_remove)
 
     def calculate_price_change(self, column_1='Open', column_2='Close'):
         """计算价格涨跌，用于确定颜色"""
