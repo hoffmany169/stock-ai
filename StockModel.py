@@ -166,7 +166,7 @@ class StockModel:
                 return feature_data.iloc[index]
         return self._extend_features.get(ext_feature, None)
     
-    def get_data_absolute_index_by_date_range(self, start_date, end_date, window):
+    def get_data_absolute_index_by_date_range(self, start_date:str, end_date:str, window:int):
         """获取指定日期范围的股票数据"""
         if self._loaded_data is None or self._loaded_data.empty:
             print(f"{self._ticker_symbol} must be loaded at first")
@@ -175,13 +175,17 @@ class StockModel:
         try:
             # 转换日期范围
             if start_date:
+                # convert to DataFrame datetime format
                 start_date = pd.to_datetime(start_date)
+                # get absolute index from start_date
                 start_idx = np.abs(self._loaded_data['Date'] - start_date).argmin()
             else:
                 start_idx = 0
             
             if end_date:
+                # convert to DataFrame datetime format
                 end_date = pd.to_datetime(end_date)
+                # get absolute index from end_date
                 end_idx = np.abs(self.loaded_data['Date'] - end_date).argmin()
             else:
                 end_idx = len(self.loaded_data) - 1
@@ -197,9 +201,15 @@ class StockModel:
 #endregion stock data operations
     @staticmethod
     def get_date_span(self, date1:str, date2:str, fmt='%Y-%m-%d')->int:
+        '''
+        get span days between two date
+        '''
         return datetime.strptime(date2, fmt) - datetime.strptime(date1, fmt)
 
     def get_feature_value_difference(self, date1:str|int, date2:str|int, feature='Close', percentage=False):
+        '''
+        compare value of two points and return their changes or percentage of changers
+        '''
         value_1 = self.get_feature_value(feature, date1)
         value_2 = self.get_feature_value(feature, date2)
         feature_value_diff = value_2 - value_1
@@ -265,10 +275,16 @@ class StockModel:
 
     # add index as a column
     def add_date_column(self):
+        '''
+        add "Date" column after load stock data from csv file, so that they can be plotted
+        '''
         if 'Data' not in self._loaded_data:
             self._loaded_data['Date'] = self._loaded_data.index
 
     def save_model_data_to_disk(self):
+        '''
+        write data to disk after assigning them to MODEL_TRAIN_DATA dict by using ModelIO module
+        '''
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
         import os
@@ -282,6 +298,9 @@ class StockModel:
         mio.save_train_data(MODEL_TRAIN_DATA.for_stock_model)
 
     def load_model_data_from_disk(self):
+        '''
+        load model data from disk and set them to MODEL_TRAIN_DATA
+        '''
         from ModelIO import ModelSaverLoader
         from StockDefine import MODEL_TRAIN_DATA
         mio = ModelSaverLoader(self._model_save_path, 

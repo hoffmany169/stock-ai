@@ -41,9 +41,9 @@ class PriceVolumePlotter(StockChartPlotter):
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_VOLUME)
         
         
-        # 配置图表格式
-        self.format_chart_price(ax_price)
-        self.format_chart_bar(ax_volume)
+        # # 配置图表格式
+        # self.format_chart_price(ax_price)
+        # self.format_chart_bar(ax_volume)
         
         # 添加交互功能
         self.add_mouse_hover_event(ax_price)
@@ -61,9 +61,9 @@ class PriceVolumePlotter(StockChartPlotter):
         # plt.rcParams['toolbar'] = 'toolmanager'
         # 手动调整方案，但不工作
         # plt.subplots_adjust(left=0.2, bottom=0.3, right=0.9, top=0.8)
+        self.plot()
         # 调整布局
         plt.tight_layout()
-        self.plot()
 
     def plot(self):
         """绘制图表"""
@@ -76,7 +76,6 @@ class PriceVolumePlotter(StockChartPlotter):
         if ax:
             self.plot_volume_chart(ax, self.visual_data.get_stock_visual_data(StockVisualData.TYPE.properties, 'ax_volume', data_name='price_change'))
         
-        
     def update_data_dynamically(self, new_stock_model, feature=None):
         """
         动态更新数据而不重新创建图形对象（最高效）
@@ -88,10 +87,12 @@ class PriceVolumePlotter(StockChartPlotter):
         # 更新内部数据
         self.stock_model = new_stock_model
         self.stock_data = self.stock_model.loaded_data
+        self.symbol = self.stock_model.ticker_symbol
         if feature is not None:
             self._feature = feature
         # new_dates_mpl = mdates.date2num(self.stock_data['Date'])
-        self.dates_mpl = mdates.date2num(self.stock_data['Date'])
+        # self.dates_mpl = mdates.date2num(self.stock_data['Date'])
+        self.convert_date_to_matplotlib_format()
         
         # 更新价格线的数据
         ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
@@ -167,7 +168,9 @@ class PriceVolumePlotter(StockChartPlotter):
         
         # 添加网格
         ax_price.grid(True, alpha=0.3, linestyle='--')
-
+        # 配置图表格式
+        self.format_chart_price(ax_price)
+    
     def plot_volume_chart(self, ax_volume, volume_colors):
         """绘制交易量图"""
         # 绘制交易量柱状图
@@ -193,6 +196,8 @@ class PriceVolumePlotter(StockChartPlotter):
         ax_volume.yaxis.set_major_formatter(
             plt.FuncFormatter(self.format_large_numbers)
         )
+        # 配置图表格式
+        self.format_chart_bar(ax_volume)
 
     def add_mouse_hover_event(self, ax):
         # 创建悬停线（垂直虚线）

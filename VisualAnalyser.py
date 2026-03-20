@@ -118,8 +118,6 @@ class VisualAnalyser(PriceVolumePlotter):
         self.plot()      
         # use mplcursors to show points on the curve.  
         self.switch_mplcursors(ax, on=True)
-        # 配置图表格式
-        self.format_chart_price(ax)
         
         # 添加交互功能, not activate interactive features for volume subplot for now, as it may cause some performance issue and the interaction on price plot is more intuitive and useful
         # self.add_mouse_hover_event(ax)
@@ -134,7 +132,7 @@ class VisualAnalyser(PriceVolumePlotter):
         # 清空整个坐标轴
         # self.visual_data.remove_artists(StockVisualData.AX_PRICE)
         # clear ax
-        self.visual_data.clear_ax(StockVisualData.AX_PRICE)
+        # self.visual_data.clear_ax(StockVisualData.AX_PRICE)
         # 更新数据
         self.stock_model = new_stock_model
         self.symbol = self.stock_model.ticker_symbol
@@ -144,7 +142,9 @@ class VisualAnalyser(PriceVolumePlotter):
         
         # 重新绘制
         self.plot()
-        
+        # 调整布局
+        plt.tight_layout()
+    
         # 重绘
         self.fig_canvas.draw_idle()
 
