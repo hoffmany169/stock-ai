@@ -284,13 +284,13 @@ class PointData:
             return f"price change: {result['price_diff']:.2f}({result['percentage_change']:.2f}%)\ntangent: {result['tangent']:.2f}\ndate span: {result['date_span'].days} days"
         return result
 
-    def compare_feature_value(self, other, stock_data, feature) -> str:
+    def compare_feature_value(self, other, stock_model:StockModel, feature) -> str:
         if self.date_str == other.date_str:
             return "Same point selected"
-        if feature in stock_data.columns:
+        if feature in stock_model.loaded_data.columns:
             date_diff = datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
-            value = self.get_feature_value(stock_data, feature)
-            other_value = other.get_feature_value(stock_data, feature)
+            value = stock_model.get_feature_value(feature, self.Index)
+            other_value = stock_model.get_feature_value(feature, other.Index)
             value_diff = other_value - value
             percentage_change = (value_diff / value * 100) if value != 0 else float('inf')
             return f"Days:{date_diff.days}\n{feature} change: {value_diff:.2f}({percentage_change:.2f}%)"
@@ -300,7 +300,7 @@ class PointData:
             return "Same point selected"
         sum_value = 0
         if feature in stock_data.columns:
-            date_diff = datetime.strptime(other.date_str, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
+            date_diff = datetime.strptime(other.Date, '%Y-%m-%d') - datetime.strptime(self.date_str, '%Y-%m-%d') 
             feature_column = stock_data[feature].fillna(0)  # Ensure feature column has no NaN values
             for d in range(0, other.index - self._index + 1):
                 current_index = self._index + d

@@ -1,3 +1,4 @@
+import datetime
 from tkinter import messagebox
 import pandas as pd
 import numpy as np
@@ -144,14 +145,19 @@ class StockModel:
         # self._extend_features[StockModel.ExtendFeature.volume_change] = self._loaded_data['Volume'].pct_change().fillna(0)
 
 #region stock data operations
-    def get_feature_value(self, feature: FEATURE, index:int=None):
+    def get_feature_value(self, feature: FEATURE, index:int|str=None):
         """获取股票特征值"""
         if self._loaded_data is None:
             raise ValueError("No data loaded for this stock model.")
-        if index is None or index >= len(self._loaded_data):
-            raise IndexError("Index out of range for loaded data.")
-        return self._loaded_data.get(feature.name, None).iloc[index]
-
+        feature_data = self._loaded_data.get(feature.name, None)
+        if type(index) is int:
+            if index is None or index >= len(self._loaded_data):
+                raise IndexError("Index out of range for loaded data.")
+            if feature_data is not None:
+                return feature_data.iloc[index]
+        elif type(index) is str and feature_data is not None:
+            return feature_data.loc[index]
+        
     def get_ext_feature(self, ext_feature : ExtendFeature, index:int=None):
         """获取股票属性值"""
         if index is not None:
@@ -189,6 +195,19 @@ class StockModel:
             print(f"筛选数据失败: {e}")
             return None
 #endregion stock data operations
+    @staticmethod
+    def get_date_span(self, date1:str, date2:str, fmt='%Y-%m-%d')->int:
+        return datetime.strptime(date2, fmt) - datetime.strptime(date1, fmt)
+
+    def get_feature_value_difference(self, date1:str|int, date2:str|int, feature='Close', percentage=False):
+        value_1 = self.get_feature_value(feature, date1)
+        value_2 = self.get_feature_value(feature, date2)
+        feature_value_diff = value_2 - value_1
+        if percentage:
+            percentage_change = (feature_value_diff / value_1 * 100) if value_1 != 0 else float('inf')
+            return percentage_change
+        else:
+            return feature_value_diff
 
     def load_historical_data(self, start_date:str=None, end_date:str=None):
         """load historical data for a single ticker from yfinance"""
