@@ -56,6 +56,7 @@ class StockPredictionGUI:
         # 创建标签页
         self.create_training_tab()
         self.create_visualization_tab()
+        self.create_slide_show_tab()
         self.create_selection_tab()
         self.feature = 'Close'
         self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
@@ -84,6 +85,10 @@ class StockPredictionGUI:
             self.visual_model_combo["values"] = self.manager.ticker_list
             self.visual_model_combo.current(0)
             self.visual_model_combo.update
+        if index == 2 and self.manager.ticker_count > 0: # visual tab
+            self.visual_model_combo["values"] = self.manager.ticker_list
+            self.visual_model_combo.current(0)
+            self.visual_model_combo.update
 
     def load_gui_config(self):
         if os.path.exists(self._gui_config_file_name):
@@ -96,6 +101,7 @@ class StockPredictionGUI:
         with open(self._gui_config_file_name, 'w+') as cfg:
             json.dump(self._cur_config, cfg)
 
+#region create tabs
     def create_training_tab(self):
         """创建训练标签页"""
         self.training_frame = ttk.Frame(self.notebook)
@@ -317,6 +323,29 @@ class StockPredictionGUI:
         # 图表显示区域
         self.figure_frame = ttk.Frame(self.visualization_frame)
         self.figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+    def create_slide_show_tab(self):
+        """创建可视化标签页"""
+        self.slide_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.slide_frame, text="Data Chart Slider")
+
+        control_frame = ttk.Frame(self.slide_frame)
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
+        ttk.Label(control_frame, text="Select Model:").pack(side=tk.LEFT, padx=(20,5))
+        self.slide_stock_var = StringVar(control_frame, "")
+        self.slide_stock_var.trace_add('write', self.update_stock_company_info)
+        self.slide_model_combo = ttk.Combobox(control_frame, width=12, textvariable=self.slide_stock_var)
+        self.slide_model_combo.pack(side=tk.LEFT, padx=5)
+        self.slide_model_combo['values'] = self.manager.ticker_list
+        # set feature shown in chart
+        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
+        # 特征选择下拉框
+        features = [f.name for f in StockModel.FEATURE]
+        self.slide_shown_feature = {'feature 1': StringVar(control_frame, 'Close'), 'operator': StringVar(control_frame, '--'), 'feature 2': StringVar(control_frame, '--')}
+        self.slide_feature1_combo = ttk.Combobox(control_frame, textvariable=self.slide_shown_feature['feature 1'], values=features, width=25)
+        self.slide_feature1_combo.pack(side=tk.LEFT, padx=5)
+        
+#endregion create tabs
 
     def update_stock_company_info(self, var, index, mode):
         from StockInfo import StockInfo

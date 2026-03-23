@@ -35,8 +35,6 @@ class CONTEXT_COMMAND(AutoIndex):
     draw_trend_line = ()
     remove_trend_line = ()
     
-
-
 class FILE_MENU_COMMAND(AutoIndex):
       open_file = ()
       save_image = ()
@@ -50,13 +48,6 @@ class FILE_MENU_COMMAND(AutoIndex):
 class ACTION_MENU_COMMAND(AutoIndex):
       highlight_peaks_and_valleys = ()
       remove_peaks_and_valleys = ()
-#       show_comparison_2_points = ()
-#       draw_line = ()
-#       remove_point = ()
-#       remove_line = ()
-#       clear_all_markers = ()
-#       clear_all_lines = ()
-#       reset_view = ()
 
 class MARKER_STYLE(AutoIndex):
     red_circle = ()
