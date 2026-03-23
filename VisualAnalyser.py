@@ -132,7 +132,7 @@ class VisualAnalyser(PriceVolumePlotter):
         # 清空整个坐标轴
         # self.visual_data.remove_artists(StockVisualData.AX_PRICE)
         # clear ax
-        # self.visual_data.clear_ax(StockVisualData.AX_PRICE)
+        self.visual_data.clear_ax(StockVisualData.AX_PRICE)
         # 更新数据
         self.stock_model = new_stock_model
         self.symbol = self.stock_model.ticker_symbol

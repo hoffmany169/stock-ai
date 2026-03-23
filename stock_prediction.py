@@ -762,14 +762,15 @@ class StockPredictionGUI:
                     stock_model = self.manager.get_stock_model(stock)
                     if self.feature_plotter['plotter'] is None:
                         self.feature_plotter['plotter'] = VisualAnalyser(stock_model)
-                        local_fig, local_canvas = self.feature_plotter['plotter'].set_backend_window(visual_root)
-                        local_canvas.pack(fill=tk.BOTH, expand=True)
-                        self.feature_plotter['fig'] = local_fig
-                        self.feature_plotter['canvas'] = local_canvas
-                    else:
-                        if self.feature != self.feature_plotter['plotter'].feature:
-                            self.feature_plotter['plotter'].feature = self.feature
-                        self.feature_plotter['plotter'].update_chart(stock_model, self.feature)            
+                    local_fig, local_canvas = self.feature_plotter['plotter'].set_backend_window(visual_root)
+                    local_canvas.pack(fill=tk.BOTH, expand=True)
+                    self.feature_plotter['fig'] = local_fig
+                    self.feature_plotter['canvas'] = local_canvas
+                    if self.feature != self.feature_plotter['plotter'].feature:
+                        self.feature_plotter['plotter'].feature = self.feature
+                    self.feature_plotter['plotter'].update_chart(stock_model, self.feature) 
+                else:
+                    raise ValueError("Error", "invalid stock symbol")           
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 
