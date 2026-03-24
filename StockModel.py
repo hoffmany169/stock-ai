@@ -44,6 +44,21 @@ class StockModel:
         avg_price = ()
         total_volume = ()
 
+    class IntervalIndex(AutoIndex):
+        ITVL_1_minute = ()
+        ITVL_2_minute = ()
+        ITVL_5_minute = ()
+        ITVL_15_minute = ()
+        ITVL_30_minute = ()
+        ITVL_60_minute = ()
+        ITVL_90_minute = ()
+        ITVL_1_hour = ()
+        ITVL_1_day = ()
+        ITVL_5_day = ()
+        ITVL_1_week = ()
+        ITVL_1_month = ()
+        ITVL_3_month = ()
+
     Interval = ['1m','2m','5m','15m','30m','60m','90m','1h','1d','5d','1wk','1mo','3mo']
     def __init__(self, ticker_symbol,
                  load_data=None,
@@ -89,8 +104,11 @@ class StockModel:
     def interval(self):
         return self._interval
     @interval.setter
-    def interval(self, intv):
-        self._interval = intv
+    def interval(self, intv:str|IntervalIndex):
+        if type(intv) is str:
+            self._interval = intv
+        else:
+            self._interval = self.Interval[intv.value]
 
     @property
     def loaded_data(self):
@@ -126,8 +144,16 @@ class StockModel:
     @property
     def is_data_loaded(self)->bool:
         return (self._loaded_data is not None)
+
 #endregion properties
 
+#region stock data operations
+    def get_interval_text(self):
+        idx = self.Interval.index(self._interval)
+        for val in self.IntervalIndex:
+            if idx == val.value:
+                return ' '.join(val.name[5:].split('_'))
+    
     def _extracted_features(self):
         """提取股票属性信息"""
         # 提取基本统计信息
@@ -144,7 +170,6 @@ class StockModel:
         self._extend_features[StockModel.ExtendFeature.volume_change] = self._loaded_data['Volume'].diff()
         # self._extend_features[StockModel.ExtendFeature.volume_change] = self._loaded_data['Volume'].pct_change().fillna(0)
 
-#region stock data operations
     def get_feature_value(self, feature: FEATURE, index:int|str=None):
         """获取股票特征值"""
         if self._loaded_data is None:
