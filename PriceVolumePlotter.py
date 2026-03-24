@@ -41,10 +41,6 @@ class PriceVolumePlotter(StockChartPlotter):
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_VOLUME)
         
         
-        # # 配置图表格式
-        # self.format_chart_price(ax_price)
-        # self.format_chart_bar(ax_volume)
-        
         # 添加交互功能
         self.add_mouse_hover_event(ax_price)
         self._add_interactive_features_to_volume(ax_volume)

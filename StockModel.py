@@ -83,18 +83,18 @@ class StockModel:
 
 #region properties    
     @property
-    def ticker_symbol(self):
+    def ticker_symbol(self)->str:
         return self._ticker_symbol
     
     @property
-    def start_date(self):
+    def start_date(self)->str:
         return self._start_date
     @start_date.setter
     def start_date(self, date:str):
         self._start_date = date
 
     @property
-    def end_date(self):
+    def end_date(self)->str:
         return self._end_date
     @end_date.setter
     def end_date(self, date:str):
@@ -109,6 +109,14 @@ class StockModel:
             self._interval = intv
         else:
             self._interval = self.Interval[intv.value]
+
+    @property
+    def start_datetime(self):
+        return datetime.date.fromisoformat(self.start_date)
+    
+    @property
+    def end_datetime(self):
+        return datetime.date.fromisoformat(self.end_date)
 
     @property
     def loaded_data(self):
@@ -147,6 +155,36 @@ class StockModel:
 
 #endregion properties
 
+    @staticmethod
+    def get_interval_index(intvl:str):
+        idx = StockModel.Interval.index(intvl)
+        if idx is None:
+            return None
+        for val in StockModel.IntervalIndex:
+            if idx == val.value:
+                return val
+        
+    @staticmethod
+    def get_timedelta_of_interval(intvl:str|IntervalIndex, factor:int=1):
+        if type(intvl) is str:
+            intervalindex = StockModel.get_interval_index(intvl)
+        else:
+            intervalindex = intvl
+        if intervalindex.value < 7: # minutes
+            parts = intervalindex.name.split('_')
+            delta = datetime.timedelta(minutes=int(parts[1])*factor)
+        elif intervalindex.value == 7:
+            delta = datetime.timedelta(hours=factor)
+        elif intervalindex.value < 10:
+            parts = intervalindex.name.split('_')
+            delta = datetime.timedelta(days=int(parts[1])*factor)
+        elif intervalindex.value == 10:
+            delta = datetime.timedelta(weeks=factor)
+        else:
+            parts = intervalindex.name.split('_')
+            delta = datetime.timedelta(weeks=4*int(parts[1])*factor)
+        return delta
+            
 #region stock data operations
     def get_interval_text(self):
         idx = self.Interval.index(self._interval)

@@ -6,6 +6,8 @@ import pandas as pd
 from StockChartPlotter import StockChartPlotter, StockVisualData
 import matplotlib.dates as mdates
 
+from plot_style import PLOT_ELEMENT, STYLE
+
 class StockChartSlider(StockChartPlotter):
     def __init__(self, stock_model, figsize=(14, 10)):
         super().__init__(stock_model, figsize)
@@ -58,7 +60,44 @@ class StockChartSlider(StockChartPlotter):
         plt.tight_layout()
 
     def plot(self):
-        super().plot()
+        ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        # 绘制收盘价折线
+        price_line, = ax_price.plot(
+            self.dates_mpl, 
+            self.stock_data[self.feature],
+            color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_line),
+            linewidth=self.plot_styles.get_setting(STYLE.line_widths, PLOT_ELEMENT.price_line),
+            label=f'{self.feature} Price',
+            zorder=5
+        )
+        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.artists, price_line, 'price_line', axes_name=StockVisualData.AX_PRICE)
+        # 如果有高低价数据，绘制价格区间
+        if all(col in self.stock_data.columns for col in ['High', 'Low']):
+            # 绘制价格区间（阴影）
+            ax_price.fill_between(
+                self.dates_mpl,
+                self.stock_data['Low'],
+                self.stock_data['High'],
+                alpha=0.2,
+                color='gray',
+                label='Price Range'
+            )
+        
+        # 设置股价图标题和标签
+        ax_price.set_title(f'{self.symbol}: Stock Price Trend', 
+                               fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.title),
+                               fontweight='bold',
+                               pad=20)
+        ax_price.set_ylabel('Price (€)', 
+                                 fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.axis_label))
+        ax_price.legend(loc='upper left')
+        ax_price.grid(True, alpha=0.3, linestyle='--', 
+                          color=self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.grid_color))
+        
+        # 添加网格
+        ax_price.grid(True, alpha=0.3, linestyle='--')
+        # 配置图表格式
+        self.format_chart_price(ax_price)
 
     def update_to_date_range(self):
         start_num = mdates.date2num(pd.to_datetime(self.show_start_date))

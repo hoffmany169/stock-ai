@@ -60,8 +60,6 @@ class StockPredictionGUI:
         self.create_slide_show_tab()
         self.create_selection_tab()
         self.feature = 'Close'
-        # self.row_plotter = dict(zip(StockPredictionGUI.PLOTTER_DATA, [None]*len(StockPredictionGUI.PLOTTER_DATA)))
-        # self.feature_plotter = dict(zip(StockPredictionGUI.PLOTTER_DATA, [None]*len(StockPredictionGUI.PLOTTER_DATA)))
         self.added_stock_num = 0
         self.adding_stock_list = []
         self.plotters = {}
@@ -77,12 +75,7 @@ class StockPredictionGUI:
         notebook = event.widget
         
         # Ermittle den aktuell ausgewählten Tab
-        # current_tab = notebook.select()
-        # Erhalte den Text des ausgewählten Tabs
-        # tab_text = notebook.tab(current_tab, "text")
         self.tab_index = notebook.index("current")
-        # print(f"Tab gewechselt zu: {tab_text}")
-        # print(f"Index of current tab: {index}")
         if self.tab_index == 1 and self.manager.ticker_count > 0: # visual tab
             self.visual_model_combo["values"] = self.manager.ticker_list
             self.visual_model_combo.current(0)
@@ -358,11 +351,12 @@ class StockPredictionGUI:
         control_frame_2.pack(fill=tk.X, padx=5, pady=5)
         ttk.Label(control_frame_2, text='Start Date').pack(side=tk.LEFT, padx=(20,5))
         self.show_start_date_var = StringVar(control_frame_2, "")
-        ttk.Entry(control_frame_2, textvariable=self.show_start_date_var, width=12).pack(side=tk.LEFT, padx=5)
+        ttk.Entry(control_frame_2, textvariable=self.show_start_date_var, width=12, justify='center').pack(side=tk.LEFT, padx=5)
         ttk.Label(control_frame_2, text='End Date').pack(side=tk.LEFT, padx=5)
         self.show_end_date_var = StringVar(control_frame_2, "")
-        ttk.Entry(control_frame_2, textvariable=self.show_end_date_var, width=12).pack(side=tk.LEFT, padx=5)
+        ttk.Entry(control_frame_2, textvariable=self.show_end_date_var, width=12, justify='center').pack(side=tk.LEFT, padx=5)
         ttk.Button(control_frame_2, text='←', command=lambda x='-': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(10, 5))
+
         self.slide_change_number_var = tk.IntVar(control_frame_2, value=1)
         ttk.Entry(control_frame_2, textvariable=self.slide_change_number_var, width=4).pack(side=tk.LEFT, padx=5)
         self.slide_interval_var = StringVar(control_frame_2, 'day')
@@ -374,7 +368,21 @@ class StockPredictionGUI:
                
 #endregion create tabs
     def update_slide_plot(self, op):
-        pass
+        if op == '+':
+            factor = 1
+        else:
+            factor = -1
+        delta_time = StockModel.get_timedelta_of_interval(self.slide_stock_model.interval, factor * self.slide_change_number_var.get())
+        print(f'time delta: {delta_time}')
+        new_start_date = self.slide_stock_model.start_datetime + delta_time
+        new_end_date = self.slide_stock_model.end_datetime + delta_time
+        if new_start_date < self.slide_stock_model.start_datetime or new_end_date > self.slide_stock_model.end_datetime:
+            return
+        plotter_data = self.get_plotter('slide plotter')
+        plotter_data['plotter'].show_start_date = new_start_date.strftime('%Y-%m-%d')
+        plotter_data['plotter'].show_end_date = new_end_date.strftime('%Y-%m-%d')
+        print(f'new date: start[{plotter_data['plotter'].show_start_date}], end[{plotter_data['plotter'].show_end_date}]')
+        plotter_data['plotter'].update_to_date_range()
 
     def update_stock_company_info(self, var, index, mode):
         from StockInfo import StockInfo
