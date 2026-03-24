@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import mplcursors
-from matplotlib.patches import Rectangle
 from plot_style import PlotStyle, PLOT_ELEMENT, STYLE
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Common.AutoNumber import AutoIndex
@@ -430,7 +429,7 @@ class StockChartPlotter(ABC):
                                 self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_up), 
                                 self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_down))        
         return colors
-    
+#region abstract methods, which must be implemented
     # plot stock chart
     @abstractmethod
     def create_plot(self):
@@ -450,6 +449,7 @@ class StockChartPlotter(ABC):
     def on_leave_info(self, *args):
         """获取鼠标离开信息"""
         pass
+#endregion abstract methods, which must be implemented
 
     def format_large_numbers(self, x, pos)->str:
         """格式化大数字显示（如1000显示为1K）"""

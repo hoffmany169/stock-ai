@@ -53,14 +53,15 @@ class StockPredictionGUI:
         # 特征
         self._stock_features = StockFeature()
         self.tab_index = 0
+        self.shown_feature = {}
         # 创建标签页
         self.create_training_tab()
         self.create_visualization_tab()
         self.create_slide_show_tab()
         self.create_selection_tab()
         self.feature = 'Close'
-        self.row_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
-        self.feature_plotter = dict(zip(StockPredictionGUI.VISUAL_PLOTTER, [None]*len(StockPredictionGUI.VISUAL_PLOTTER)))
+        # self.row_plotter = dict(zip(StockPredictionGUI.PLOTTER_DATA, [None]*len(StockPredictionGUI.PLOTTER_DATA)))
+        # self.feature_plotter = dict(zip(StockPredictionGUI.PLOTTER_DATA, [None]*len(StockPredictionGUI.PLOTTER_DATA)))
         self.added_stock_num = 0
         self.adding_stock_list = []
         self.plotters = {}
@@ -299,7 +300,7 @@ class StockPredictionGUI:
         ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
         # 特征选择下拉框
         features = [f.name for f in StockModel.FEATURE]
-        self.shown_feature = {'feature 1': {'first' : StringVar(control_frame, 'Close'), 'operator': StringVar(control_frame, '--'), 'second': StringVar(control_frame, '--')}}
+        self.shown_feature['feature 1'] = {'first' : StringVar(control_frame, 'Close'), 'operator': StringVar(control_frame, '--'), 'second': StringVar(control_frame, '--')}
         self.feature1_combo = ttk.Combobox(control_frame, textvariable=self.shown_feature['feature 1']['first'], values=features, width=25)
         self.feature1_combo.pack(side=tk.LEFT, padx=5)
         self.shown_feature['feature 1']['first'].trace_add('write', lambda x=11: self.on_change_shown_feature(x))
@@ -342,7 +343,7 @@ class StockPredictionGUI:
         ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
         # 特征选择下拉框
         features = [f.name for f in StockModel.FEATURE]
-        self.shown_feature = {'feature 2': StringVar(control_frame, 'Close')}
+        self.shown_feature['feature 2'] = StringVar(control_frame, 'Close')
         self.slide_feature1_combo = ttk.Combobox(control_frame, textvariable=self.shown_feature['feature 2'], values=features, width=25)
         self.slide_feature1_combo.pack(side=tk.LEFT, padx=5)
         self.shown_feature['feature 2'].trace_add('write', lambda x, y, z, k=2: self.on_change_shown_feature(x, y, z, k))
@@ -816,7 +817,7 @@ class StockPredictionGUI:
                     plotter_data = self.add_plotter('raw plotter')
                     stock_model = self.manager.get_stock_model(stock)
                     plotter = PriceVolumePlotter(stock_model)
-                    plotter.feature = self.visual_feature_1
+                    plotter.feature = self.shown_feature['feature 1']['first'].get()
                     fig, canvas = plotter.set_backend_window(self.figure_frame)
                     canvas.pack(fill=tk.BOTH, expand=True)
                     plotter_data['plotter'] = plotter
@@ -856,8 +857,8 @@ class StockPredictionGUI:
                     local_canvas.pack(fill=tk.BOTH, expand=True)
                     plotter_data['fig'] = local_fig
                     plotter_data['canvas'] = local_canvas
-                    if self.visual_feature_1 != plotter_data['plotter'].feature:
-                        plotter_data['plotter'].feature = self.visual_feature_1
+                    if self.shown_feature['feature 1']['first'].get() != plotter_data['plotter'].feature:
+                        plotter_data['plotter'].feature = self.shown_feature['feature 1']['first'].get()
                     plotter_data['plotter'].update_chart(stock_model, self.feature) 
                 else:
                     raise ValueError("Error", "invalid stock symbol")           
@@ -868,7 +869,7 @@ class StockPredictionGUI:
 
     def show_slide(self):
         if not self.manager:
-            messagebox.showwarning("Warning", "Please train the model first")
+            messagebox.showwarning("Warning", "Please, create manager first")
             return
 
         # create popup window
@@ -881,7 +882,9 @@ class StockPredictionGUI:
                     if plotter_data['plotter'] is None:
                         stock_model = self.manager.get_stock_model(stock)
                         plotter = StockChartSlider(stock_model)
-                        plotter.feature = self.slide_feature
+                        plotter.show_start_date = self.show_start_date_var.get()
+                        plotter.show_end_date = self.show_end_date_var.get()
+                        plotter.feature = self.shown_feature['feature 2'].get()
                         fig, canvas = plotter.set_backend_window(self.slide_figure_frame)
                         canvas.pack(fill=tk.BOTH, expand=True)
                         plotter_data['plotter'] = plotter
@@ -889,6 +892,7 @@ class StockPredictionGUI:
                         plotter_data['canvas'] = canvas
                     else:
                         if stock != plotter_data['plotter'].ticker_symbol:
+                            plotter_data['plotter'].feature = self.shown_feature['feature 2'].get()
                             plotter_data['plotter'].update_data_dynamically(self.manager.get_stock_model(stock))
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
