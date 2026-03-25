@@ -3,7 +3,7 @@
 # os.environ["LC_ALL"] = "C.UTF-8"
 import sys, os
 import tkinter as tk
-from tkinter import StringVar, ttk, messagebox, scrolledtext, filedialog
+from tkinter import PhotoImage, StringVar, ttk, messagebox, scrolledtext, filedialog
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import font_manager
@@ -358,6 +358,9 @@ class StockPredictionGUI:
         # show button
         ttk.Button(control_frame_2, text="Show Slide", command=self.show_slide).pack(side=tk.LEFT, padx=5)        
         # left shift button
+        # left_arrow = PhotoImage(file = "rsc/link_arrow.png")
+        # icon = left_arrow.subsample(3, 3)
+        #image=left_arrow, 
         ttk.Button(control_frame_2, text='←', command=lambda x='-': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(10, 5))
         # shift number
         self.slide_change_number_var = tk.IntVar(control_frame_2, value=1)
@@ -392,8 +395,8 @@ class StockPredictionGUI:
         plotter_data['plotter'].show_end_date = new_end_date.strftime('%Y-%m-%d')
         print(f'new end date: {plotter_data['plotter'].show_end_date}')
         # update showing date
-        self.show_end_date_var.set()
-        plotter_data['plotter'].update_to_date_range(plotter_data['plotter'].show_end_date)
+        self.show_end_date_var.set(plotter_data['plotter'].show_end_date)
+        plotter_data['plotter'].update_to_date_range()
 
     def update_stock_company_info(self, var, index, mode):
         from StockInfo import StockInfo

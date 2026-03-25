@@ -3,17 +3,17 @@
 3. extract High and low point of waves.✓
 4. compare wave ✓
 5. fix clear peaks and valleys ✓
-6. add volume info in wave operation ✕
-7. add "clear plot" ✕
+6. add volume info in wave operation ✓
+7. add "clear plot" ✓
 8. draw horizontal line ✓
 9. not setting start_date after adding stock and starting loading data from markt ✓
 10. after adding stock, starting loading data from disk ✓
 11. after loading data from markt, show plot ✓
 12. remove don't work. ✓
-13. clear raw data plot ✕
+13. clear raw data plot ✓
 14. csv load and save with Date ✓
 15. update date on button of GUI after loading data from disk ✕
-16. update showing raw plot ✕
+16. update showing raw plot ✓
 17. update feature plot ✕
 18. repaire stock info ✕
-19. add callback function in CreateChildWindow(), then clear plot can be called. ✕
+19. callback for mplcursors ✕
