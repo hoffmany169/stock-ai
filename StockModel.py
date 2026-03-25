@@ -183,6 +183,7 @@ class StockModel:
         else:
             parts = intervalindex.name.split('_')
             delta = datetime.timedelta(weeks=4*int(parts[1])*factor)
+        print(f"Changed date: {delta}")
         return delta
             
 #region stock data operations

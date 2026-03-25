@@ -98,22 +98,41 @@ class StockChartSlider(StockChartPlotter):
         ax_price.grid(True, alpha=0.3, linestyle='--')
         # 配置图表格式
         self.format_chart_price(ax_price)
+        # self.update_to_date_range()
 
     def update_to_date_range(self):
         start_num = mdates.date2num(pd.to_datetime(self.show_start_date))
         end_num = mdates.date2num(pd.to_datetime(self.show_end_date))
         
-        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
-                                                    StockVisualData.AX_PRICE)
-        ax.set_xlim(start_num, end_num)
-        
+        ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
+                                                    StockVisualData.AX_PRICE)        
         # 自动调整y轴
         mask = (self.stock_data['Date'] >= self.show_start_date) & (self.stock_data['Date'] <= self.show_end_date)
-        if mask.any():
-            y_min = self.stock_data.loc[mask, self.feature].min() * 0.95
-            y_max = self.stock_data.loc[mask, self.feature].max() * 1.05
-            ax.set_ylim(y_min, y_max)
+        if not mask.any():
+            print("所选时间段无数据")
+            messagebox.showinfo("Info", "No data in selected period")
+            return     
+        # 获取子集
+        subset = self.stock_data[mask]
+        new_dates = mdates.date2num(subset['Date'])
+        new_feature_data = subset[self.feature].values
+        # 更新价格线
+        price_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists,
+                                                            StockVisualData.AX_PRICE,
+                                                            'price_line')
+        if hasattr(self, 'price_line'):
+            price_line.set_data(new_dates, new_feature_data)
+
+        # 重新计算涨跌颜色
+        # price_change = subset[self.feature] >= subset[self.feature].shift(1).fillna(subset[self.feature])
+
+        # 更新坐标轴范围
+        ax_price.set_xlim(new_dates[0], new_dates[-1])
         
+        y_min = subset[self.feature].min() * 0.95
+        y_max = subset[self.feature].max() * 1.05
+        ax_price.set_ylim(y_min, y_max)
+
         self.fig_canvas.draw_idle()
 
     def update_data_dynamically(self, new_stock_model, feature=None):
@@ -126,6 +145,7 @@ class StockChartSlider(StockChartPlotter):
             return
         # 更新内部数据
         self.stock_model = new_stock_model
+        # if shown data are only part of all data, this stock data are not identical with loaded_data
         self.stock_data = self.stock_model.loaded_data
         self.symbol = self.stock_model.ticker_symbol
         if feature is not None:
@@ -150,6 +170,32 @@ class StockChartSlider(StockChartPlotter):
         y_min = self.stock_data[self.feature].min() * 0.95
         y_max = self.stock_data[self.feature].max() * 1.05
         ax_price.set_ylim(y_min, y_max)
+        
+        # 重绘
+        self.fig_canvas.draw_idle()
+
+    def reset_view(self):
+        """重置为完整数据视图"""
+        if self.visual_data.fig is None:
+            return
+        
+        # 原始 x 轴范围（全部日期）
+        x_min = self.dates_mpl[0]
+        x_max = self.dates_mpl[-1]
+        
+        # 原始 y 轴范围（股价整体范围，可稍留边距）
+        y_min = self.stock_data[self.feature].min() * 0.95
+        y_max = self.stock_data[self.feature].max() * 1.05
+        
+        # 应用到股价图
+        ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
+                                                          StockVisualData.AX_PRICE)
+        ax_price.set_xlim(x_min, x_max)
+        ax_price.set_ylim(y_min, y_max)
+        
+        # 如果存在交易量图且共享 x 轴，也同步
+        # if hasattr(self, 'ax_volume'):
+        #     self.ax_volume.set_xlim(x_min, x_max)
         
         # 重绘
         self.fig_canvas.draw_idle()

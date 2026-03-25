@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 import json
-from datetime import datetime
+import datetime
 from ModelTrainLSTM import LSTMModelTrain, FEATURE
 from StockDefine import TICKER, FEATURE, StockFeature
 from TickerManager import TickerManager
@@ -328,61 +328,72 @@ class StockPredictionGUI:
         self.slide_stock_model = None
         control_frame = ttk.Frame(slide_frame)
         control_frame.pack(fill=tk.X, padx=5, pady=5)
-        ttk.Label(control_frame, text="Select Model:").pack(side=tk.LEFT, padx=(20,5))
-        self.slide_model_combo = ttk.Combobox(control_frame, width=12, textvariable=self.stock_select_var)
+        ttk.Label(control_frame, text="Select Ticker:").pack(side=tk.LEFT, padx=(20,5))
+        self.slide_model_combo = ttk.Combobox(control_frame, width=10, textvariable=self.stock_select_var)
         self.slide_model_combo.pack(side=tk.LEFT, padx=5)
         self.slide_model_combo['values'] = self.manager.ticker_list
+        # show info about selected stock
+        self.slide_company_label = ttk.Label(control_frame, text="Company", relief="sunken", width=16)
+        self.slide_company_label.pack(fill=tk.X, padx=5)        
         # set feature shown in chart
-        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(20,5))        
+        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(10,5))        
         # 特征选择下拉框
         features = [f.name for f in StockModel.FEATURE]
         self.shown_feature['feature 2'] = StringVar(control_frame, 'Close')
-        self.slide_feature1_combo = ttk.Combobox(control_frame, textvariable=self.shown_feature['feature 2'], values=features, width=25)
+        self.slide_feature1_combo = ttk.Combobox(control_frame, textvariable=self.shown_feature['feature 2'], values=features, width=10)
         self.slide_feature1_combo.pack(side=tk.LEFT, padx=5)
         self.shown_feature['feature 2'].trace_add('write', lambda x, y, z, k=2: self.on_change_shown_feature(x, y, z, k))
-        ttk.Button(control_frame, text="Show Slide", command=self.show_slide).pack(side=tk.LEFT, padx=5)        
-        # show info about selected stock
-        control_frame_1 = ttk.Frame(slide_frame)
-        control_frame_1.pack(fill=tk.X, padx=5, pady=5)
-        self.slide_company_label = ttk.Label(control_frame_1, text="Company", relief="sunken", width=40)
-        self.slide_company_label.pack(fill=tk.X, padx=(5,5))        
+
         # slide controls  
         control_frame_2 = ttk.Frame(slide_frame)
         control_frame_2.pack(fill=tk.X, padx=5, pady=5)
         ttk.Label(control_frame_2, text='Start Date').pack(side=tk.LEFT, padx=(20,5))
         self.show_start_date_var = StringVar(control_frame_2, "")
+        self.show_start_date_var.trace_add('write', lambda x, y, z, k=0: self.update_show_date(x, y, z, k))
         ttk.Entry(control_frame_2, textvariable=self.show_start_date_var, width=12, justify='center').pack(side=tk.LEFT, padx=5)
         ttk.Label(control_frame_2, text='End Date').pack(side=tk.LEFT, padx=5)
         self.show_end_date_var = StringVar(control_frame_2, "")
+        self.show_end_date_var.trace_add('write', lambda x, y, z, k=1: self.update_show_date(x, y, z, k))
         ttk.Entry(control_frame_2, textvariable=self.show_end_date_var, width=12, justify='center').pack(side=tk.LEFT, padx=5)
+        # show button
+        ttk.Button(control_frame_2, text="Show Slide", command=self.show_slide).pack(side=tk.LEFT, padx=5)        
+        # left shift button
         ttk.Button(control_frame_2, text='←', command=lambda x='-': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(10, 5))
-
+        # shift number
         self.slide_change_number_var = tk.IntVar(control_frame_2, value=1)
         ttk.Entry(control_frame_2, textvariable=self.slide_change_number_var, width=4).pack(side=tk.LEFT, padx=5)
         self.slide_interval_var = StringVar(control_frame_2, 'day')
         ttk.Label(control_frame_2, textvariable=self.slide_interval_var, width=6, justify='center').pack(side=tk.LEFT, padx=5)
+        # right shift button
         ttk.Button(control_frame_2, text='→', command=lambda x='+': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(5, 20))
         # 图表显示区域
         self.slide_figure_frame = ttk.Frame(slide_frame)
         self.slide_figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
                
 #endregion create tabs
+    def update_show_date(self, *args):
+        if args[3] == 0: # start date
+            pass
+        else: # end date
+            pass            
+
     def update_slide_plot(self, op):
         if op == '+':
             factor = 1
         else:
             factor = -1
         delta_time = StockModel.get_timedelta_of_interval(self.slide_stock_model.interval, factor * self.slide_change_number_var.get())
-        print(f'time delta: {delta_time}')
-        new_start_date = self.slide_stock_model.start_datetime + delta_time
-        new_end_date = self.slide_stock_model.end_datetime + delta_time
-        if new_start_date < self.slide_stock_model.start_datetime or new_end_date > self.slide_stock_model.end_datetime:
+        plotter_data = self.get_plotter_data('slide plotter')
+        old_datetime = datetime.date.fromisoformat(plotter_data['plotter'].show_end_date)
+        new_end_date = old_datetime + delta_time
+        if new_end_date > self.slide_stock_model.end_datetime:
             return
-        plotter_data = self.get_plotter('slide plotter')
-        plotter_data['plotter'].show_start_date = new_start_date.strftime('%Y-%m-%d')
+        # plotter_data['plotter'].show_start_date = new_start_date.strftime('%Y-%m-%d')
         plotter_data['plotter'].show_end_date = new_end_date.strftime('%Y-%m-%d')
-        print(f'new date: start[{plotter_data['plotter'].show_start_date}], end[{plotter_data['plotter'].show_end_date}]')
-        plotter_data['plotter'].update_to_date_range()
+        print(f'new end date: {plotter_data['plotter'].show_end_date}')
+        # update showing date
+        self.show_end_date_var.set()
+        plotter_data['plotter'].update_to_date_range(plotter_data['plotter'].show_end_date)
 
     def update_stock_company_info(self, var, index, mode):
         from StockInfo import StockInfo
@@ -803,8 +814,8 @@ class StockPredictionGUI:
         self.plotters[name] = dict(zip(self.PLOTTER_DATA, [None]*len(self.PLOTTER_DATA)))
         return self.plotters[name]
 
-    def get_plotter(self, name):
-        return self.plotters[name]['plotter']
+    def get_plotter_data(self, name):
+        return self.plotters[name]
 
     def show_selection_results(self):
         """显示预测结果"""
@@ -832,7 +843,7 @@ class StockPredictionGUI:
                     plotter_data['fig'] = fig
                     plotter_data['canvas'] = canvas
                 else:
-                    plotter_data = self.get_plotter('raw plotter')
+                    plotter_data = self.get_plotter_data('raw plotter')
                     if stock != plotter_data['plotter'].ticker_symbol:
                         plotter_data['plotter'].update_data_dynamically(self.manager.get_stock_model(stock))
         except Exception as e:

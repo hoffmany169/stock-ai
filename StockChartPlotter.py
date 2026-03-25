@@ -419,10 +419,15 @@ class StockChartPlotter(ABC):
         if column_1 in self.stock_data.columns and column_2 in self.stock_data.columns:
             # 如果有开盘价，用收盘价与开盘价比较
             price_change = self.stock_data[column_2] >= self.stock_data[column_1]
-        else:
-            # 否则用收盘价与前一日收盘价比较
-            price_change = self.stock_data['Close'] >= self.stock_data['Close'].shift(1)
+        elif column_1 in self.stock_data.columns:
+            price_change = self.stock_data[column_1] >= self.stock_data[column_1].shift(1)
             price_change.iloc[0] = True  # 第一天默认为上涨
+        elif column_2 in self.stock_data.columns:
+            # 否则用收盘价与前一日收盘价比较
+            price_change = self.stock_data[column_2] >= self.stock_data[column_2].shift(1)
+            price_change.iloc[0] = True  # 第一天默认为上涨
+        else:
+            return None
         
         # 计算涨跌颜色
         colors = np.where(price_change, 
