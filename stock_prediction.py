@@ -4,15 +4,14 @@
 import sys, os
 import tkinter as tk
 from tkinter import PhotoImage, StringVar, ttk, messagebox, scrolledtext, filedialog
+from tkinter import font
 import matplotlib
 matplotlib.use('Agg')
-from matplotlib import font_manager
-import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 import json
 import datetime
-from ModelTrainLSTM import LSTMModelTrain, FEATURE
+from ModelTrainLSTM import FEATURE
 from StockDefine import TICKER, FEATURE, StockFeature
 from TickerManager import TickerManager
 from DateRangePicker import DateRangePicker
@@ -39,6 +38,7 @@ class StockPredictionGUI:
                                                 'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
                                                 'BABA', 'JD', 'PDD', 'BIDU', 'NTES'],}
         self._gui_config_file_name = 'gui.cfg' # json file
+        self.custom_font = font.Font(family="DejaVu Sans", size=12, weight="bold")
         # 初始化股票列表
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(root)
@@ -361,14 +361,14 @@ class StockPredictionGUI:
         # left_arrow = PhotoImage(file = "rsc/link_arrow.png")
         # icon = left_arrow.subsample(3, 3)
         #image=left_arrow, 
-        ttk.Button(control_frame_2, text='←', command=lambda x='-': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(10, 5))
+        tk.Button(control_frame_2, text="←", font=self.custom_font, command=lambda x='-': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(10, 5))
         # shift number
         self.slide_change_number_var = tk.IntVar(control_frame_2, value=1)
-        ttk.Entry(control_frame_2, textvariable=self.slide_change_number_var, width=4).pack(side=tk.LEFT, padx=5)
+        ttk.Entry(control_frame_2, textvariable=self.slide_change_number_var, width=3).pack(side=tk.LEFT, padx=5)
         self.slide_interval_var = StringVar(control_frame_2, 'day')
         ttk.Label(control_frame_2, textvariable=self.slide_interval_var, width=6, justify='center').pack(side=tk.LEFT, padx=5)
         # right shift button
-        ttk.Button(control_frame_2, text='→', command=lambda x='+': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(5, 20))
+        tk.Button(control_frame_2, text="→", font=self.custom_font, command=lambda x='+': self.update_slide_plot(x), width=3).pack(side=tk.LEFT, padx=(5, 20))
         # 图表显示区域
         self.slide_figure_frame = ttk.Frame(slide_frame)
         self.slide_figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)

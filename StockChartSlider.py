@@ -50,8 +50,6 @@ class StockChartSlider(StockChartPlotter):
         colors = self.calculate_price_change()
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
         self.plot()      
-        # use mplcursors to show points on the curve.  
-        self.switch_mplcursors(ax, on=True)
         
         # 添加交互功能, not activate interactive features for volume subplot for now, as it may cause some performance issue and the interaction on price plot is more intuitive and useful
         # self.add_mouse_hover_event(ax)
@@ -98,7 +96,8 @@ class StockChartSlider(StockChartPlotter):
         ax_price.grid(True, alpha=0.3, linestyle='--')
         # 配置图表格式
         self.format_chart_price(ax_price)
-        # self.update_to_date_range()
+        # use mplcursors to show points on the curve.  
+        self.switch_mplcursors(ax_price, on=True)
 
     def update_to_date_range(self):
         start_num = mdates.date2num(pd.to_datetime(self.show_start_date))

@@ -9,6 +9,21 @@ from plot_style import PlotStyle, PLOT_ELEMENT, STYLE
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Common.AutoNumber import AutoIndex
 from StockModel import StockModel
+import platform
+from matplotlib.font_manager import FontProperties
+
+if platform.system() == 'Linux': # default
+    print ('Linux')
+    font_path = '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc'
+elif platform.system() == 'Darwin':
+    print ('Mac')
+    font_path = '/System/Library/Fonts/PingFang.ttc'
+elif platform.system() == 'Windows':
+    print ('Windows')
+    font_path = 'C:/Windows/Fonts/msyh.ttc'
+else:
+    print ('Unknown System')
+    font_path = '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc'
 
 class StockVisualData:
     class TYPE(AutoIndex):
@@ -18,6 +33,7 @@ class StockVisualData:
 
     AX_PRICE = 'ax_price'
     AX_VOLUME = 'ax_volume'
+    FontProperty = FontProperties(fname=font_path, size=12)
     def __init__(self, fig=None):
         # 存储图表配置和元素的对象，包含以下属性:
         # - fig: plot figure
@@ -36,6 +52,8 @@ class StockVisualData:
         self.visual_data = {}
         # instance of mplcursors
         self.curve_cursor = None
+        if platform.system() == 'Linux': # default
+            plt.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei']  # Linux
 
     @property
     def fig(self):

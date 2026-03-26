@@ -108,7 +108,6 @@ class VisualAnalyser(PriceVolumePlotter):
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
         self.plot()      
         # use mplcursors to show points on the curve.  
-        self.switch_mplcursors(ax, on=True)
         
         # 添加交互功能, not activate interactive features for volume subplot for now, as it may cause some performance issue and the interaction on price plot is more intuitive and useful
         # self.add_mouse_hover_event(ax)
@@ -141,7 +140,8 @@ class VisualAnalyser(PriceVolumePlotter):
 
     def plot(self):
         super().plot()
-        # ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        self.switch_mplcursors(ax, on=True)
         # self.plot_price_chart(ax. self._feature)
 
     def _create_menu_bar(self):
@@ -221,7 +221,8 @@ class VisualAnalyser(PriceVolumePlotter):
         range = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
         # calculate changed volume
         changed_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.volume_change, idx) 
-        sym = '↑' if changed_volume > 0 else '↓'
+        # sym = '↑' if changed_volume > 0 else '↓'
+        sym = "$\\uparrow$" if changed_volume > 0 else "$\\downarrow$"
         if changed_volume < 0:
             changed_volume = changed_volume * (-1) 
         sel.annotation.set(ha='left', text=f"{str(self.current_point)}\nVolume:\n ° {self.format_large_numbers(Volume, 0)}\n ° {vol_perc:.1f}%\n ° {sym}{self.format_large_numbers(changed_volume, 0)}\nHL Range: {range:.0f}")
