@@ -217,7 +217,7 @@ class VisualAnalyser(PriceVolumePlotter):
         # Volume = self.stock_data['Volume'].fillna(0)  # Ensure Volume column has no NaN values
         Volume = self.stock_model.get_feature_value(StockModel.FEATURE.Volume, idx)
         max_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.max_volume)
-        vol_perc = Volume / max_volume * 100 if max_volume is None or max_volume > 0 else 0
+        vol_perc = Volume / max_volume * 100 if max_volume is not None and max_volume != 0 else 0
         range = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
         # calculate changed volume
         changed_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.volume_change, idx) 

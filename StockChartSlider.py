@@ -204,3 +204,38 @@ class StockChartSlider(StockChartPlotter):
     
     def on_leave_info(self, *args):
         return super().on_leave_info(*args)
+    
+    def on_add(self, sel):
+        from StockChartPlotter import PointData
+        from StockModel import StockModel
+        self.current_point = PointData(sel)
+        idx = int(sel.index)
+        x, y = sel.target
+        info_text = ''
+        # 1. value of this point
+        info_text += f'{str(self.current_point)}\n'
+        # 2. volume value
+        Volume = self.stock_model.get_feature_value(StockModel.FEATURE.Volume, idx)
+        info_text += f'Volume: {self.format_large_numbers(Volume, 0)}\n'
+        # change of volume
+        changed_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.volume_change, idx) 
+        sym = "$\\uparrow$" if changed_volume > 0 else "$\\downarrow$"
+        info_text += f'{sym}{self.format_large_numbers(abs(changed_volume), 0)}\n'
+        # percentage of volume relative with maximum volume 
+        max_volume = self.stock_model.get_ext_feature(StockModel.ExtendFeature.max_volume)
+        vol_perc = Volume / max_volume * 100 if max_volume is not None and max_volume != 0 else 0
+        info_text += f'{vol_perc:.1f}%\n'
+        # price position between low-high price range
+        range = self.stock_model.get_ext_feature(StockModel.ExtendFeature.high_low_range, idx)
+        low = self.stock_model.get_feature_value(StockModel.FEATURE.Low, idx)
+        price_perc = (y - low) / range * 100 if range is not None and range != 0 else 0
+        info_text += f'price / range: {price_perc:.1f}'
+        # define annotation and show it.
+        sel.annotation.set(ha='left', text=info_text)
+        sel.annotation.get_bbox_patch().set_alpha(0.9)
+        ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
+        # show a small red point
+        highlight = ax.plot(x, y, color='red', marker='o', markersize=5)
+        # add it to extras so it is removed on deselection
+        sel.extras.append(highlight[0])
+
