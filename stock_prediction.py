@@ -20,6 +20,7 @@ from StockModel import StockModel
 from Common.EventHandler import EventHandler, Event
 from Common.DropdownButton import DropdownButton
 from StockEvent import StockEvent
+from StockChartSlider import StockChartSlider
 
 class ConfigEntry(AutoIndex):
     model_save_path = ()
@@ -54,15 +55,16 @@ class StockPredictionGUI:
         self._stock_features = StockFeature()
         self.tab_index = 0
         self.shown_feature = {}
+        self.plotters = {}
+        self.feature = 'Close'
+        self.added_stock_num = 0
+        self.adding_stock_list = []
         # 创建标签页
         self.create_training_tab()
         self.create_visualization_tab()
         self.create_slide_show_tab()
         self.create_selection_tab()
-        self.feature = 'Close'
-        self.added_stock_num = 0
-        self.adding_stock_list = []
-        self.plotters = {}
+        self.create_ticker_notations()
 
 #region properties
     @property
@@ -81,9 +83,9 @@ class StockPredictionGUI:
             self.visual_model_combo.current(0)
             self.visual_model_combo.update
         if self.tab_index == 2 and self.manager.ticker_count > 0: # visual tab
-            self.slide_model_combo["values"] = self.manager.ticker_list
-            self.slide_model_combo.current(0)
-            self.slide_model_combo.update
+            self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_model_combo)["values"] = self.manager.ticker_list
+            self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_model_combo).current(0)
+            self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_model_combo).update
 
     def load_gui_config(self):
         if os.path.exists(self._gui_config_file_name):
@@ -323,56 +325,48 @@ class StockPredictionGUI:
 
     def create_slide_show_tab(self):
         """创建可视化标签页"""
-        slide_frame = ttk.Frame(self.notebook)
-        self.notebook.add(slide_frame, text="Data Chart Slider")
+        plotter_data = self.add_plotter('slide plotter')
+        if plotter_data['plotter'] is None:
+            plotter_data['plotter'] = StockChartSlider()
+        plotter = plotter_data['plotter']
+        self.notebook.add(plotter.plot_frame, text="Data Chart Slider")
         self.slide_stock_model = None
-        control_frame = ttk.Frame(slide_frame)
-        control_frame.pack(fill=tk.X, padx=5, pady=5)
-        ttk.Label(control_frame, text="Select Ticker:").pack(side=tk.LEFT, padx=(20,5))
-        self.slide_model_combo = ttk.Combobox(control_frame, width=10, textvariable=self.stock_select_var)
-        self.slide_model_combo.pack(side=tk.LEFT, padx=5)
-        self.slide_model_combo['values'] = self.manager.ticker_list
-        # show info about selected stock
-        self.slide_company_label = ttk.Label(control_frame, text="Company", relief="sunken", width=16)
-        self.slide_company_label.pack(fill=tk.X, padx=5)        
-        # set feature shown in chart
-        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=tk.LEFT, padx=(10,5))        
+        slide_model_combo = plotter.get_control(StockChartSlider.CONTROLS.slide_model_combo)
+        slide_model_combo['values'] = self.manager.ticker_list
+        slide_model_combo['textvariable'] = self.stock_select_var
         # 特征选择下拉框
+        control_frame = plotter.get_control(StockChartSlider.CONTROLS.control_frame)
         features = [f.name for f in StockModel.FEATURE]
         self.shown_feature['feature 2'] = StringVar(control_frame, 'Close')
-        self.slide_feature1_combo = ttk.Combobox(control_frame, textvariable=self.shown_feature['feature 2'], values=features, width=10)
-        self.slide_feature1_combo.pack(side=tk.LEFT, padx=5)
+        slide_feature_combo = plotter.get_control(StockChartSlider.CONTROLS.slide_feature_combo)
+        slide_feature_combo['values'] = features
+        slide_feature_combo['textvariable'] = self.shown_feature['feature 2']
         self.shown_feature['feature 2'].trace_add('write', lambda x, y, z, k=2: self.on_change_shown_feature(x, y, z, k))
 
-        # slide controls  
-        control_frame_2 = ttk.Frame(slide_frame)
-        control_frame_2.pack(fill=tk.X, padx=5, pady=5)
-        ttk.Label(control_frame_2, text='Start Date').pack(side=tk.LEFT, padx=(20,5))
+        control_frame_2 = plotter.get_control(StockChartSlider.CONTROLS.control_frame_2)
         self.show_start_date_var = StringVar(control_frame_2, "")
         self.show_start_date_var.trace_add('write', lambda x, y, z, k=0: self.update_show_date(x, y, z, k))
-        ttk.Entry(control_frame_2, textvariable=self.show_start_date_var, width=12, justify='center').pack(side=tk.LEFT, padx=5)
-        ttk.Label(control_frame_2, text='End Date').pack(side=tk.LEFT, padx=5)
+        start_date_entry = plotter.get_control(StockChartSlider.CONTROLS.start_date_entry)
+        start_date_entry['textvariable'] = self.show_start_date_var
         self.show_end_date_var = StringVar(control_frame_2, "")
         self.show_end_date_var.trace_add('write', lambda x, y, z, k=1: self.update_show_date(x, y, z, k))
-        ttk.Entry(control_frame_2, textvariable=self.show_end_date_var, width=12, justify='center').pack(side=tk.LEFT, padx=5)
-        # show button
-        ttk.Button(control_frame_2, text="Show Slide", command=self.show_slide).pack(side=tk.LEFT, padx=5)        
-        # left shift button
-        # left_arrow = PhotoImage(file = "rsc/link_arrow.png")
-        # icon = left_arrow.subsample(3, 3)
-        #image=left_arrow, 
-        tk.Button(control_frame_2, text="←", font=self.custom_font, command=lambda x='-': self.update_slide_plot(x), width=4).pack(side=tk.LEFT, padx=(10, 5))
+        end_date_entry = plotter.get_control(StockChartSlider.CONTROLS.end_date_entry)
+        end_date_entry['textvariable'] = self.show_end_date_var
+        plotter.get_control(StockChartSlider.CONTROLS.show_slide_button)['command'] = self.show_slide       
+        plotter.get_control(StockChartSlider.CONTROLS.back_slide_button)['command'] = lambda x='-': self.update_slide_plot(x)
         # shift number
         self.slide_change_number_var = tk.IntVar(control_frame_2, value=1)
-        ttk.Entry(control_frame_2, textvariable=self.slide_change_number_var, width=3).pack(side=tk.LEFT, padx=5)
+        plotter.get_control(StockChartSlider.CONTROLS.slide_change_number_entry)['textvariable'] = self.slide_change_number_var
         self.slide_interval_var = StringVar(control_frame_2, 'day')
-        ttk.Label(control_frame_2, textvariable=self.slide_interval_var, width=6, justify='center').pack(side=tk.LEFT, padx=5)
-        # right shift button
-        tk.Button(control_frame_2, text="→", font=self.custom_font, command=lambda x='+': self.update_slide_plot(x), width=3).pack(side=tk.LEFT, padx=(5, 20))
-        # 图表显示区域
-        self.slide_figure_frame = ttk.Frame(slide_frame)
-        self.slide_figure_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-               
+        plotter.get_control(StockChartSlider.CONTROLS.interval_label)['textvariable'] = self.slide_interval_var
+        plotter.get_control(StockChartSlider.CONTROLS.forward_slide_button)['command'] = lambda x='+': self.update_slide_plot(x)
+
+    def create_ticker_notations(self):
+        '''创建股票代码说明标签页
+        note the analysis results of stock data and model prediction are based on the stock code,
+         for example: AAPL, GOOGL, MSFT, etc.
+        '''
+        pass               
 #endregion create tabs
     def update_show_date(self, *args):
         if args[3] == 0: # start date
@@ -897,30 +891,32 @@ class StockPredictionGUI:
         # create popup window
         def open_slide(parent):
             from StockChartSlider import StockChartSlider
-            stock = self.slide_model_combo.get().strip().upper()
+            stock = self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_model_combo).get().strip().upper()
             try:
                 if stock:
                     plotter_data = self.add_plotter('slide plotter')
                     if plotter_data['plotter'] is None:
                         stock_model = self.manager.get_stock_model(stock)
-                        plotter = StockChartSlider(stock_model)
-                        plotter.show_start_date = self.show_start_date_var.get()
-                        plotter.show_end_date = self.show_end_date_var.get()
-                        plotter.feature = self.shown_feature['feature 2'].get()
-                        fig, canvas = plotter.set_backend_window(self.slide_figure_frame)
-                        canvas.pack(fill=tk.BOTH, expand=True)
-                        plotter_data['plotter'] = plotter
-                        plotter_data['fig'] = fig
-                        plotter_data['canvas'] = canvas
+                        plotter_data['plotter'] = StockChartSlider(stock_model)
                     else:
+                        plotter_data['plotter'].stock_model = self.manager.get_stock_model(stock)
                         if stock != plotter_data['plotter'].ticker_symbol:
                             plotter_data['plotter'].feature = self.shown_feature['feature 2'].get()
                             plotter_data['plotter'].update_data_dynamically(self.manager.get_stock_model(stock))
+                        plotter_data['plotter'].plot()
+                    plotter = plotter_data['plotter']
+                    plotter.show_start_date = self.show_start_date_var.get()
+                    plotter.show_end_date = self.show_end_date_var.get()
+                    plotter.feature = self.shown_feature['feature 2'].get()
+                    fig, canvas = plotter.set_backend_window(self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_figure_frame))
+                    canvas.pack(fill=tk.BOTH, expand=True)
+                    plotter_data['plotter'] = plotter
+                    plotter_data['fig'] = fig
+                    plotter_data['canvas'] = canvas
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 
         open_slide(self.figure_frame)
-
 
     def log_message(self, message, target="training"):
         """记录日志消息"""

@@ -17,6 +17,9 @@ class PriceVolumePlotter(StockChartPlotter):
     def __init__(self, stock_model, figsize=(14, 10)):
         super().__init__(stock_model, figsize)
 
+    def create_gui(self):
+        pass
+
     def create_plot(self):
         """创建主图表"""
         # 创建图形和坐标轴,使用constrained_layout（最简单）

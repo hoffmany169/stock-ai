@@ -1,19 +1,36 @@
 
 import datetime
-from tkinter import messagebox
+from tkinter import font, messagebox, ttk, Button, BOTH, X, LEFT
 from matplotlib import pyplot as plt
 import pandas as pd
 from StockChartPlotter import StockChartPlotter, StockVisualData
 import matplotlib.dates as mdates
-
+from Common.Util import AutoIndex
 from plot_style import PLOT_ELEMENT, STYLE
 
+
 class StockChartSlider(StockChartPlotter):
-    def __init__(self, stock_model, figsize=(14, 10)):
+    class CONTROLS(AutoIndex):
+        control_frame = ()
+        slide_model_combo = ()
+        slide_feature_combo = ()
+        control_frame_2 = ()
+        start_date_entry = ()
+        end_date_entry = ()
+        show_slide_button = ()
+        back_slide_button = ()
+        slide_change_number_entry = ()
+        interval_label = ()
+        forward_slide_button = ()
+        slide_figure_frame = ()
+
+    def __init__(self, stock_model=None, figsize=(14, 10)):
+        self.controls = {}
+        self.custom_font = font.Font(family="DejaVu Sans", size=12, weight="bold")
         super().__init__(stock_model, figsize)
-        self._show_start_date = self.stock_model.start_date
-        self._show_end_date = self.stock_model.end_date
-        self._old_dates = self.dates_mpl.copy()
+        # self._show_start_date = self.stock_model.start_date
+        # self._show_end_date = self.stock_model.end_date
+        # self._old_dates = self.dates_mpl.copy()
 
     @property
     def show_start_date(self):
@@ -39,6 +56,46 @@ class StockChartSlider(StockChartPlotter):
             return
         self._show_end_date = dt
 
+    def get_control(self, control):
+        return self.controls.get(control, None)
+
+    def create_gui(self):
+        self.plot_frame = ttk.Frame()
+        control_frame = ttk.Frame(self.plot_frame)
+        self.controls[self.CONTROLS.control_frame] = control_frame
+        self.get_control(self.CONTROLS.control_frame).pack(fill=X, padx=5, pady=5)
+        ttk.Label(control_frame, text="Select Ticker:").pack(side=LEFT, padx=(20,5))
+        self.controls[self.CONTROLS.slide_model_combo] = ttk.Combobox(control_frame, width=10)
+        self.get_control(self.CONTROLS.slide_model_combo).pack(side=LEFT, padx=5)
+        ttk.Label(control_frame, text="Company", relief="sunken", width=16).pack(side=LEFT, padx=5)        
+        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=LEFT, padx=(10,5))        
+        # 特征选择下拉框
+        self.controls[self.CONTROLS.slide_feature_combo] = ttk.Combobox(control_frame, width=10)
+        self.controls[self.CONTROLS.slide_feature_combo].pack(side=LEFT, padx=5)
+
+        control_frame_2 = ttk.Frame(self.plot_frame)
+        self.controls[self.CONTROLS.control_frame_2] = control_frame_2
+        self.get_control(self.CONTROLS.control_frame_2).pack(fill=X, padx=5, pady=5)
+        ttk.Label(control_frame_2, text='Start Date').pack(side=LEFT, padx=(20,5))
+        self.controls[self.CONTROLS.start_date_entry] = ttk.Entry(control_frame_2, width=12, justify='center')
+        self.get_control(self.CONTROLS.start_date_entry ).pack(side=LEFT, padx=5)
+        ttk.Label(control_frame_2, text='End Date').pack(side=LEFT, padx=5)
+        self.controls[self.CONTROLS.end_date_entry] = ttk.Entry(control_frame_2, width=12, justify='center')
+        self.get_control(self.CONTROLS.end_date_entry).pack(side=LEFT, padx=5)
+        self.controls[self.CONTROLS.show_slide_button] = Button(control_frame_2, text="Show Slide")
+        self.get_control(self.CONTROLS.show_slide_button).pack(side=LEFT, padx=5)        
+        self.controls[self.CONTROLS.back_slide_button] = Button(control_frame_2, text="←", font=self.custom_font, width=4)
+        self.get_control(self.CONTROLS.back_slide_button).pack(side=LEFT, padx=(10, 5))
+        self.controls[self.CONTROLS.slide_change_number_entry] = ttk.Entry(control_frame_2, width=3)
+        self.get_control(self.CONTROLS.slide_change_number_entry).pack(side=LEFT, padx=5)
+        self.controls[self.CONTROLS.interval_label] = ttk.Label(control_frame_2, width=6, justify='center')
+        self.get_control(self.CONTROLS.interval_label).pack(side=LEFT, padx=5)
+        self.controls[self.CONTROLS.forward_slide_button] = Button(control_frame_2, text="→", font=self.custom_font, width=3)
+        self.get_control(self.CONTROLS.forward_slide_button).pack(side=LEFT, padx=(5, 20))
+        # 图表显示区域
+        self.controls[self.CONTROLS.slide_figure_frame] = ttk.Frame(self.plot_frame)
+        self.get_control(self.CONTROLS.slide_figure_frame).pack(fill=BOTH, expand=True, padx=5, pady=5)
+    
     def create_plot(self):
         # 绘制收盘价折线
         fig, ax = plt.subplots(figsize=self.figsize)
@@ -47,8 +104,6 @@ class StockChartSlider(StockChartPlotter):
         self.visual_data.fig = fig
         self.visual_data.add_stock_visual_data(StockVisualData.TYPE.ax, ax, StockVisualData.AX_PRICE)
         # 计算涨跌颜色
-        colors = self.calculate_price_change()
-        self.visual_data.add_stock_visual_data(StockVisualData.TYPE.properties, colors, 'price_change', axes_name=StockVisualData.AX_PRICE)
         self.plot()      
         
         # 添加交互功能, not activate interactive features for volume subplot for now, as it may cause some performance issue and the interaction on price plot is more intuitive and useful
@@ -58,6 +113,11 @@ class StockChartSlider(StockChartPlotter):
         plt.tight_layout()
 
     def plot(self):
+        if self.stock_data is None:
+            return
+        self._show_start_date = self.stock_model.start_date
+        self._show_end_date = self.stock_model.end_date
+        self._old_dates = self.dates_mpl.copy()
         ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         # 绘制收盘价折线
         price_line, = ax_price.plot(
@@ -231,7 +291,8 @@ class StockChartSlider(StockChartPlotter):
         price_perc = (y - low) / range * 100 if range is not None and range != 0 else 0
         info_text += f'price / range: {price_perc:.1f}'
         # define annotation and show it.
-        sel.annotation.set(ha='left', text=info_text)
+        sel.annotation.set_text(f'{info_text}' )
+        sel.annotation.set(ha='left')
         sel.annotation.get_bbox_patch().set_alpha(0.9)
         ax = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)
         # show a small red point

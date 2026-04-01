@@ -95,7 +95,10 @@ class VisualAnalyser(PriceVolumePlotter):
     def _init_plot_window_(self):
         self._create_menu_bar()
         self._create_context_menu_commands()
-                
+
+    def create_gui(self):
+        return super().create_gui()
+
     def create_plot(self):
         # 绘制收盘价折线
         fig, ax = plt.subplots(figsize=self.figsize)

@@ -334,7 +334,7 @@ class StockChartPlotter(ABC):
     3. 鼠标悬停显示数据点详细信息
     4. 支持自定义样式和配置
     """
-    def __init__(self, stock_model, figsize=(14, 10)):
+    def __init__(self, stock_model=None, figsize=(14, 10)):
         """
         初始化StockChartPlotter
         
@@ -361,27 +361,18 @@ class StockChartPlotter(ABC):
                           ...
                          ]
         """
-        self.symbol = stock_model.ticker_symbol
         self.stock_model = stock_model
-        self.stock_data = stock_model.loaded_data
         self.figsize = figsize
         self.visual_data = StockVisualData()
         self.plot_styles = PlotStyle()
+        self.plot_frame = None
+        self.create_gui()
         #parent window of tkinter
         self.parent = None
         # canvas for tkinter from plot figure, original figure is saved in self.visual_data.fig
         self.fig_canvas = None 
         # tk widget obtained from figure canvas
         self.tk_root = None 
-        
-        # 确保日期为datetime格式
-        # if not pd.api.types.is_datetime64_any_dtype(self.stock_data['Date']):
-        #     self.stock_data['Date'] = pd.to_datetime(self.stock_data['Date'])
-        
-        # # 将日期转换为matplotlib格式
-        # self.dates_mpl = mdates.date2num(self.stock_data['Date'])
-        self.convert_date_to_matplotlib_format()
-
         # feature used by plotting chart
         self._feature = 'Close'
 
@@ -392,6 +383,16 @@ class StockChartPlotter(ABC):
 
 #region properties
     @property
+    def stock_model(self):
+        return self._stock_model
+    @stock_model.setter
+    def stock_model(self, model):
+        self._stock_model = model
+        self.symbol = model.ticker_symbol if model else None
+        self.stock_data = model.loaded_data if model else None
+        self.convert_date_to_matplotlib_format()
+
+    @property
     def feature(self):
         return self._feature
     @feature.setter
@@ -400,10 +401,17 @@ class StockChartPlotter(ABC):
 
     @property
     def ticker_symbol(self):
-        return self.stock_model.ticker_symbol
+        return self._stock_model.ticker_symbol
+    
+    @property
+    def gui_frame(self):
+        return self.plot_frame
 #endregion properties
 
     def convert_date_to_matplotlib_format(self):
+        if self.stock_data is None or 'Date' not in self.stock_data.columns:
+            # raise ValueError("stock_data must be provided and contain 'Date' column")
+            return
         # 确保日期为datetime格式
         if not pd.api.types.is_datetime64_any_dtype(self.stock_data['Date']):
             self.stock_data['Date'] = pd.to_datetime(self.stock_data['Date'])
@@ -453,6 +461,9 @@ class StockChartPlotter(ABC):
                                 self.plot_styles.get_setting(STYLE.colors, PLOT_ELEMENT.price_down))        
         return colors
 #region abstract methods, which must be implemented
+    @abstractmethod
+    def create_gui(self):
+        pass
     # plot stock chart
     @abstractmethod
     def create_plot(self):
@@ -525,9 +536,13 @@ class StockChartPlotter(ABC):
         
         # 连接鼠标离开事件
         fig.canvas.mpl_connect("axes_leave_event", self.on_leave)
-
+#region mplcursors event callbacks, which can be connected to mplcursors cursor object, e.g. self.ax_cursor.connect("add", self.on_add)
     def on_add(self, sel):
-        """event callback for mplcursors.connect("add", callback)"""
+        """event callback for mplcursors.connect("add", callback)
+            DO NOT call sel.annotation.set_position()
+            By leaving the position alone, mplcursors detects the (nan, nan) 
+            state and calculates a position that fits inside the window. 
+        """
         pass
 
     def on_remove(self, sel):
@@ -555,7 +570,7 @@ class StockChartPlotter(ABC):
             
             # 重绘图形
             self.visual_data.fig.canvas.draw_idle()
-    
+#endregion mplcursors event callbacks    
     def highlight_peaks_valleys(self, ax_name:str, feature:str,
                                 window=5, 
                                 peak_color='green', 
