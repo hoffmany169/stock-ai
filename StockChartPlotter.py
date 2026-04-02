@@ -334,7 +334,7 @@ class StockChartPlotter(ABC):
     3. 鼠标悬停显示数据点详细信息
     4. 支持自定义样式和配置
     """
-    def __init__(self, stock_model=None, figsize=(14, 10)):
+    def __init__(self):
         """
         初始化StockChartPlotter
         
@@ -361,8 +361,8 @@ class StockChartPlotter(ABC):
                           ...
                          ]
         """
-        self.stock_model = stock_model
-        self.figsize = figsize
+        self._stock_model = None
+        self.figsize = (14, 10)
         self.visual_data = StockVisualData()
         self.plot_styles = PlotStyle()
         self.plot_frame = None
@@ -379,7 +379,7 @@ class StockChartPlotter(ABC):
         # mplcursors interactive
         self.ax_cursor = None
         # valid fig and ax are available after plot is created.
-        self.create_plot()
+        # self.create_plot()
 
 #region properties
     @property
@@ -463,11 +463,16 @@ class StockChartPlotter(ABC):
 #region abstract methods, which must be implemented
     @abstractmethod
     def create_gui(self):
-        pass
+        return self.plot_frame
+    
     # plot stock chart
     @abstractmethod
-    def create_plot(self):
-        pass
+    def create_plot(self, stock_model=None, feature='Close', figsize=(14, 10)):
+        if stock_model is not None:
+            self.stock_model = stock_model
+        self.feature = feature
+        self.figsize = figsize
+
 
     @abstractmethod    
     def plot(self):

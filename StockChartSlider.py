@@ -13,6 +13,7 @@ class StockChartSlider(StockChartPlotter):
     class CONTROLS(AutoIndex):
         control_frame = ()
         slide_model_combo = ()
+        slide_company_label = ()
         slide_feature_combo = ()
         control_frame_2 = ()
         start_date_entry = ()
@@ -24,10 +25,10 @@ class StockChartSlider(StockChartPlotter):
         forward_slide_button = ()
         slide_figure_frame = ()
 
-    def __init__(self, stock_model=None, figsize=(14, 10)):
+    def __init__(self):
         self.controls = {}
         self.custom_font = font.Font(family="DejaVu Sans", size=12, weight="bold")
-        super().__init__(stock_model, figsize)
+        super().__init__()
         # self._show_start_date = self.stock_model.start_date
         # self._show_end_date = self.stock_model.end_date
         # self._old_dates = self.dates_mpl.copy()
@@ -67,8 +68,9 @@ class StockChartSlider(StockChartPlotter):
         ttk.Label(control_frame, text="Select Ticker:").pack(side=LEFT, padx=(20,5))
         self.controls[self.CONTROLS.slide_model_combo] = ttk.Combobox(control_frame, width=10)
         self.get_control(self.CONTROLS.slide_model_combo).pack(side=LEFT, padx=5)
-        ttk.Label(control_frame, text="Company", relief="sunken", width=16).pack(side=LEFT, padx=5)        
-        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=LEFT, padx=(10,5))        
+        self.controls[self.CONTROLS.slide_company_label] = ttk.Label(control_frame, text="Company", relief="sunken", width=16)
+        self.get_control(self.CONTROLS.slide_company_label).pack(side=LEFT, padx=5)
+        ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=LEFT, padx=(10,5))
         # 特征选择下拉框
         self.controls[self.CONTROLS.slide_feature_combo] = ttk.Combobox(control_frame, width=10)
         self.controls[self.CONTROLS.slide_feature_combo].pack(side=LEFT, padx=5)
@@ -95,8 +97,10 @@ class StockChartSlider(StockChartPlotter):
         # 图表显示区域
         self.controls[self.CONTROLS.slide_figure_frame] = ttk.Frame(self.plot_frame)
         self.get_control(self.CONTROLS.slide_figure_frame).pack(fill=BOTH, expand=True, padx=5, pady=5)
+        return self.plot_frame
     
-    def create_plot(self):
+    def create_plot(self, stock_model=None, feature=None):
+        super().create_plot(stock_model, feature)
         # 绘制收盘价折线
         fig, ax = plt.subplots(figsize=self.figsize)
         if fig is None:

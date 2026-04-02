@@ -14,14 +14,15 @@ class PriceVolumePlotter(StockChartPlotter):
         remove_artist = ()
         remove_all_artists = ()
 
-    def __init__(self, stock_model, figsize=(14, 10)):
-        super().__init__(stock_model, figsize)
+    def __init__(self):
+        super().__init__()
 
     def create_gui(self):
         pass
 
-    def create_plot(self):
+    def create_plot(self, stock_model=None, feature='Close', figsize=(14, 10)):
         """创建主图表"""
+        super().create_plot(stock_model, feature, figsize)
         # 创建图形和坐标轴,使用constrained_layout（最简单）
         fig, (ax_price, ax_volume) = plt.subplots(
             2, 1, 

@@ -68,7 +68,7 @@ class PROPERTY_2_POINTS(AutoIndex):
     
 class VisualAnalyser(PriceVolumePlotter):
     CONTEXT_MENU_TEXT = ['label', 'command']
-    def __init__(self, stock_model, figsize=(14,8)):
+    def __init__(self):
         """
         Docstring for __init__
         two scenarios:
@@ -78,7 +78,7 @@ class VisualAnalyser(PriceVolumePlotter):
         2. create fig and ax inside
         :param figsize: figure size
         """
-        super().__init__(stock_model, figsize=figsize)
+        super().__init__()
         self.axis_ratio_calculator = AxisRatioCalculator(self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax, StockVisualData.AX_PRICE)  )
         # if activate real-time search
         self.current_point = None
@@ -97,9 +97,9 @@ class VisualAnalyser(PriceVolumePlotter):
         self._create_context_menu_commands()
 
     def create_gui(self):
-        return super().create_gui()
+        pass
 
-    def create_plot(self):
+    def create_plot(self, stock_model=None, feature='Close', figsize=(14, 10)):
         # 绘制收盘价折线
         fig, ax = plt.subplots(figsize=self.figsize)
         if fig is None:

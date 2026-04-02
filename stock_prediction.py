@@ -402,8 +402,9 @@ class StockPredictionGUI:
                 if result:
                     if self.tab_index == 1:
                         self.company_label['text'] = result['company']
-                    elif self.tab_index == 2:
-                        self.slide_company_label['text'] = result['company']
+                    elif self.tab_index == 2:# for slide show tab
+                        company_label = self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_company_label)
+                        company_label['text'] = result['company']
                 self.slide_stock_model = self.manager.get_stock_model(stock)
                 if self.slide_stock_model is None:
                     return
@@ -896,18 +897,18 @@ class StockPredictionGUI:
                 if stock:
                     plotter_data = self.add_plotter('slide plotter')
                     if plotter_data['plotter'] is None:
-                        stock_model = self.manager.get_stock_model(stock)
-                        plotter_data['plotter'] = StockChartSlider(stock_model)
+                        raise ValueError("Error", "slide plotter is not created")
                     else:
-                        plotter_data['plotter'].stock_model = self.manager.get_stock_model(stock)
-                        if stock != plotter_data['plotter'].ticker_symbol:
-                            plotter_data['plotter'].feature = self.shown_feature['feature 2'].get()
-                            plotter_data['plotter'].update_data_dynamically(self.manager.get_stock_model(stock))
-                        plotter_data['plotter'].plot()
-                    plotter = plotter_data['plotter']
-                    plotter.show_start_date = self.show_start_date_var.get()
-                    plotter.show_end_date = self.show_end_date_var.get()
-                    plotter.feature = self.shown_feature['feature 2'].get()
+                        plotter = plotter_data['plotter']
+                        if plotter._stock_model is None:
+                            plotter.create_plot(self.manager.get_stock_model(stock), self.shown_feature['feature 2'].get())
+                        else:
+                            if stock != plotter_data['plotter'].ticker_symbol:
+                                plotter.feature = self.shown_feature['feature 2'].get()
+                                plotter.update_data_dynamically(self.manager.get_stock_model(stock))
+                        plotter.show_start_date = self.show_start_date_var.get()
+                        plotter.show_end_date = self.show_end_date_var.get()
+                        plotter.feature = self.shown_feature['feature 2'].get()
                     fig, canvas = plotter.set_backend_window(self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_figure_frame))
                     canvas.pack(fill=tk.BOTH, expand=True)
                     plotter_data['plotter'] = plotter
