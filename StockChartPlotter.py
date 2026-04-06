@@ -9,8 +9,9 @@ from plot_style import PlotStyle, PLOT_ELEMENT, STYLE
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Common.AutoNumber import AutoIndex
 from StockModel import StockModel
-import platform
+import platform, sys
 from matplotlib.font_manager import FontProperties
+from tkinter import font
 
 if platform.system() == 'Linux': # default
     print ('Linux')
@@ -375,9 +376,10 @@ class StockChartPlotter(ABC):
         self.tk_root = None 
         # feature used by plotting chart
         self._feature = 'Close'
-
+        self.symbol = None
         # mplcursors interactive
         self.ax_cursor = None
+        self.stock_data = None
         # valid fig and ax are available after plot is created.
         # self.create_plot()
 

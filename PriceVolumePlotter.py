@@ -97,6 +97,11 @@ class PriceVolumePlotter(StockChartPlotter):
         # 更新价格线的数据
         ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
                                                           StockVisualData.AX_PRICE)
+        print(f"Updating price line for stock: {self.symbol} with feature: {self._feature}")
+        ax_price.set_title(f'{self.symbol}: Stock Price Trend', 
+                               fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.title),
+                               fontweight='bold',
+                               pad=20)
         price_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists,
                                                           StockVisualData.AX_PRICE,
                                                           data_name='price_line')

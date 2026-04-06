@@ -39,7 +39,6 @@ class StockPredictionGUI:
                                                 'NVDA', 'META', 'NFLX', 'INTC', 'AMD',
                                                 'BABA', 'JD', 'PDD', 'BIDU', 'NTES'],}
         self._gui_config_file_name = 'gui.cfg' # json file
-        self.custom_font = font.Font(family="DejaVu Sans", size=12, weight="bold")
         # 初始化股票列表
         # 创建Notebook（标签页）
         self.notebook = ttk.Notebook(root)
@@ -901,19 +900,23 @@ class StockPredictionGUI:
                     else:
                         plotter = plotter_data['plotter']
                         if plotter._stock_model is None:
+                            print(f'creating slide plotter for stock: {stock}')
                             plotter.create_plot(self.manager.get_stock_model(stock), self.shown_feature['feature 2'].get())
+                            fig, canvas = plotter.set_backend_window(self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_figure_frame))
+                            canvas.pack(fill=tk.BOTH, expand=True)
+                            plotter_data['plotter'] = plotter
+                            plotter_data['fig'] = fig
+                            plotter_data['canvas'] = canvas
                         else:
                             if stock != plotter_data['plotter'].ticker_symbol:
                                 plotter.feature = self.shown_feature['feature 2'].get()
                                 plotter.update_data_dynamically(self.manager.get_stock_model(stock))
+                                print(f'update slide plotter to stock: {stock} with feature: {self.shown_feature['feature 2'].get()}')
+                            else:
+                                print(f'slide plotter already showing stock: {stock} with feature: {self.shown_feature['feature 2'].get()}')
                         plotter.show_start_date = self.show_start_date_var.get()
                         plotter.show_end_date = self.show_end_date_var.get()
                         plotter.feature = self.shown_feature['feature 2'].get()
-                    fig, canvas = plotter.set_backend_window(self.plotters['slide plotter']['plotter'].get_control(StockChartSlider.CONTROLS.slide_figure_frame))
-                    canvas.pack(fill=tk.BOTH, expand=True)
-                    plotter_data['plotter'] = plotter
-                    plotter_data['fig'] = fig
-                    plotter_data['canvas'] = canvas
             except Exception as e:
                 messagebox.showerror("Error", f"Error displaying data: {str(e)}")
 
@@ -935,6 +938,14 @@ def main():
 
     root = tk.Tk()
     # root.tk.call("encoding", "system", "utf-8")
+    # Get a list of all available font families on the system
+    available_fonts = font.families()
+    global app_font
+    if "DejaVu Sans" in available_fonts:
+        app_font = "DejaVu Sans"
+    else:
+        # Fallback to a common sans-serif font
+        app_font = "Arial"
     app = StockPredictionGUI(root)
     root.mainloop()
         

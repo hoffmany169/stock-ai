@@ -27,7 +27,6 @@ class StockChartSlider(StockChartPlotter):
 
     def __init__(self):
         self.controls = {}
-        self.custom_font = font.Font(family="DejaVu Sans", size=12, weight="bold")
         super().__init__()
         # self._show_start_date = self.stock_model.start_date
         # self._show_end_date = self.stock_model.end_date
@@ -68,7 +67,7 @@ class StockChartSlider(StockChartPlotter):
         ttk.Label(control_frame, text="Select Ticker:").pack(side=LEFT, padx=(20,5))
         self.controls[self.CONTROLS.slide_model_combo] = ttk.Combobox(control_frame, width=10)
         self.get_control(self.CONTROLS.slide_model_combo).pack(side=LEFT, padx=5)
-        self.controls[self.CONTROLS.slide_company_label] = ttk.Label(control_frame, text="Company", relief="sunken", width=16)
+        self.controls[self.CONTROLS.slide_company_label] = ttk.Label(control_frame, text="Company", relief="sunken", width=60)
         self.get_control(self.CONTROLS.slide_company_label).pack(side=LEFT, padx=5)
         ttk.Label(control_frame, text="Select to be shown Feature:").pack(side=LEFT, padx=(10,5))
         # 特征选择下拉框
@@ -85,14 +84,27 @@ class StockChartSlider(StockChartPlotter):
         self.controls[self.CONTROLS.end_date_entry] = ttk.Entry(control_frame_2, width=12, justify='center')
         self.get_control(self.CONTROLS.end_date_entry).pack(side=LEFT, padx=5)
         self.controls[self.CONTROLS.show_slide_button] = Button(control_frame_2, text="Show Slide")
-        self.get_control(self.CONTROLS.show_slide_button).pack(side=LEFT, padx=5)        
-        self.controls[self.CONTROLS.back_slide_button] = Button(control_frame_2, text="←", font=self.custom_font, width=4)
+        self.get_control(self.CONTROLS.show_slide_button).pack(side=LEFT, padx=5)  
+        from PIL import Image, ImageTk   
+        # 1. Open the image file
+        back_img = Image.open("rsc/backwords.jpg")  
+        # 2. Resize it (optional but recommended for buttons)
+        resized_back_img = back_img.resize((20, 20))
+        # 3. Convert to a Tkinter-compatible photo object
+        back_icon = ImageTk.PhotoImage(resized_back_img)
+        self.controls[self.CONTROLS.back_slide_button] = Button(control_frame_2, image=back_icon, width=20)
         self.get_control(self.CONTROLS.back_slide_button).pack(side=LEFT, padx=(10, 5))
         self.controls[self.CONTROLS.slide_change_number_entry] = ttk.Entry(control_frame_2, width=3)
         self.get_control(self.CONTROLS.slide_change_number_entry).pack(side=LEFT, padx=5)
         self.controls[self.CONTROLS.interval_label] = ttk.Label(control_frame_2, width=6, justify='center')
         self.get_control(self.CONTROLS.interval_label).pack(side=LEFT, padx=5)
-        self.controls[self.CONTROLS.forward_slide_button] = Button(control_frame_2, text="→", font=self.custom_font, width=3)
+        # 1. Open the image file
+        forward_img = Image.open("rsc/forwords.jpg")  
+        # 2. Resize it (optional but recommended for buttons)
+        resized_forward_img = forward_img.resize((20, 20))
+        # 3. Convert to a Tkinter-compatible photo object
+        forward_icon = ImageTk.PhotoImage(resized_forward_img)
+        self.controls[self.CONTROLS.forward_slide_button] = Button(control_frame_2, image=forward_icon, width=20)
         self.get_control(self.CONTROLS.forward_slide_button).pack(side=LEFT, padx=(5, 20))
         # 图表显示区域
         self.controls[self.CONTROLS.slide_figure_frame] = ttk.Frame(self.plot_frame)
@@ -220,6 +232,11 @@ class StockChartSlider(StockChartPlotter):
         # 更新价格线的数据
         ax_price = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.ax,
                                                           StockVisualData.AX_PRICE)
+        # 设置股价图标题和标签
+        ax_price.set_title(f'{self.symbol}: Stock Price Trend', 
+                               fontsize=self.plot_styles.get_setting(STYLE.font_sizes, PLOT_ELEMENT.title),
+                               fontweight='bold',
+                               pad=20)
         price_line = self.visual_data.get_stock_visual_data(StockVisualData.TYPE.artists,
                                                           StockVisualData.AX_PRICE,
                                                           data_name='price_line')
